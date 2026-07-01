@@ -89,11 +89,7 @@ def _oauth_pending_path() -> Path:
 def get_oauth_authorization_url() -> str:
     flow = _oauth_flow()
     redirect_uri = flow.redirect_uri
-    auth_url, state = flow.authorization_url(
-        access_type="offline",
-        prompt="consent",
-        redirect_uri=redirect_uri,
-    )
+    auth_url, state = flow.authorization_url(access_type="offline", prompt="consent")
     pending = {
         "state": state,
         "redirect_uri": redirect_uri,

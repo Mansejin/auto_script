@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-export WORKSHEET_NAME="${WORKSHEET_NAME:-레노버 아이디어 탭 11 콘티}"
+export WORKSHEET_NAME="${WORKSHEET_NAME:-레노버 아이디어 탭 11}"
 
 echo "==> 행 24, 29 장면/사이즈 보완"
 python3 cli.py update changes/idea_tab11_update.json

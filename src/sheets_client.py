@@ -93,7 +93,7 @@ def get_oauth_authorization_url() -> str:
     pending = {
         "state": state,
         "redirect_uri": redirect_uri,
-        "code_verifier": flow.oauth2session._client.code_verifier,
+        "code_verifier": flow.code_verifier,
     }
     _oauth_pending_path().write_text(json.dumps(pending), encoding="utf-8")
     return auth_url
@@ -109,12 +109,8 @@ def exchange_oauth_code(code: str):
     pending = json.loads(pending_path.read_text(encoding="utf-8"))
     flow = _oauth_flow()
     flow.redirect_uri = pending["redirect_uri"]
-    flow.oauth2session._client.code_verifier = pending["code_verifier"]
-    flow.fetch_token(
-        code=code.strip(),
-        state=pending["state"],
-        redirect_uri=pending["redirect_uri"],
-    )
+    flow.code_verifier = pending["code_verifier"]
+    flow.fetch_token(code=code.strip(), state=pending["state"])
     _save_oauth_credentials(flow.credentials)
     pending_path.unlink(missing_ok=True)
     return flow.credentials

@@ -19,7 +19,7 @@ from src.operations import (
     script_to_dict,
     update_rows,
 )
-from src.sheets_client import authorize_google
+from src.sheets_client import authorize_google, exchange_oauth_code, get_oauth_authorization_url
 
 
 def _load_json(path: Path) -> object:
@@ -140,6 +140,17 @@ def cmd_auth(_: argparse.Namespace) -> None:
     print("구글 로그인 완료. 이제 cli.py 명령을 사용할 수 있습니다.")
 
 
+def cmd_auth_url(_: argparse.Namespace) -> None:
+    print(get_oauth_authorization_url())
+    print("\n위 URL을 브라우저에서 열고, 로그인 후 표시되는 코드를 복사하세요.")
+    print("그다음: python cli.py auth-code <코드>")
+
+
+def cmd_auth_code(args: argparse.Namespace) -> None:
+    exchange_oauth_code(args.code)
+    print("구글 로그인 완료. credentials/token.json 이 저장되었습니다.")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="디디딧 구글 시트 대본 수정 도구")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -177,8 +188,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_apply.add_argument("--part", help="특정 파트만 반영")
     p_apply.set_defaults(func=cmd_apply_diff)
 
-    p_auth = sub.add_parser("auth", help="구글 계정 로그인 (최초 1회)")
+    p_auth = sub.add_parser("auth", help="구글 계정 로그인 (로컬 브라우저, 최초 1회)")
     p_auth.set_defaults(func=cmd_auth)
+
+    p_auth_url = sub.add_parser("auth-url", help="OAuth 로그인 URL 출력 (클라우드용)")
+    p_auth_url.set_defaults(func=cmd_auth_url)
+
+    p_auth_code = sub.add_parser("auth-code", help="OAuth 인증 코드로 토큰 저장")
+    p_auth_code.add_argument("code", help="브라우저에 표시된 인증 코드")
+    p_auth_code.set_defaults(func=cmd_auth_code)
 
     return parser
 

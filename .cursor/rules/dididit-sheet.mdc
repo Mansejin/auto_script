@@ -42,3 +42,4 @@ TSV(탭 구분) 또는 마크다운 표. 헤더 행 포함 가능:
 - 서비스 계정 미설정 시 사용자에게 `credentials/service-account.json` 설정 안내
 - 행 수가 바뀌는 수정은 `apply` 대신 `replace-part` / `replace-range` 사용
 - 수정 전 diff로 변경 범위를 사용자에게 요약해서 보여줄 것
+- 대본 작성·수정 시 `prompts/dididit.md`의 **문체·파트별 로직**을 따를 것. 사용자가 직접 손본 시트가 있으면 diff를 분석해 프롬프트에 반영한 뒤, 그 스타일을 기준으로 수정할 것.

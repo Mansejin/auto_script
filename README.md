@@ -19,13 +19,26 @@ pip install -r requirements.txt
 .\setup.ps1
 ```
 
-### 2. Google Cloud 서비스 계정 설정
+### 2. Google 인증 설정
 
-1. [Google Cloud Console](https://console.cloud.google.com/) → 프로젝트 생성
-2. **API 및 서비스** → **라이브러리**에서 **Google Sheets API**, **Google Drive API** 활성화
-3. **IAM 및 관리자** → **서비스 계정** → 계정 생성 → **키** → JSON 다운로드
-4. JSON 파일을 `credentials/service-account.json`에 저장
-5. 구글 시트에서 **공유** → 서비스 계정 이메일(`...@....iam.gserviceaccount.com`)에 **편집자** 권한 부여
+**방법 A — OAuth (추천, 지금 만드신 파일)**
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → **API 및 서비스** → **라이브러리**에서 **Google Sheets API**, **Google Drive API** 활성화
+2. **사용자 인증 정보** → **OAuth 클라이언트 ID** → 앱 유형 **데스크톱** → JSON 다운로드
+3. JSON을 `credentials/oauth-client.json`에 저장
+4. 최초 1회 로그인:
+
+```powershell
+python cli.py auth
+```
+
+브라우저에서 본인 구글 계정으로 로그인하면 `credentials/token.json`이 생성됩니다. 시트를 별도로 공유할 필요 없이 **본인 계정으로 접근 가능한 시트**를 바로 쓸 수 있습니다.
+
+**방법 B — 서비스 계정**
+
+1. 서비스 계정 JSON을 `credentials/service-account.json`에 저장
+2. 구글 시트를 서비스 계정 이메일에 **편집자**로 공유
+3. `.env`에서 `GOOGLE_AUTH_MODE=service_account` 설정
 
 ### 3. 환경 변수
 

@@ -19,6 +19,7 @@ from src.operations import (
     script_to_dict,
     update_rows,
 )
+from src.sheets_client import authorize_google
 
 
 def _load_json(path: Path) -> object:
@@ -134,6 +135,11 @@ def cmd_apply_diff(args: argparse.Namespace) -> None:
     _print_json({"mode": "patch", "updated_rows": changed_rows, "count": len(changed_rows)})
 
 
+def cmd_auth(_: argparse.Namespace) -> None:
+    authorize_google(interactive=True)
+    print("구글 로그인 완료. 이제 cli.py 명령을 사용할 수 있습니다.")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="디디딧 구글 시트 대본 수정 도구")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -170,6 +176,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_apply.add_argument("file", help="수정본 표 파일")
     p_apply.add_argument("--part", help="특정 파트만 반영")
     p_apply.set_defaults(func=cmd_apply_diff)
+
+    p_auth = sub.add_parser("auth", help="구글 계정 로그인 (최초 1회)")
+    p_auth.set_defaults(func=cmd_auth)
 
     return parser
 

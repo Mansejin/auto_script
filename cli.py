@@ -142,8 +142,9 @@ def cmd_auth(_: argparse.Namespace) -> None:
 
 def cmd_auth_url(_: argparse.Namespace) -> None:
     print(get_oauth_authorization_url())
-    print("\n위 URL을 브라우저에서 열고, 로그인 후 표시되는 코드를 복사하세요.")
-    print("그다음: python cli.py auth-code <코드>")
+    print("\n위 URL을 브라우저(Chrome/Safari)에서 열고 로그인·동의까지 완료하세요.")
+    print("완료 후 주소창 URL의 code= 뒤 값을 복사해 채팅에 붙여넣으세요.")
+    print("또는: python cli.py auth-code <코드>")
 
 
 def cmd_auth_code(args: argparse.Namespace) -> None:

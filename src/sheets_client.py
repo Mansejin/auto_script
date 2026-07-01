@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import gspread
 from google.auth.transport.requests import Request
@@ -37,6 +38,14 @@ def _save_oauth_credentials(creds) -> None:
     token_path.write_text(creds.to_json(), encoding="utf-8")
 
 
+def _oauth_redirect_uri() -> str:
+    client_path = get_oauth_client_path()
+    data = json.loads(client_path.read_text(encoding="utf-8"))
+    installed = data.get("installed") or data.get("web") or {}
+    redirect_uris = installed.get("redirect_uris") or ["http://localhost"]
+    return redirect_uris[0]
+
+
 def _oauth_flow() -> InstalledAppFlow:
     client_path = get_oauth_client_path()
     if not client_path.exists():
@@ -44,7 +53,9 @@ def _oauth_flow() -> InstalledAppFlow:
             f"OAuth 클라이언트 파일이 없습니다: {client_path}\n"
             "Google Cloud Console → 사용자 인증 정보 → OAuth 클라이언트 ID(데스크톱) JSON을 저장하세요."
         )
-    return InstalledAppFlow.from_client_secrets_file(str(client_path), SCOPES)
+    flow = InstalledAppFlow.from_client_secrets_file(str(client_path), SCOPES)
+    flow.redirect_uri = _oauth_redirect_uri()
+    return flow
 
 
 def _oauth_credentials(*, interactive: bool = False):
@@ -77,9 +88,15 @@ def _oauth_pending_path() -> Path:
 
 def get_oauth_authorization_url() -> str:
     flow = _oauth_flow()
-    auth_url, state = flow.authorization_url(access_type="offline", prompt="consent")
+    redirect_uri = flow.redirect_uri
+    auth_url, state = flow.authorization_url(
+        access_type="offline",
+        prompt="consent",
+        redirect_uri=redirect_uri,
+    )
     pending = {
         "state": state,
+        "redirect_uri": redirect_uri,
         "code_verifier": flow.oauth2session._client.code_verifier,
     }
     _oauth_pending_path().write_text(json.dumps(pending), encoding="utf-8")
@@ -95,8 +112,13 @@ def exchange_oauth_code(code: str):
 
     pending = json.loads(pending_path.read_text(encoding="utf-8"))
     flow = _oauth_flow()
+    flow.redirect_uri = pending["redirect_uri"]
     flow.oauth2session._client.code_verifier = pending["code_verifier"]
-    flow.fetch_token(code=code.strip(), state=pending["state"])
+    flow.fetch_token(
+        code=code.strip(),
+        state=pending["state"],
+        redirect_uri=pending["redirect_uri"],
+    )
     _save_oauth_credentials(flow.credentials)
     pending_path.unlink(missing_ok=True)
     return flow.credentials

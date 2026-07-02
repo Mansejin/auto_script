@@ -1,8 +1,52 @@
 # 생기부 작성 머신 (sgb)
 
-과거에 작성한 생기부 샘플을 넣어 **문체·분량 패턴**을 학습하고, 학생별 활동 데이터를 구조화한 뒤 **Gemini 3.1 Pro**로 자동 작성하는 CLI입니다.
+과거에 작성한 생기부 샘플을 넣어 **문체·분량 패턴**을 학습하고, 학생별 활동 데이터를 구조화한 뒤 **Gemini 3.1 Pro**로 자동 작성합니다.
 
-## 빠른 시작
+**관리자 웹(권장)**: `mansejin.com/admin/saenggibu/` — 비밀번호 로그인 후 사용  
+**CLI**: 서버/로컬에서 `sgb.py` 직접 실행
+
+## 관리자 웹 (mansejin.com)
+
+공개 메뉴·도구함(`data/tools.json`)에는 **노출되지 않습니다**. URL을 아는 관리자만 접근합니다.
+
+### 1. API 서버 실행 (auto_script)
+
+```bash
+pip install -r requirements.txt
+cp config.example.env .env
+```
+
+`.env` 필수 항목:
+
+```env
+GEMINI_API_KEY=...
+ADMIN_PASSWORD=강한비밀번호
+ADMIN_SESSION_SECRET=랜덤긴문자열
+SGB_ALLOWED_ORIGINS=https://mansejin.com,https://www.mansejin.com
+```
+
+```bash
+python3 server.py
+# http://127.0.0.1:8787/admin/saenggibu 에서도 바로 사용 가능
+```
+
+프로덕션에서는 Cloud Run·VPS 등에 배포하고 HTTPS URL을 확보하세요.
+
+### 2. mansejin 사이트 연결 (tools-site)
+
+`admin/saenggibu/index.html`의 `data-api-base`에 배포한 API 주소를 넣습니다:
+
+```html
+<body data-api-base="https://your-sgb-api.example.com">
+```
+
+배포 후 접속: **https://mansejin.com/admin/saenggibu/**
+
+- 로그인: `.env`의 `ADMIN_PASSWORD`
+- 세션: 브라우저 `sessionStorage` (24시간)
+- CORS: `mansejin.com`만 허용 (`.env`에서 변경 가능)
+
+## CLI 빠른 시작
 
 ```bash
 pip install -r requirements.txt
@@ -78,6 +122,7 @@ python sgb.py run --yes            # pending 학생 전원 자동 작성
 | `sgb.py students show <id>` | 학생 상세·작성 결과 |
 | `sgb.py students reset <id>` | 재작성 대기로 초기화 |
 | `sgb.py run [--student id] [-y]` | 자동 작성 실행 |
+| `server.py` | 관리자 웹 API 서버 |
 
 ## 모델 설정
 

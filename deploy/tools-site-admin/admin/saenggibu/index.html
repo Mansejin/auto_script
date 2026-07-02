@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex, nofollow">
+  <script>
+    (function () {
+      var s = localStorage.getItem("mansejin-theme");
+      var d = s === "dark" || (s !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.setAttribute("data-theme", d ? "dark" : "light");
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>생기부 작성 · 관리자</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<!-- 배포한 생기부 API 서버 주소를 data-api-base에 넣으세요 -->
+<body data-api-base="https://REPLACE_WITH_SGB_API_HOST">
+  <div class="page admin-page">
+    <header class="site-header">
+      <div class="header-top">
+        <a class="back-link" href="../../">← 만세진</a>
+        <div class="header-actions">
+          <label class="theme-switch">
+            <input type="checkbox" class="theme-switch-input" role="switch">
+            <span class="theme-switch-track"><span class="theme-switch-thumb"></span></span>
+          </label>
+        </div>
+      </div>
+      <p class="hero-emoji">📝</p>
+      <h1>생기부 작성 머신</h1>
+      <p class="subtitle">관리자 전용 · 공개 메뉴에 노출되지 않음</p>
+    </header>
+
+    <section id="adminGate" class="admin-gate">
+      <div class="admin-card">
+        <h2>관리자 로그인</h2>
+        <p>만세진 관리자만 접근할 수 있습니다.</p>
+        <form id="loginForm">
+          <div class="admin-field">
+            <label for="adminPassword">비밀번호</label>
+            <input id="adminPassword" type="password" autocomplete="current-password" required>
+          </div>
+          <button class="admin-btn" type="submit">로그인</button>
+          <p id="loginError" class="admin-error"></p>
+        </form>
+      </div>
+    </section>
+
+    <section id="adminApp" hidden>
+      <div class="admin-toolbar">
+        <p class="admin-muted">샘플 학습 → 학생 등록 → 자동 작성</p>
+        <button id="logoutBtn" class="admin-logout" type="button">로그아웃</button>
+      </div>
+
+      <div class="admin-tabs">
+        <button class="admin-tab active" data-tab="students" type="button">학생</button>
+        <button class="admin-tab" data-tab="samples" type="button">샘플·패턴</button>
+        <button class="admin-tab" data-tab="run" type="button">일괄 작성</button>
+        <button class="admin-tab" data-tab="detail" type="button" hidden>상세</button>
+      </div>
+
+      <div id="panelStudents" class="admin-panel">
+        <div class="admin-card">
+          <h2>학생 일괄 등록</h2>
+          <form id="importStudentsForm">
+            <input id="studentsFile" class="admin-file" type="file" accept=".tsv,.csv,.txt" required>
+            <div class="admin-actions">
+              <button class="admin-btn" type="submit">TSV 업로드</button>
+            </div>
+          </form>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
+          <h2>학생 목록</h2>
+          <table class="admin-table">
+            <thead>
+              <tr><th>학생</th><th>상태</th><th>세특</th><th></th><th></th></tr>
+            </thead>
+            <tbody id="studentsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="panelSamples" class="admin-panel" hidden>
+        <div class="admin-card">
+          <h2>과거 생기부 샘플</h2>
+          <form id="importSamplesForm">
+            <input id="samplesFile" class="admin-file" type="file" accept=".json,.tsv,.csv" required>
+            <div class="admin-actions">
+              <button class="admin-btn" type="submit">샘플 업로드</button>
+            </div>
+          </form>
+          <div id="samplesList" style="margin-top:16px"></div>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
+          <h2>패턴 분석</h2>
+          <p class="admin-muted">샘플에서 문체·분량 패턴을 추출합니다.</p>
+          <label class="admin-field">
+            <span><input id="analyzeGemini" type="checkbox"> Gemini로 스타일 가이드 정제 (API 사용)</span>
+          </label>
+          <button id="analyzeBtn" class="admin-btn" type="button">분석 실행</button>
+        </div>
+      </div>
+
+      <div id="panelRun" class="admin-panel" hidden>
+        <div class="admin-card">
+          <h2>일괄 작성</h2>
+          <div class="admin-field">
+            <label for="runLimit">인원 제한 (비우면 전원)</label>
+            <input id="runLimit" type="number" min="1" placeholder="예: 5">
+          </div>
+          <button id="runBatchBtn" class="admin-btn" type="button">pending 학생 전원 작성</button>
+          <pre id="runLog" class="admin-output" style="margin-top:16px"></pre>
+        </div>
+      </div>
+
+      <div id="panelDetail" class="admin-panel" hidden>
+        <div class="admin-card">
+          <button id="backToStudents" class="admin-btn secondary" type="button">← 목록</button>
+          <h2 id="detailTitle" style="margin-top:12px"></h2>
+          <div id="detailMeta" style="margin-bottom:12px"></div>
+          <pre id="detailOutput" class="admin-output"></pre>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="../../js/theme.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

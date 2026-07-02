@@ -11,9 +11,14 @@ robots.txt  (또는 기존 파일에 Disallow: /admin/ 추가)
 
 ## 설정
 
-1. `admin/saenggibu/index.html`의 `data-api-base`에 `server.py`를 배포한 API 주소 입력
-2. API 서버 `.env`의 `SGB_ALLOWED_ORIGINS`에 `https://mansejin.com` 포함
-3. GitHub Pages 배포 후 URL 직접 접속 (공개 메뉴 없음)
+1. `admin/saenggibu/index.html`의 `data-api-base`에 API 주소 (`https://sgb.mansejin.com`)
+2. CSS/JS는 **상대 경로** (`css/`, `js/`) — GitHub Pages용
+3. API 서버 `.env`의 `SGB_ALLOWED_ORIGINS`에 `https://mansejin.com` 포함
+4. GitHub Pages 배포 후 URL 직접 접속 (공개 메뉴 없음)
+
+자동 복사: `auto_script` 저장소에서 `./scripts/sync-tools-site-admin.sh /path/to/tools-site`
+
+상세 연동: `auto_script/docs/deploy-mansejin.md`
 
 ## 보안
 

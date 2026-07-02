@@ -82,7 +82,15 @@
       options.body = JSON.stringify(options.body);
     }
 
-    const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    let response;
+    try {
+      response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    } catch {
+      const hint = configuredBase
+        ? `API 서버(${configuredBase})에 연결할 수 없습니다. NAS·터널이 실행 중인지 확인하세요.`
+        : "API 서버에 연결할 수 없습니다.";
+      throw new Error(hint);
+    }
     const text = await response.text();
     let data = null;
     try {

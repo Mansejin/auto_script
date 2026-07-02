@@ -34,17 +34,25 @@ python3 server.py
 
 ### 2. mansejin 사이트 연결 (tools-site)
 
-`admin/saenggibu/index.html`의 `data-api-base`에 배포한 API 주소를 넣습니다:
+**전체 연동 가이드**: [`docs/deploy-mansejin.md`](deploy-mansejin.md)
+
+`deploy/tools-site-admin/` → `Mansejin/tools-site` 의 `admin/saenggibu/` 로 복사 후 push:
+
+```bash
+./scripts/sync-tools-site-admin.sh /path/to/tools-site
+```
+
+`index.html` (이미 설정됨):
 
 ```html
-<body data-api-base="https://your-sgb-api.example.com">
+<body data-api-base="https://sgb.mansejin.com" data-assets-base="">
 ```
 
 배포 후 접속: **https://mansejin.com/admin/saenggibu/**
 
 > **나스가 있으신가요?** → [`docs/deploy-nas.md`](deploy-nas.md)  
 > **시놀로지면** → [`docs/deploy-synology.md`](deploy-synology.md)  
-> **ipTIME 설정 못 함 (스튜디오 등)** → [`docs/deploy-synology-no-router.md`](deploy-synology-no-router.md) ← **Tailscale**
+> **ipTIME 설정 못 함** → [`docs/deploy-mansejin.md`](deploy-mansejin.md) Cloudflare Tunnel
 
 - 로그인: `.env`의 `ADMIN_PASSWORD`
 - 세션: 브라우저 `sessionStorage` (24시간)

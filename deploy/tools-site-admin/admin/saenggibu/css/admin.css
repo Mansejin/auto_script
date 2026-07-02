@@ -172,6 +172,15 @@
   overflow: auto;
 }
 
+.admin-upload-log {
+  margin-top: 12px;
+  max-height: 160px;
+  font-size: 0.8125rem;
+  color: #e5484d;
+  border-color: rgba(229, 72, 77, 0.35);
+  background: rgba(229, 72, 77, 0.06);
+}
+
 .admin-muted {
   color: var(--text-tertiary);
   font-size: 0.85rem;

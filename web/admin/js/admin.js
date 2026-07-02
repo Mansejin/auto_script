@@ -110,7 +110,19 @@
     if (!toast) return;
     toast.textContent = message;
     toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 2200);
+    setTimeout(() => toast.classList.remove("show"), 3200);
+  }
+
+  function showUploadLog(elementId, lines) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (!lines.length) {
+      el.hidden = true;
+      el.textContent = "";
+      return;
+    }
+    el.hidden = false;
+    el.textContent = lines.join("\n");
   }
 
   function getToken() {
@@ -295,9 +307,10 @@
       }
     }
     if (errors.length) {
-      showToast(`등록 ${imported}명 · 실패 ${errors.length}건`);
-      console.warn(errors.join("\n"));
+      showUploadLog("studentsUploadLog", errors);
+      showToast(`등록 ${imported}명 · 실패 ${errors.length}건 (아래 로그 확인)`);
     } else {
+      showUploadLog("studentsUploadLog", []);
       showToast(`${imported}명 등록됨`);
     }
     await loadStudents();
@@ -336,9 +349,10 @@
       }
     }
     if (errors.length) {
-      showToast(`샘플 ${imported}건 · 실패 ${errors.length}건`);
-      console.warn(errors.join("\n"));
+      showUploadLog("samplesUploadLog", errors);
+      showToast(`샘플 ${imported}건 · 실패 ${errors.length}건 (아래 로그 확인)`);
     } else {
+      showUploadLog("samplesUploadLog", []);
       showToast(`샘플 ${imported}건 등록됨`);
     }
     await loadSamples();

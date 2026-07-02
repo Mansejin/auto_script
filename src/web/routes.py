@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,7 @@ from src.saenggibu.student_store import (
 from src.web.auth import AdminSession, SESSION_COOKIE, create_session_token, verify_password, verify_session_token
 
 router = APIRouter(prefix="/api")
+logger = logging.getLogger("sgb.web")
 
 
 class LoginRequest(BaseModel):
@@ -99,7 +101,11 @@ async def api_samples_import(
         imported = import_path(tmp_path)
         return {"imported": len(imported), "samples": [s.to_dict() for s in imported]}
     except ValueError as exc:
+        logger.warning("samples import failed: %s (%s)", file.filename, exc)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("samples import error: %s", file.filename)
+        raise HTTPException(status_code=500, detail=f"서버 오류: {exc}") from exc
     finally:
         tmp_path.unlink(missing_ok=True)
 
@@ -166,7 +172,11 @@ async def api_students_import(
         imported = import_students_file(tmp_path)
         return {"imported": len(imported), "students": [s.to_dict() for s in imported]}
     except ValueError as exc:
+        logger.warning("students import failed: %s (%s)", file.filename, exc)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("students import error: %s", file.filename)
+        raise HTTPException(status_code=500, detail=f"서버 오류: {exc}") from exc
     finally:
         tmp_path.unlink(missing_ok=True)
 

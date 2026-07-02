@@ -14,14 +14,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="../../css/style.css">
-  <link rel="stylesheet" href="css/admin.css">
+  <link rel="stylesheet" href="/admin-static/css/style.css">
+  <link rel="stylesheet" href="/admin-static/css/admin.css">
 </head>
-<body data-api-base="https://REPLACE_WITH_SGB_API_HOST">
+<body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
     <header class="site-header">
       <div class="header-top">
-        <a class="back-link" href="../../">← 만세진</a>
+        <a class="back-link" href="https://mansejin.com/">← 만세진</a>
         <div class="header-actions">
           <label class="theme-switch">
             <input type="checkbox" class="theme-switch-input" role="switch">
@@ -31,7 +31,7 @@
       </div>
       <p class="hero-emoji">📝</p>
       <h1>생기부 작성 머신</h1>
-      <p class="subtitle">관리자 전용 · 공개 메뉴에 노출되지 않음</p>
+      <p class="subtitle">관리자 전용</p>
     </header>
 
     <section id="adminGate" class="admin-gate">
@@ -78,14 +78,14 @@
               <button class="admin-btn" type="submit">TSV 업로드</button>
             </div>
             <div class="admin-sample-links">
-              <a href="samples/students.example.tsv" download="students.example.tsv">📥 학생 TSV 샘플</a>
+              <a href="samples/students.example.tsv" download="students.example.tsv">📥 학생 TSV (일반)</a>
+              <a href="samples/students-현윤-윤사.example.tsv" download="students-현윤-윤사.example.tsv">📥 현윤·윤사 TSV</a>
             </div>
             <div class="admin-help">
               <strong>열 안내</strong><br>
               필수: <code>name</code> <code>grade</code> <code>class_num</code> <code>number</code><br>
-              세특: <code>세특_국어</code> <code>세특_윤사</code> … (과목명)<br>
-              행발: <code>행발_notes</code> · 키워드 <code>행발_keywords</code> (<code>|</code> 구분)<br>
-              창체: <code>창체_자율</code> <code>창체_동아리</code> <code>창체_봉사</code> <code>창체_진로</code>
+              2학년 현윤: <code>세특_현대사회와윤리</code> · 3학년 윤사: <code>세특_윤리와사상</code><br>
+              활동 여러 개는 <code>;</code> 구분 · 행발: <code>행발_notes</code> <code>행발_keywords</code> (<code>|</code>)
             </div>
           </form>
         </div>
@@ -164,7 +164,7 @@
   </div>
 
   <div id="toast" class="toast"></div>
-  <script src="../../js/theme.js"></script>
-  <script src="js/admin.js"></script>
+  <script src="/admin-static/js/theme.js"></script>
+  <script src="/admin-static/js/admin.js"></script>
 </body>
 </html>

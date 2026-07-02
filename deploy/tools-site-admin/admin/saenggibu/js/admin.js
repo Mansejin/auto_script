@@ -4,6 +4,40 @@
   const TOKEN_KEY = "sgb_admin_token";
   const configuredBase = (document.body.dataset.apiBase || "").replace(/\/$/, "");
   const API_BASE = configuredBase || window.location.origin;
+  const ASSETS_BASE = (document.body.dataset.assetsBase || "").replace(/\/$/, "");
+
+  function assetUrl(path) {
+    const clean = path.replace(/^\//, "");
+    return ASSETS_BASE ? `${ASSETS_BASE}/${clean}` : clean;
+  }
+
+  function setupFilePickers() {
+    document.querySelectorAll("[data-file-trigger]").forEach((btn) => {
+      const inputId = btn.getAttribute("data-file-trigger");
+      const input = document.getElementById(inputId);
+      const nameEl = document.getElementById(`${inputId}Name`);
+      if (!input) return;
+
+      btn.addEventListener("click", () => input.click());
+
+      input.addEventListener("change", () => {
+        const file = input.files && input.files[0];
+        if (!nameEl) return;
+        if (file) {
+          nameEl.textContent = file.name;
+          nameEl.classList.add("has-file");
+        } else {
+          nameEl.textContent = "선택된 파일 없음";
+          nameEl.classList.remove("has-file");
+        }
+      });
+    });
+
+    document.querySelectorAll(".admin-sample-links a[href^='samples/']").forEach((link) => {
+      const href = link.getAttribute("href");
+      if (href) link.setAttribute("href", assetUrl(href));
+    });
+  }
 
   const gate = document.getElementById("adminGate");
   const app = document.getElementById("adminApp");
@@ -242,6 +276,7 @@
   }
 
   async function bootstrap() {
+    setupFilePickers();
     const token = getToken();
     if (!token) {
       showGate();

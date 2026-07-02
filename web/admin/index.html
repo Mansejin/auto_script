@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="/admin-static/css/style.css">
   <link rel="stylesheet" href="/admin-static/css/admin.css">
 </head>
-<body data-api-base="">
+<body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
     <header class="site-header">
       <div class="header-top">
@@ -65,10 +65,27 @@
       <div id="panelStudents" class="admin-panel">
         <div class="admin-card">
           <h2>학생 일괄 등록</h2>
+          <p class="admin-muted">엑셀에서 복사한 활동 메모를 TSV(탭 구분)로 정리해 업로드하세요.</p>
           <form id="importStudentsForm">
-            <input id="studentsFile" class="admin-file" type="file" accept=".tsv,.csv,.txt" required>
+            <div class="admin-file-picker">
+              <div class="admin-file-picker-row">
+                <input id="studentsFile" class="admin-file-input" type="file" accept=".tsv,.csv,.txt" required>
+                <button class="admin-btn secondary" type="button" data-file-trigger="studentsFile">파일 선택</button>
+                <span class="admin-file-name" id="studentsFileName">선택된 파일 없음</span>
+              </div>
+            </div>
             <div class="admin-actions">
               <button class="admin-btn" type="submit">TSV 업로드</button>
+            </div>
+            <div class="admin-sample-links">
+              <a href="samples/students.example.tsv" download="students.example.tsv">📥 학생 TSV 샘플</a>
+            </div>
+            <div class="admin-help">
+              <strong>열 안내</strong><br>
+              필수: <code>name</code> <code>grade</code> <code>class_num</code> <code>number</code><br>
+              세특: <code>세특_국어</code> <code>세특_윤사</code> … (과목명)<br>
+              행발: <code>행발_notes</code> · 키워드 <code>행발_keywords</code> (<code>|</code> 구분)<br>
+              창체: <code>창체_자율</code> <code>창체_동아리</code> <code>창체_봉사</code> <code>창체_진로</code>
             </div>
           </form>
         </div>
@@ -86,10 +103,25 @@
       <div id="panelSamples" class="admin-panel" hidden>
         <div class="admin-card">
           <h2>과거 생기부 샘플</h2>
+          <p class="admin-muted">예전에 작성한 세특·행발을 넣으면 문체·분량 패턴을 학습합니다.</p>
           <form id="importSamplesForm">
-            <input id="samplesFile" class="admin-file" type="file" accept=".json,.tsv,.csv" required>
+            <div class="admin-file-picker">
+              <div class="admin-file-picker-row">
+                <input id="samplesFile" class="admin-file-input" type="file" accept=".json,.tsv,.csv" required>
+                <button class="admin-btn secondary" type="button" data-file-trigger="samplesFile">파일 선택</button>
+                <span class="admin-file-name" id="samplesFileName">선택된 파일 없음</span>
+              </div>
+            </div>
             <div class="admin-actions">
               <button class="admin-btn" type="submit">샘플 업로드</button>
+            </div>
+            <div class="admin-sample-links">
+              <a href="samples/saenggibu-samples.example.tsv" download="saenggibu-samples.example.tsv">📥 샘플 TSV</a>
+              <a href="samples/students.example.tsv" download="students.example.tsv">📥 학생 TSV (참고)</a>
+            </div>
+            <div class="admin-help">
+              TSV 열: <code>영역</code> <code>과목</code> <code>소분류</code> <code>내용</code><br>
+              영역 예: 행발 · 세특 · 창체 (소분류: 자율/동아리/봉사/진로)
             </div>
           </form>
           <div id="samplesList" style="margin-top:16px"></div>
@@ -97,8 +129,12 @@
         <div class="admin-card" style="margin-top:16px">
           <h2>패턴 분석</h2>
           <p class="admin-muted">샘플에서 문체·분량 패턴을 추출합니다.</p>
-          <label class="admin-field">
-            <span><input id="analyzeGemini" type="checkbox"> Gemini로 스타일 가이드 정제 (API 사용)</span>
+          <label class="admin-option" for="analyzeGemini">
+            <input id="analyzeGemini" type="checkbox">
+            <span class="admin-option-text">
+              <strong>Gemini로 스타일 가이드 정제</strong>
+              <span>API를 사용해 선생님 문체를 더 정확히 요약합니다. (선택)</span>
+            </span>
           </label>
           <button id="analyzeBtn" class="admin-btn" type="button">분석 실행</button>
         </div>

@@ -246,14 +246,78 @@ docker/saenggibu/data/saenggibu/
 
 ## 문제 해결
 
-| 증상 | 해결 |
-|------|------|
-| 프로젝트 생성 시 오류 | `docker-compose.yml` 있는 폴더 맞는지, `.env` 있는지 |
-| 8787 접속 안 됨 | 컨테이너 실행 중인지, 방화벽에서 8787 허용(로컬 테스트용) |
-| mansejin 로그인 안 됨 | `ADMIN_PASSWORD`, `data-api-base` 주소 확인 |
-| 로그인은 되는데 목록 안 뜸 | 브라우저 F12 → Console에 CORS 오류면 `.env`에 `SGB_ALLOWED_ORIGINS` 확인 |
-| 작성만 실패 | `GEMINI_API_KEY` 확인 |
-| sgb.mansejin.com 인증서 오류 | 제어판 인증서 + 역방향 프록시 호스트 이름 일치 |
+| 증상 | 원인 | 해결 |
+|------|------|------|
+| 프로젝트 생성 시 오류 | `docker-compose.yml` 있는 폴더 맞는지, `.env` 있는지 | |
+| 8787 접속 안 됨 | 컨테이너 미실행 / 포트 미개방 | 아래 **「8787 안 될 때」** 참고 |
+| `https://...:8787` 안 됨 | **8787은 HTTP 전용** (SSL 없음) | `http://` 로 접속 |
+| mansejin 로그인 안 됨 | `ADMIN_PASSWORD`, `data-api-base` 주소 확인 | |
+| 로그인은 되는데 목록 안 뜸 | 브라우저 F12 → Console에 CORS 오류면 `.env`에 `SGB_ALLOWED_ORIGINS` 확인 | |
+| 작성만 실패 | `GEMINI_API_KEY` 확인 | |
+| sgb.mansejin.com 인증서 오류 | 제어판 인증서 + 역방향 프록시 호스트 이름 일치 | |
+
+### 「8787 안 될 때」— ohola.synology.me 포함
+
+**IP를 몰라도 됩니다.** `ohola.synology.me`가 시놀로지 주소입니다.  
+다만 아래를 **순서대로** 확인하세요.
+
+#### ① `https` 가 아니라 `http` 로
+
+우리 API 서버는 **8787에서 HTTPS(SSL)를 쓰지 않습니다.**
+
+```
+❌ https://ohola.synology.me:8787/admin/saenggibu
+✅ http://ohola.synology.me:8787/admin/saenggibu
+```
+
+브라우저가 "안전하지 않음" 경고를 띄울 수 있는데, **집 안에서 테스트할 때는 진행**해도 됩니다.
+
+#### ② 컨테이너가 실제로 돌아가는지
+
+1. **Container Manager** → **컨테이너**
+2. `saenggibu-api` 상태가 **실행 중**인지
+3. 꺼져 있으면 → **프로젝트** `saenggibu` → **시작**
+4. 바로 꺼지면 → 컨테이너 **로그** 확인 (대부분 `.env` 누락)
+
+#### ③ 집 안(같은 와이파이)에서 먼저 테스트
+
+외부 인터넷보다 **집 안**이 먼저입니다.
+
+```
+http://ohola.synology.me:8787/health
+```
+
+`{"status":"ok"}` 가 보여야 합니다.
+
+**시놀로지 IP 찾는 법** (로컬 테스트용, 몰라도 DDNS로 가능):
+
+1. DSM 로그인 화면 주소창에 `find.synology.com` 또는 이미 쓰는 `ohola.synology.me:5000`
+2. **제어판** → **네트워크** → **네트워크 인터페이스** → **LAN** → IPv4 주소  
+   예: `192.168.0.15`
+3. 그때는 `http://192.168.0.15:8787/health` 로도 동일하게 테스트
+
+#### ④ 집 안에서는 되는데 밖( LTE·학교 )에서는 안 됨
+
+**8787 포트가 공유기 밖으로 안 열려 있는 것**입니다. 두 가지 중 하나:
+
+**방법 A — 역방향 프록시 (추천, 443만 사용)**
+
+1. **제어판** → **로그인 포털** → **고급** → **역방향 프록시** → **생성**
+2. 소스: `sgb.ohola.synology.me` (또는 `ohola.synology.me`) HTTPS **443**
+3. 대상: `localhost` HTTP **8787**
+4. **제어판** → **외부 액세스** → **DDNS**에서 `sgb` 서브도메인 추가 가능한지 확인
+5. 접속: `https://sgb.ohola.synology.me/admin/saenggibu`
+
+mansejin 페이지 `data-api-base`도 이 HTTPS 주소로 변경.
+
+**방법 B — 공유기에서 8787 포트 포워딩**
+
+- 공유기 관리 페이지 → 포트포워딩 → 외부 8787 → 시놀로지 IP 8787  
+- 보안상 **A를 권장**
+
+#### ⑤ 방화벽
+
+**제어판** → **보안** → **방화벽** 사용 중이면 **8787 허용** 규칙 추가 (로컬 테스트용).
 
 ---
 

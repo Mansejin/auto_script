@@ -8,3 +8,8 @@ venv/
 .changes/
 dist/
 build/
+data/saenggibu/students/
+data/saenggibu/outputs/
+data/saenggibu/samples/index.json
+data/saenggibu/samples/sample*.json
+data/saenggibu/patterns.json

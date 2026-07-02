@@ -1,0 +1,25 @@
+---
+description: 생기부 자동 작성 워크플로
+globs:
+  - "sgb.py"
+  - "src/saenggibu/**"
+  - "data/saenggibu/**"
+  - "prompts/saenggibu.md"
+---
+
+# 생기부 작성 머신 규칙
+
+생기부 작성·수정 요청은 **sgb.py CLI**로 처리한다. 제미나이 웹 UI 왕복 없이 이 프로젝트에서 바로 실행한다.
+
+## 처리 순서
+1. `python sgb.py samples list` / `python sgb.py students list`로 현재 상태 확인
+2. 샘플 추가: `python sgb.py samples import <경로>`
+3. 패턴 갱신: `python sgb.py analyze` (필요 시 `--gemini`)
+4. 학생 등록: `python sgb.py students import <tsv>` 또는 `students add`
+5. 작성 실행: `python sgb.py run --student <id>` 또는 `python sgb.py run -y`
+6. 검증: `python sgb.py students show <id>`
+
+## 주의
+- `GEMINI_API_KEY` 미설정 시 run/analyze --gemini 불가
+- 학생 데이터는 사실 기반 메모만 사용
+- 작성 결과는 교사 검토 전제

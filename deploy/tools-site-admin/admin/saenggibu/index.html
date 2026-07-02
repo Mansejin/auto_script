@@ -2,171 +2,26 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="color-scheme" content="light dark">
-  <meta name="robots" content="noindex, nofollow">
-  <script>
-    (function () {
-      var s = localStorage.getItem("mansejin-theme");
-      var d = s === "dark" || (s !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
-      document.documentElement.setAttribute("data-theme", d ? "dark" : "light");
-    })();
-  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>생기부 작성 · 관리자</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/admin.css">
+  <meta name="robots" content="noindex, nofollow">
+  <title>생기부 작성 · 이동 중</title>
+  <meta http-equiv="refresh" content="0;url=https://sgb.mansejin.com/admin/saenggibu">
+  <link rel="canonical" href="https://sgb.mansejin.com/admin/saenggibu">
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #f6f7f9;
+      color: #333;
+    }
+    a { color: #2563eb; }
+  </style>
 </head>
-<body data-api-base="https://sgb.mansejin.com" data-assets-base="">
-  <div class="page admin-page">
-    <header class="site-header">
-      <div class="header-top">
-        <a class="back-link" href="https://mansejin.com/">← 만세진</a>
-        <div class="header-actions">
-          <label class="theme-switch">
-            <input type="checkbox" class="theme-switch-input" role="switch">
-            <span class="theme-switch-track"><span class="theme-switch-thumb"></span></span>
-          </label>
-        </div>
-      </div>
-      <p class="hero-emoji">📝</p>
-      <h1>생기부 작성 머신</h1>
-      <p class="subtitle">관리자 전용</p>
-    </header>
-
-    <section id="adminGate" class="admin-gate">
-      <div class="admin-card">
-        <h2>관리자 로그인</h2>
-        <p>만세진 관리자만 접근할 수 있습니다.</p>
-        <form id="loginForm">
-          <div class="admin-field">
-            <label for="adminPassword">비밀번호</label>
-            <input id="adminPassword" type="password" autocomplete="current-password" required>
-          </div>
-          <button class="admin-btn" type="submit">로그인</button>
-          <p id="loginError" class="admin-error"></p>
-        </form>
-      </div>
-    </section>
-
-    <section id="adminApp" hidden>
-      <div class="admin-toolbar">
-        <p class="admin-muted">샘플 학습 → 학생 등록 → 자동 작성</p>
-        <button id="logoutBtn" class="admin-logout" type="button">로그아웃</button>
-      </div>
-
-      <div class="admin-tabs">
-        <button class="admin-tab active" data-tab="students" type="button">학생</button>
-        <button class="admin-tab" data-tab="samples" type="button">샘플·패턴</button>
-        <button class="admin-tab" data-tab="run" type="button">일괄 작성</button>
-        <button class="admin-tab" data-tab="detail" type="button" hidden>상세</button>
-      </div>
-
-      <div id="panelStudents" class="admin-panel">
-        <div class="admin-card">
-          <h2>학생 일괄 등록</h2>
-          <p class="admin-muted">엑셀에서 복사한 활동 메모를 TSV(탭 구분)로 정리해 업로드하세요.</p>
-          <form id="importStudentsForm">
-            <div class="admin-file-picker">
-              <div class="admin-file-picker-row">
-                <input id="studentsFile" class="admin-file-input" type="file" multiple accept="*/*">
-                <button class="admin-btn secondary" type="button" data-file-trigger="studentsFile">파일 선택</button>
-                <span class="admin-file-name" id="studentsFileName">선택된 파일 없음</span>
-              </div>
-            </div>
-            <div class="admin-actions">
-              <button class="admin-btn" type="submit">TSV 업로드</button>
-            </div>
-            <pre id="studentsUploadLog" class="admin-output admin-upload-log" hidden></pre>
-            <div class="admin-sample-links">
-              <a href="samples/students.example.tsv" download="students.example.tsv">📥 학생 TSV (일반)</a>
-              <a href="samples/students-현윤-윤사.example.tsv" download="students-현윤-윤사.example.tsv">📥 현윤·윤사 TSV</a>
-            </div>
-            <div class="admin-help">
-              <strong>열 안내</strong><br>
-              필수: <code>name</code> <code>grade</code> <code>class_num</code> <code>number</code><br>
-              2학년 현윤: <code>세특_현대사회와윤리</code> · 3학년 윤사: <code>세특_윤리와사상</code><br>
-              활동 여러 개는 <code>;</code> 구분 · 행발: <code>행발_notes</code> <code>행발_keywords</code> (<code>|</code>)
-            </div>
-          </form>
-        </div>
-        <div class="admin-card" style="margin-top:16px">
-          <h2>학생 목록</h2>
-          <table class="admin-table">
-            <thead>
-              <tr><th>학생</th><th>상태</th><th>세특</th><th></th><th></th></tr>
-            </thead>
-            <tbody id="studentsTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div id="panelSamples" class="admin-panel" hidden>
-        <div class="admin-card">
-          <h2>과거 생기부 샘플</h2>
-          <p class="admin-muted">엑셀·워드(docx) 등 과거 생기부 문서를 한 번에 여러 파일 올릴 수 있습니다.</p>
-          <form id="importSamplesForm">
-            <div class="admin-file-picker">
-              <div class="admin-file-picker-row">
-                <input id="samplesFile" class="admin-file-input" type="file" multiple accept="*/*">
-                <button class="admin-btn secondary" type="button" data-file-trigger="samplesFile">파일 선택</button>
-                <span class="admin-file-name" id="samplesFileName">선택된 파일 없음</span>
-              </div>
-            </div>
-            <div class="admin-actions">
-              <button class="admin-btn" type="submit">샘플 업로드</button>
-            </div>
-            <pre id="samplesUploadLog" class="admin-output admin-upload-log" hidden></pre>
-            <div class="admin-sample-links">
-              <a href="samples/saenggibu-samples.example.tsv" download="saenggibu-samples.example.tsv">📥 샘플 TSV</a>
-              <a href="samples/students.example.tsv" download="students.example.tsv">📥 학생 TSV (참고)</a>
-            </div>
-            <div class="admin-help">
-              지원: xlsx, docx, tsv, csv, json · 다른 형식은 선택 즉시 거부됩니다<br>
-              TSV 열: <code>영역</code> <code>과목</code> <code>소분류</code> <code>내용</code>
-            </div>
-          </form>
-          <div id="samplesList" style="margin-top:16px"></div>
-        </div>
-        <div class="admin-card" style="margin-top:16px">
-          <h2>패턴 분석</h2>
-          <p class="admin-muted">샘플에서 문체·분량 패턴을 추출합니다.</p>
-          <label class="admin-option" for="analyzeGemini">
-            <input id="analyzeGemini" type="checkbox">
-            <span class="admin-option-text">
-              <strong>Gemini로 스타일 가이드 정제</strong>
-              <span>API를 사용해 선생님 문체를 더 정확히 요약합니다. (선택)</span>
-            </span>
-          </label>
-          <button id="analyzeBtn" class="admin-btn" type="button">분석 실행</button>
-        </div>
-      </div>
-
-      <div id="panelRun" class="admin-panel" hidden>
-        <div class="admin-card">
-          <h2>일괄 작성</h2>
-          <div class="admin-field">
-            <label for="runLimit">인원 제한 (비우면 전원)</label>
-            <input id="runLimit" type="number" min="1" placeholder="예: 5">
-          </div>
-          <button id="runBatchBtn" class="admin-btn" type="button">pending 학생 전원 작성</button>
-          <pre id="runLog" class="admin-output" style="margin-top:16px"></pre>
-        </div>
-      </div>
-
-      <div id="panelDetail" class="admin-panel" hidden>
-        <div class="admin-card">
-          <button id="backToStudents" class="admin-btn secondary" type="button">← 목록</button>
-          <h2 id="detailTitle" style="margin-top:12px"></h2>
-          <div id="detailMeta" style="margin-bottom:12px"></div>
-          <pre id="detailOutput" class="admin-output"></pre>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <div id="toast" class="toast"></div>
-  <script src="js/theme.js"></script>
-  <script src="js/admin.js"></script>
+<body>
+  <p>생기부 관리자로 이동합니다…<br>
+  <a href="https://sgb.mansejin.com/admin/saenggibu">여기를 눌러주세요</a></p>
 </body>
 </html>

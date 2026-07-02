@@ -1,37 +1,29 @@
-# mansejin.com 관리자 페이지 배포
+# mansejin.com 관리자 페이지
 
-`tools-site` 저장소에 아래 파일을 복사하면 **https://mansejin.com/admin/saenggibu/** 에서 관리자 UI가 열립니다.
+**더 이상 css/js를 tools-site에 복사하지 않습니다.**
 
+`https://mansejin.com/admin/saenggibu/` → 자동으로 `https://sgb.mansejin.com/admin/saenggibu` 로 이동합니다.
+
+실제 UI·업로드·분석은 **나스 API**가 제공합니다. 코드 수정 후 나스만 업데이트하면 됩니다.
+
+## 자동 배포 (선택, 1회 설정)
+
+`auto_script` 저장소 Secrets에 `TOOLS_SITE_PAT` 추가 시, push마다 redirect 페이지가 tools-site에 자동 반영됩니다.
+
+1. GitHub → Settings → Developer settings → Personal access token (repo 권한)
+2. `auto_script` → Settings → Secrets → `TOOLS_SITE_PAT`
+
+수동 push 없이도 mansejin.com 주소가 유지됩니다.
+
+## 수동 (PAT 없을 때)
+
+`deploy/tools-site-admin/admin/saenggibu/index.html` 한 파일만 tools-site에 push하면 됩니다.
+
+## 나스 업데이트
+
+```bash
+docker run --rm -v /volume1/docker/saenggibu:/git -w /git alpine/git pull
+docker compose up -d --build
 ```
-admin/saenggibu/index.html
-admin/saenggibu/css/admin.css
-admin/saenggibu/js/admin.js
-robots.txt  (또는 기존 파일에 Disallow: /admin/ 추가)
-```
 
-## 설정
-
-1. **먼저** `auto_script`에서 `./scripts/build-deploy-admin.sh` 실행 (web/admin → deploy 복사 + 경로 변환)
-2. `./scripts/sync-tools-site-admin.sh /path/to/tools-site` 로 tools-site에 복사
-3. API 서버 `.env`의 `SGB_ALLOWED_ORIGINS`에 `https://mansejin.com` 포함
-4. GitHub Pages 배포 후 URL 직접 접속 (공개 메뉴 없음)
-
-`index.html` (build 스크립트가 자동 설정):
-
-```html
-<body data-api-base="https://sgb.mansejin.com" data-assets-base="">
-<link rel="stylesheet" href="css/style.css">
-<script src="js/admin.js"></script>
-```
-
-> **주의:** `web/admin/index.html`을 deploy에 직접 복사하면 CSS가 깨집니다 (`/admin-static/` 은 나스 전용).
-
-상세 연동: `auto_script/docs/deploy-mansejin.md`
-
-## 보안
-
-- `robots.txt`: `/admin/` 차단
-- HTML `noindex` 메타
-- 실제 인증은 API 서버 `ADMIN_PASSWORD`
-
-이 폴더의 `admin/` 내용을 `Mansejin/tools-site` 루트에 그대로 복사하세요.
+`web/admin` 은 volume 마운트라 UI 변경은 **재시작만**으로도 반영될 수 있습니다.

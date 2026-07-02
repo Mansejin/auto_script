@@ -1,0 +1,40 @@
+name: Sync admin to tools-site
+
+on:
+  push:
+    branches: [cursor/saenggibu-writer-5821, main]
+    paths:
+      - "deploy/tools-site-admin/**"
+      - "web/admin/**"
+      - ".github/workflows/sync-tools-site.yml"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: Mansejin/tools-site
+          token: ${{ secrets.TOOLS_SITE_PAT }}
+          path: tools-site
+
+      - name: Copy admin redirect page
+        run: |
+          mkdir -p tools-site/admin/saenggibu
+          cp deploy/tools-site-admin/admin/saenggibu/index.html tools-site/admin/saenggibu/index.html
+          if [ ! -f tools-site/robots.txt ]; then
+            printf 'User-agent: *\nDisallow: /admin/\n' > tools-site/robots.txt
+          fi
+
+      - name: Push tools-site
+        working-directory: tools-site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add admin/saenggibu/index.html robots.txt 2>/dev/null || git add admin/saenggibu/index.html
+          git diff --staged --quiet && echo "No changes" && exit 0
+          git commit -m "chore: auto-sync saenggibu admin redirect from auto_script"
+          git push

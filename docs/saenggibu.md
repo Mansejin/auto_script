@@ -43,7 +43,8 @@ python3 server.py
 배포 후 접속: **https://mansejin.com/admin/saenggibu/**
 
 > **나스가 있으신가요?** → [`docs/deploy-nas.md`](deploy-nas.md)  
-> **시놀로지면** → [`docs/deploy-synology.md`](deploy-synology.md) ← **여기부터**
+> **시놀로지면** → [`docs/deploy-synology.md`](deploy-synology.md)  
+> **ipTIME 설정 못 함 (스튜디오 등)** → [`docs/deploy-synology-no-router.md`](deploy-synology-no-router.md) ← **Tailscale**
 
 - 로그인: `.env`의 `ADMIN_PASSWORD`
 - 세션: 브라우저 `sessionStorage` (24시간)

@@ -6,6 +6,7 @@ from pathlib import Path
 from .config import SAMPLES_DIR, ensure_data_dirs
 from .io_utils import load_json, read_table_file, save_json
 from .models import SampleRecord, new_id
+from .document_import import parse_docx_records, parse_xlsx_records
 
 
 def _index_path() -> Path:
@@ -117,7 +118,7 @@ def import_path(path: Path) -> list[SampleRecord]:
         for child in sorted(path.iterdir()):
             if child.name.startswith("students"):
                 continue
-            if child.suffix.lower() in {".json", ".tsv", ".csv"}:
+            if child.suffix.lower() in {".json", ".tsv", ".csv", ".xlsx", ".docx"}:
                 imported.extend(import_path(child))
         return imported
 
@@ -126,4 +127,11 @@ def import_path(path: Path) -> list[SampleRecord]:
         return [import_json_file(path)]
     if suffix in {".tsv", ".csv"}:
         return [import_tsv_file(path)]
-    raise ValueError(f"지원하지 않는 형식: {path}")
+    if suffix == ".xlsx":
+        return [add_sample(record) for record in parse_xlsx_records(path)]
+    if suffix == ".docx":
+        return [add_sample(record) for record in parse_docx_records(path)]
+    raise ValueError(
+        f"지원하지 않는 형식: {path.suffix} ({path.name}). "
+        "xlsx, docx, tsv, csv, json 을 사용하세요."
+    )

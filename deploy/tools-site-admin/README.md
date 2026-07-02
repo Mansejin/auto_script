@@ -11,12 +11,20 @@ robots.txt  (또는 기존 파일에 Disallow: /admin/ 추가)
 
 ## 설정
 
-1. `admin/saenggibu/index.html`의 `data-api-base`에 API 주소 (`https://sgb.mansejin.com`)
-2. CSS/JS는 **상대 경로** (`css/`, `js/`) — GitHub Pages용
+1. **먼저** `auto_script`에서 `./scripts/build-deploy-admin.sh` 실행 (web/admin → deploy 복사 + 경로 변환)
+2. `./scripts/sync-tools-site-admin.sh /path/to/tools-site` 로 tools-site에 복사
 3. API 서버 `.env`의 `SGB_ALLOWED_ORIGINS`에 `https://mansejin.com` 포함
 4. GitHub Pages 배포 후 URL 직접 접속 (공개 메뉴 없음)
 
-자동 복사: `auto_script` 저장소에서 `./scripts/sync-tools-site-admin.sh /path/to/tools-site`
+`index.html` (build 스크립트가 자동 설정):
+
+```html
+<body data-api-base="https://sgb.mansejin.com" data-assets-base="">
+<link rel="stylesheet" href="css/style.css">
+<script src="js/admin.js"></script>
+```
+
+> **주의:** `web/admin/index.html`을 deploy에 직접 복사하면 CSS가 깨집니다 (`/admin-static/` 은 나스 전용).
 
 상세 연동: `auto_script/docs/deploy-mansejin.md`
 

@@ -3,7 +3,9 @@
 집에 **나스(NAS)** 가 있으면 Railway·Cloudflare Tunnel 없이 **24시간 돌릴 수 있습니다.**  
 PC를 켜 둘 필요 없고, 학생 데이터도 나스 디스크에 저장됩니다.
 
-대부분 **시놀로지(Synology)** 또는 **QNAP** 기준으로 적었습니다. 제조사만 다르고 흐름은 같습니다.
+대부분 **시놀로지(Synology)** 또는 **QNAP** 기준으로 적었습니다.
+
+> **시놀로지 + Container Manager** → [`docs/deploy-synology.md`](deploy-synology.md) (화면별 클릭 가이드)
 
 ---
 

@@ -42,8 +42,8 @@ python3 server.py
 
 배포 후 접속: **https://mansejin.com/admin/saenggibu/**
 
-> **API 배포를 처음이신가요?** → [`docs/deploy-api-beginner.md`](deploy-api-beginner.md)  
-> **나스가 있으신가요?** → [`docs/deploy-nas.md`](deploy-nas.md) ← **추천**
+> **나스가 있으신가요?** → [`docs/deploy-nas.md`](deploy-nas.md)  
+> **시놀로지면** → [`docs/deploy-synology.md`](deploy-synology.md) ← **여기부터**
 
 - 로그인: `.env`의 `ADMIN_PASSWORD`
 - 세션: 브라우저 `sessionStorage` (24시간)

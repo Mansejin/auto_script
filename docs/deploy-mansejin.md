@@ -87,48 +87,25 @@ SGB_ALLOWED_ORIGINS=https://mansejin.com,https://www.mansejin.com
 
 ---
 
-## 4단계: 관리자 화면 (tools-site)
+## 4단계: mansejin.com 주소 연결
 
-`deploy/tools-site-admin/` 내용이 `Mansejin/tools-site` 의 `admin/saenggibu/` 에 있어야 합니다.
+**css/js 복사는 더 이상 필요 없습니다.**
 
-### Windows (PowerShell)
+`mansejin.com/admin/saenggibu/` → 자동으로 `https://sgb.mansejin.com/admin/saenggibu` 로 이동합니다.
 
-Git 설치 후 **PowerShell을 새로 열고** (`git --version` 확인):
+### 한 번만 (둘 중 하나)
 
-```powershell
-cd $HOME
-git clone https://github.com/Mansejin/tools-site.git
-git clone https://github.com/Mansejin/auto_script.git
-cd auto_script
-git checkout cursor/saenggibu-writer-5821
+**A. 자동 (추천)** — GitHub `auto_script` → Settings → Secrets → `TOOLS_SITE_PAT`  
+(본인 GitHub 토큰, `tools-site` 쓰기 권한)  
+이후 `auto_script` push마다 redirect 페이지가 tools-site에 자동 반영됩니다.
 
-.\scripts\sync-tools-site-admin.ps1 "$HOME\tools-site"
+**B. 수동 1회** — `deploy/tools-site-admin/admin/saenggibu/index.html` **한 파일만** tools-site에 push
 
-cd $HOME\tools-site
-git add admin/ robots.txt
-git commit -m "feat: 생기부 관리자 페이지"
-git push
-```
+### 이후 업데이트
 
-1~5분 후 **https://mansejin.com/admin/saenggibu/** 에 로그인 화면이 보입니다.
+UI·업로드 기능 변경은 **나스만** pull + `docker compose up -d --build` 하면 됩니다.
 
-### Mac / Linux
-
-```bash
-git clone https://github.com/Mansejin/tools-site.git
-git clone https://github.com/Mansejin/auto_script.git
-cd auto_script && git checkout cursor/saenggibu-writer-5821
-./scripts/sync-tools-site-admin.sh ../tools-site
-cd ../tools-site && git add admin/ robots.txt && git commit -m "feat: 생기부 관리자 페이지" && git push
-```
-
-`index.html` 핵심 설정:
-
-```html
-<body data-api-base="https://sgb.mansejin.com" data-assets-base="">
-```
-
-비밀번호 로그인 → 학생 탭이 보이면 **완료** (API는 2단계도 필요).
+북마크/카톡 공유: `https://mansejin.com/admin/saenggibu/` 또는 `https://sgb.mansejin.com/admin/saenggibu` 둘 다 OK.
 
 ---
 

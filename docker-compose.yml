@@ -9,3 +9,4 @@ services:
       - .env
     volumes:
       - ./data/saenggibu:/app/data/saenggibu
+      - ./web/admin:/app/web/admin

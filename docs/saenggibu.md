@@ -42,6 +42,8 @@ python3 server.py
 
 배포 후 접속: **https://mansejin.com/admin/saenggibu/**
 
+> **API 배포를 처음이신가요?** → [`docs/deploy-api-beginner.md`](deploy-api-beginner.md) (단계별 초보 가이드)
+
 - 로그인: `.env`의 `ADMIN_PASSWORD`
 - 세션: 브라우저 `sessionStorage` (24시간)
 - CORS: `mansejin.com`만 허용 (`.env`에서 변경 가능)

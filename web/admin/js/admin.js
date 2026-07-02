@@ -6,6 +6,40 @@
   const API_BASE = configuredBase || window.location.origin;
   const ASSETS_BASE = (document.body.dataset.assetsBase || "").replace(/\/$/, "");
 
+  const FILE_RULES = {
+    samplesFile: {
+      exts: [".json", ".tsv", ".csv", ".xlsx", ".docx"],
+      label: "xlsx, docx, tsv, csv, json",
+    },
+    studentsFile: {
+      exts: [".tsv", ".csv", ".txt"],
+      label: "tsv, csv, txt",
+    },
+  };
+
+  function fileExtension(name) {
+    const dot = name.lastIndexOf(".");
+    return dot >= 0 ? name.slice(dot).toLowerCase() : "";
+  }
+
+  function validateFiles(files, inputId) {
+    const rule = FILE_RULES[inputId];
+    if (!rule) return { ok: true, valid: [...files], rejected: [] };
+
+    const valid = [];
+    const rejected = [];
+    for (const file of files) {
+      const ext = fileExtension(file.name);
+      if (rule.exts.includes(ext)) valid.push(file);
+      else rejected.push(file);
+    }
+    return { ok: rejected.length === 0, valid, rejected, rule };
+  }
+
+  function formatRejectedNames(files) {
+    return files.map((f) => f.name).join(", ");
+  }
+
   function assetUrl(path) {
     const clean = path.replace(/^\//, "");
     return ASSETS_BASE ? `${ASSETS_BASE}/${clean}` : clean;
@@ -21,17 +55,31 @@
       btn.addEventListener("click", () => input.click());
 
       input.addEventListener("change", () => {
-        const files = input.files;
+        const files = input.files ? [...input.files] : [];
         if (!nameEl) return;
-        if (files && files.length === 1) {
-          nameEl.textContent = files[0].name;
-          nameEl.classList.add("has-file");
-        } else if (files && files.length > 1) {
-          nameEl.textContent = `${files.length}개 파일 선택됨`;
-          nameEl.classList.add("has-file");
-        } else {
+
+        if (!files.length) {
           nameEl.textContent = "선택된 파일 없음";
+          nameEl.classList.remove("has-file", "is-invalid");
+          return;
+        }
+
+        const check = validateFiles(files, inputId);
+        if (check.rejected.length) {
+          nameEl.textContent = `지원 안 함: ${formatRejectedNames(check.rejected)}`;
+          nameEl.classList.add("is-invalid");
           nameEl.classList.remove("has-file");
+          showToast(`지원하지 않는 형식입니다. (${check.rule.label} 만 가능)`);
+          input.value = "";
+          return;
+        }
+
+        nameEl.classList.remove("is-invalid");
+        nameEl.classList.add("has-file");
+        if (files.length === 1) {
+          nameEl.textContent = files[0].name;
+        } else {
+          nameEl.textContent = `${files.length}개 파일 선택됨`;
         }
       });
     });
@@ -222,9 +270,15 @@
 
   document.getElementById("importStudentsForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const files = [...(document.getElementById("studentsFile").files || [])];
+    const input = document.getElementById("studentsFile");
+    const files = [...(input.files || [])];
     if (!files.length) {
       showToast("파일을 선택하세요.");
+      return;
+    }
+    const check = validateFiles(files, "studentsFile");
+    if (!check.ok) {
+      showToast(`지원하지 않는 형식: ${formatRejectedNames(check.rejected)} (${check.rule.label} 만 가능)`);
       return;
     }
     showToast(`${files.length}개 파일 업로드 중…`);
@@ -257,9 +311,15 @@
 
   document.getElementById("importSamplesForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const files = [...(document.getElementById("samplesFile").files || [])];
+    const input = document.getElementById("samplesFile");
+    const files = [...(input.files || [])];
     if (!files.length) {
       showToast("파일을 선택하세요.");
+      return;
+    }
+    const check = validateFiles(files, "samplesFile");
+    if (!check.ok) {
+      showToast(`지원하지 않는 형식: ${formatRejectedNames(check.rejected)} (${check.rule.label} 만 가능)`);
       return;
     }
     showToast(`${files.length}개 파일 업로드 중…`);

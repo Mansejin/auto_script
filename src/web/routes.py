@@ -11,6 +11,7 @@ from src.saenggibu.generator import generate_for_student, run_batch
 from src.saenggibu.models import StudentInput
 from src.saenggibu.pattern_analyzer import analyze_and_save, load_patterns
 from src.saenggibu.sample_store import import_path, list_samples
+from src.saenggibu.upload_formats import SAMPLE_EXTENSIONS, STUDENT_EXTENSIONS, check_upload_extension
 from src.saenggibu.student_store import (
     add_student,
     get_student,
@@ -84,6 +85,11 @@ async def api_samples_import(
     file: UploadFile = File(...),
     _: AdminSession = Depends(require_admin),
 ) -> dict[str, Any]:
+    try:
+        check_upload_extension(file.filename, SAMPLE_EXTENSIONS)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     suffix = Path(file.filename or "upload").suffix.lower() or ".json"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         content = await file.read()
@@ -92,6 +98,8 @@ async def api_samples_import(
     try:
         imported = import_path(tmp_path)
         return {"imported": len(imported), "samples": [s.to_dict() for s in imported]}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         tmp_path.unlink(missing_ok=True)
 
@@ -144,6 +152,11 @@ async def api_students_import(
     file: UploadFile = File(...),
     _: AdminSession = Depends(require_admin),
 ) -> dict[str, Any]:
+    try:
+        check_upload_extension(file.filename, STUDENT_EXTENSIONS)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     suffix = Path(file.filename or "upload").suffix.lower() or ".tsv"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         content = await file.read()
@@ -152,6 +165,8 @@ async def api_students_import(
     try:
         imported = import_students_file(tmp_path)
         return {"imported": len(imported), "students": [s.to_dict() for s in imported]}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         tmp_path.unlink(missing_ok=True)
 

@@ -91,17 +91,44 @@ SGB_ALLOWED_ORIGINS=https://mansejin.com,https://www.mansejin.com
 
 `deploy/tools-site-admin/` 내용이 `Mansejin/tools-site` 의 `admin/saenggibu/` 에 있어야 합니다.
 
+### Windows (PowerShell)
+
+Git 설치 후 **PowerShell을 새로 열고** (`git --version` 확인):
+
+```powershell
+cd $HOME
+git clone https://github.com/Mansejin/tools-site.git
+git clone https://github.com/Mansejin/auto_script.git
+cd auto_script
+git checkout cursor/saenggibu-writer-5821
+
+.\scripts\sync-tools-site-admin.ps1 "$HOME\tools-site"
+
+cd $HOME\tools-site
+git add admin/ robots.txt
+git commit -m "feat: 생기부 관리자 페이지"
+git push
+```
+
+1~5분 후 **https://mansejin.com/admin/saenggibu/** 에 로그인 화면이 보입니다.
+
+### Mac / Linux
+
+```bash
+git clone https://github.com/Mansejin/tools-site.git
+git clone https://github.com/Mansejin/auto_script.git
+cd auto_script && git checkout cursor/saenggibu-writer-5821
+./scripts/sync-tools-site-admin.sh ../tools-site
+cd ../tools-site && git add admin/ robots.txt && git commit -m "feat: 생기부 관리자 페이지" && git push
+```
+
 `index.html` 핵심 설정:
 
 ```html
 <body data-api-base="https://sgb.mansejin.com" data-assets-base="">
 ```
 
-GitHub push 후 1~5분 뒤:
-
-**https://mansejin.com/admin/saenggibu/**
-
-비밀번호 로그인 → 학생 탭이 보이면 **완료**.
+비밀번호 로그인 → 학생 탭이 보이면 **완료** (API는 2단계도 필요).
 
 ---
 

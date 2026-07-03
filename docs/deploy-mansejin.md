@@ -111,10 +111,38 @@ UI·업로드 기능 변경은 **나스만** pull + `docker compose up -d --buil
 
 ## 업데이트 방법
 
-### API (나스)
+### API (나스) — 지금은 수동, 예약 작업으로 자동화 가능
+
+**매번 손으로 할 때:**
 
 ```bash
-docker run --rm -v /volume1/docker/saenggibu:/git -w /git alpine/git pull origin cursor/saenggibu-writer-5821
+cd /volume1/docker/saenggibu
+sh scripts/nas-docker-update.sh
+```
+
+(pull + `docker compose up -d --build` 한 번에 실행)
+
+**한 번만 설정하면 자동:**
+
+1. DSM → **제어판** → **작업 스케줄러** → **생성** → **예약된 작업** → **사용자 정의 스크립트**
+2. 일정: 매일 새벽 3시 (또는 원하는 주기)
+3. 사용자: `root`
+4. 스크립트:
+
+```bash
+/volume1/docker/saenggibu/scripts/nas-docker-update.sh
+```
+
+이후 GitHub에 push만 하면, 나스가 정해진 시간에 알아서 pull·재빌드합니다.
+
+> **참고:** `web/admin` 은 볼륨으로 마운트되어 있어 **화면만** 바뀐 경우 `git pull` 만으로도 반영될 때가 있습니다. Python·`requirements.txt`·Dockerfile 변경은 반드시 재빌드가 필요합니다.
+
+> **mansejin.com redirect** 는 GitHub Actions가 자동 반영합니다. 나스와 별개입니다.
+
+### API (나스) — 수동 명령 (참고)
+
+```bash
+docker run --rm -v /volume1/docker/saenggibu:/git -w /git alpine/git pull origin main
 docker compose up -d --build
 ```
 

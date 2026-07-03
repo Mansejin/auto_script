@@ -101,7 +101,7 @@ GitHub Secrets를 아직 안 넣었거나, Actions가 막혔을 때를 대비합
 |------|------|
 | Actions가 Skip | `NAS_SSH_*` Secrets 미설정 → 1-2절 |
 | SSH connection refused | 나스 DSM SSH 켜짐, Tailscale 같은 네트워크 |
-| `docker: permission denied` | 나스 `.env`에 `SGB_DOCKER_SUDO=1` 추가 후 재실행 |
+| `docker: permission denied` | 나스 `.env`에 `SGB_DOCKER_SUDO=1` 추가. GitHub Actions는 자동으로 sudo 시도함. DSM에서 사용자를 `administrators` 그룹에 넣거나 passwordless sudo 설정 |
 | 잘못된 브랜치 배포 | `.env`의 `SGB_DEPLOY_BRANCH` 또는 push 브랜치 확인 |
 | UI만 옛날 | Ctrl+F5, 또는 `sync-ui` |
 

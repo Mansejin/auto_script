@@ -386,7 +386,7 @@ function Invoke-NasUpdate {
   Write-Info "NAS update [$($profile.Label)] -> $($profile.Host)..."
   Sync-NasDeployScripts $cfg | Out-Null
   $pathPrefix = Get-NasRemotePathPrefix
-  Invoke-NasRemote "${pathPrefix}; cd '$repo' && sed -i 's/\r$//' scripts/nas-docker-update.sh 2>/dev/null; sh scripts/nas-docker-update.sh"
+  Invoke-NasRemote "${pathPrefix}; export SGB_DOCKER_SUDO=1; cd '$repo' && sed -i 's/\r$//' scripts/nas-docker-update.sh 2>/dev/null; sh scripts/nas-docker-update.sh"
   Write-Ok "Done"
 }
 

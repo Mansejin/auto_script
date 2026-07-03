@@ -2,7 +2,7 @@
 #
 # One-time setup: docs/deploy-nas-auto.md
 # Secrets: NAS_SSH_HOST, NAS_SSH_USER, NAS_SSH_KEY
-# Optional: NAS_SSH_PORT (default 22), NAS_REPO_PATH
+# Optional: NAS_SSH_PORT (default 22), NAS_REPO_PATH, NAS_SSH_PASSPHRASE
 
 name: Deploy to NAS
 
@@ -53,20 +53,30 @@ jobs:
           host: ${{ secrets.NAS_SSH_HOST }}
           username: ${{ secrets.NAS_SSH_USER }}
           key: ${{ secrets.NAS_SSH_KEY }}
-          port: ${{ secrets.NAS_SSH_PORT }}
+          passphrase: ${{ secrets.NAS_SSH_PASSPHRASE }}
+          port: ${{ secrets.NAS_SSH_PORT || 22 }}
           command_timeout: 20m
-          envs: SGB_BRANCH,NAS_REPO_PATH
+          envs: SGB_BRANCH,NAS_REPO_PATH,SGB_DOCKER_SUDO
           script: |
             set -e
             REPO="${NAS_REPO_PATH:-/volume1/docker/saenggibu}"
-            export PATH="/usr/local/bin:/var/packages/ContainerManager/target/usr/bin:/var/packages/Docker/target/usr/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+            export PATH="/usr/local/bin:/var/packages/ContainerManager/target/usr/bin:/var/packages/Docker/target/usr/bin:/var/packages/Git/target/usr/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
             export SGB_BRANCH
+            export SGB_DOCKER_SUDO="${SGB_DOCKER_SUDO:-1}"
             cd "$REPO"
+            mkdir -p scripts logs
+            # Always use latest deploy script from GitHub (avoids chicken-and-egg on first run)
+            if command -v curl >/dev/null 2>&1; then
+              curl -fsSL "https://raw.githubusercontent.com/Mansejin/auto_script/${SGB_BRANCH}/scripts/nas-docker-update.sh" \
+                -o scripts/nas-docker-update.sh || true
+            fi
             sed -i 's/\r$//' scripts/nas-docker-update.sh 2>/dev/null || true
+            chmod +x scripts/nas-docker-update.sh 2>/dev/null || true
             sh scripts/nas-docker-update.sh
         env:
           SGB_BRANCH: ${{ github.event.inputs.branch || github.ref_name }}
           NAS_REPO_PATH: ${{ secrets.NAS_REPO_PATH }}
+          SGB_DOCKER_SUDO: "1"
 
       - name: Summary
         if: steps.check.outputs.skip != 'true'

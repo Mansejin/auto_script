@@ -124,7 +124,24 @@ ensure_docker_access() {
   exit 126
 }
 
-DOCKER=$(resolve_docker)
+read_env_flag() {
+  key="$1"
+  if [ -f "$REPO_DIR/.env" ]; then
+    line=$(grep -E "^${key}=" "$REPO_DIR/.env" 2>/dev/null | tail -n 1 || true)
+    if [ -n "$line" ]; then
+      val=$(echo "${line#*=}" | tr -d '\r' | tr -d '"' | tr -d "'")
+      if [ "$val" = "1" ] || [ "$val" = "true" ] || [ "$val" = "yes" ]; then
+        echo "1"
+        return
+      fi
+    fi
+  fi
+  echo ""
+}
+
+if [ -z "$SGB_DOCKER_SUDO" ]; then
+  SGB_DOCKER_SUDO=$(read_env_flag SGB_DOCKER_SUDO)
+fi
 if [ -z "$DOCKER" ]; then
   log "ERROR: docker not found."
   log "Open DSM Container Manager and ensure it is running."
@@ -140,9 +157,6 @@ log "==> deploy start (branch=$BRANCH)"
 
 cd "$REPO_DIR" || exit 1
 
-ensure_docker_access
-log "==> docker: $DOCKER"
-
 compose_up() {
   if [ -f docker-compose.cloudflare.yml ] && grep -q '^CLOUDFLARE_TUNNEL_TOKEN=' .env 2>/dev/null; then
     $DOCKER compose -f docker-compose.yml -f docker-compose.cloudflare.yml up -d --build
@@ -152,6 +166,8 @@ compose_up() {
 }
 
 if [ "$LOGS_ONLY" = "1" ]; then
+  ensure_docker_access
+  log "==> docker: $DOCKER"
   $DOCKER compose logs -f --tail=80
   exit 0
 fi
@@ -164,10 +180,12 @@ fi
 GIT=$(resolve_git)
 log "==> git pull ($BRANCH)"
 if [ -n "$GIT" ]; then
-  "$GIT" fetch origin "$BRANCH"
+  "$GIT" fetch origin "$BRANCH" || "$GIT" fetch origin
   "$GIT" checkout "$BRANCH" 2>/dev/null || "$GIT" checkout -B "$BRANCH" "origin/$BRANCH"
-  "$GIT" pull origin "$BRANCH"
+  "$GIT" reset --hard "origin/$BRANCH"
 else
+  ensure_docker_access
+  log "==> docker: $DOCKER"
   $DOCKER run --rm \
     -v "$REPO_DIR:/git" \
     -w /git \
@@ -178,6 +196,8 @@ fi
 if [ "$NO_BUILD" = "1" ]; then
   log "==> skip rebuild (--no-build)"
 else
+  ensure_docker_access
+  log "==> docker: $DOCKER"
   log "==> docker compose up -d --build"
   compose_up
 fi

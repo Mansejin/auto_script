@@ -6,7 +6,9 @@ from io import BytesIO
 from pathlib import Path
 
 from .config import OUTPUTS_DIR, STUDENTS_DIR, ensure_data_dirs
-from .io_utils import load_json, read_table_file, save_json
+from .io_utils import read_table_file
+from .secure_io import load_secure_json, save_secure_json
+from .storage_policy import student_dict_for_disk
 from .models import StudentInput, new_id
 
 
@@ -18,7 +20,7 @@ def list_students(*, status: str | None = None) -> list[StudentInput]:
     ensure_data_dirs()
     students: list[StudentInput] = []
     for path in sorted(STUDENTS_DIR.glob("*.json")):
-        student = StudentInput.from_dict(load_json(path))
+        student = StudentInput.from_dict(load_secure_json(path))
         if status is None or student.status == status:
             students.append(student)
     students.sort(key=lambda s: (s.grade, s.class_num, s.number, s.name))
@@ -29,12 +31,12 @@ def get_student(student_id: str) -> StudentInput | None:
     path = _student_path(student_id)
     if not path.exists():
         return None
-    return StudentInput.from_dict(load_json(path))
+    return StudentInput.from_dict(load_secure_json(path))
 
 
 def save_student(student: StudentInput) -> StudentInput:
     ensure_data_dirs()
-    save_json(_student_path(student.id), student.to_dict())
+    save_secure_json(_student_path(student.id), student_dict_for_disk(student))
     return student
 
 

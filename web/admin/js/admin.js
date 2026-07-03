@@ -2,6 +2,7 @@
   "use strict";
 
   const TOKEN_KEY = "sgb_admin_token";
+  const DRAFTS_KEY = "sgb_generated_drafts";
   const configuredBase = (document.body.dataset.apiBase || "").replace(/\/$/, "");
   const API_BASE = configuredBase || window.location.origin;
   const ASSETS_BASE = (document.body.dataset.assetsBase || "").replace(/\/$/, "");
@@ -110,6 +111,8 @@
   let busyTimer = null;
   let busyStartedAt = 0;
   let systemInfo = { gemini_model: "—" };
+  let privacySettings = { store_generated: false, encrypt_data: true };
+  let usageLine = "";
 
   const busyOverlay = document.getElementById("busyOverlay");
   const busyTitle = document.getElementById("busyTitle");
@@ -173,10 +176,97 @@
     try {
       const data = await api("/api/auth/me");
       if (data.gemini_model) systemInfo.gemini_model = data.gemini_model;
+      if (data.privacy) {
+        privacySettings = {
+          store_generated: Boolean(data.privacy.store_generated),
+          encrypt_data: Boolean(data.privacy.encrypt_data),
+        };
+      }
+      updatePrivacyHint();
       return data;
     } catch {
       return null;
     }
+  }
+
+  function loadDrafts() {
+    try {
+      return JSON.parse(sessionStorage.getItem(DRAFTS_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function saveDrafts(drafts) {
+    sessionStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
+  }
+
+  function getDraft(studentId) {
+    return loadDrafts()[studentId] || null;
+  }
+
+  function setDraft(studentId, generated, status) {
+    const drafts = loadDrafts();
+    if (!generated || !Object.keys(generated).length) {
+      delete drafts[studentId];
+    } else {
+      drafts[studentId] = { generated, status: status || "done" };
+    }
+    saveDrafts(drafts);
+  }
+
+  function removeDrafts(studentIds) {
+    const drafts = loadDrafts();
+    let changed = false;
+    for (const id of studentIds) {
+      if (drafts[id]) {
+        delete drafts[id];
+        changed = true;
+      }
+    }
+    if (changed) saveDrafts(drafts);
+  }
+
+  function clearAllDrafts() {
+    sessionStorage.removeItem(DRAFTS_KEY);
+  }
+
+  function mergeStudentWithDraft(student) {
+    if (privacySettings.store_generated) return student;
+    const draft = getDraft(student.id);
+    if (!draft?.generated || !Object.keys(draft.generated).length) return student;
+    return {
+      ...student,
+      generated: draft.generated,
+      status: draft.status || student.status,
+    };
+  }
+
+  function mergeStudentsWithDrafts(students) {
+    return students.map(mergeStudentWithDraft);
+  }
+
+  function persistRunResponse(data) {
+    if (privacySettings.store_generated || !data) return;
+    if (data.mode === "single" && data.student) {
+      setDraft(data.student.id, data.student.generated, data.student.status);
+      return;
+    }
+    if (data.mode === "batch" && Array.isArray(data.results)) {
+      for (const item of data.results) {
+        if (item.generated) setDraft(item.id, item.generated, item.status);
+      }
+    }
+  }
+
+  function updatePrivacyHint() {
+    const badge = document.getElementById("usageBadge");
+    if (!badge) return;
+    const privacyPrefix = !privacySettings.store_generated
+      ? `작성본은 이 브라우저에만 보관${privacySettings.encrypt_data ? " · 메모 암호화" : ""} · `
+      : "";
+    const steps = "① 학습 → ② 설정 → ③ 학생 → ④ 작성·검토";
+    badge.textContent = usageLine ? `${privacyPrefix}${usageLine} · ${steps}` : `${privacyPrefix}${steps}`;
   }
 
   function showUploadLog(elementId, lines) {
@@ -364,6 +454,22 @@
     document.getElementById("guideBtn")?.focus();
   }
 
+  function openPrivacyModal() {
+    const modal = document.getElementById("privacyModal");
+    if (!modal) return;
+    modal.hidden = false;
+    document.body.classList.add("admin-guide-open");
+    document.getElementById("privacyCloseBtn")?.focus();
+  }
+
+  function closePrivacyModal() {
+    const modal = document.getElementById("privacyModal");
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.classList.remove("admin-guide-open");
+    document.getElementById("privacyBtn")?.focus();
+  }
+
   function getSelectedWriteSection() {
     const checked = document.querySelector('input[name="writeSection"]:checked');
     if (!checked) {
@@ -406,11 +512,11 @@
   async function loadUsage() {
     try {
       const usage = await api("/api/usage");
-      const badge = document.getElementById("usageBadge");
       const text = document.getElementById("usageText");
       const line = formatUsage(usage);
-      if (badge) badge.textContent = line ? `${line} · ① 학습 → ② 설정 → ③ 학생 → ④ 작성·검토` : badge.textContent;
+      usageLine = line || "";
       if (text) text.textContent = line || text.textContent;
+      updatePrivacyHint();
       return usage;
     } catch {
       return null;
@@ -424,13 +530,14 @@
     tbody.innerHTML = `<tr><td colspan="5">불러오는 중…</td></tr>`;
     if (toolbar) toolbar.hidden = true;
     const data = await api("/api/students");
-    if (!data.students.length) {
+    const students = mergeStudentsWithDrafts(data.students);
+    if (!students.length) {
       tbody.innerHTML = `<tr><td colspan="5" class="admin-muted">등록된 학생이 없습니다.</td></tr>`;
       selectedStudentIds.clear();
       updateStudentSelectionUi(0);
       return;
     }
-    tbody.innerHTML = data.students
+    tbody.innerHTML = students
       .map((s) => {
         const targets = formatWriteTargets(s);
         const checked = selectedStudentIds.has(s.id) ? "checked" : "";
@@ -457,7 +564,7 @@
         </tr>`;
       })
       .join("");
-    updateStudentSelectionUi(data.count);
+    updateStudentSelectionUi(students.length);
   }
 
   function updateStudentSelectionUi(totalCount = null) {
@@ -502,6 +609,7 @@
         selectedStudentIds.delete(id);
         selectedReviewIds.delete(id);
       });
+      removeDrafts(ids);
       showToast(`${ids.length}명 삭제됨`);
       await Promise.all([loadStudents(), loadReviewList()]);
     } catch (error) {
@@ -518,7 +626,9 @@
     tbody.innerHTML = `<tr><td colspan="4">불러오는 중…</td></tr>`;
     if (toolbar) toolbar.hidden = true;
     const data = await api("/api/students");
-    const reviewable = data.students.filter((s) => s.status === "done" || Object.keys(s.generated || {}).length);
+    const reviewable = mergeStudentsWithDrafts(data.students).filter(
+      (s) => s.status === "done" || s.status === "partial" || Object.keys(s.generated || {}).length
+    );
     if (!reviewable.length) {
       tbody.innerHTML = `<tr><td colspan="4" class="admin-muted">아직 작성된 생기부가 없습니다. ④에서 일괄 작성을 실행하세요.</td></tr>`;
       selectedReviewIds.clear();
@@ -586,6 +696,7 @@
         await api("/api/students/bulk-reset-generated", { method: "POST", body: { ids } });
       }
       ids.forEach((id) => selectedReviewIds.delete(id));
+      removeDrafts(ids);
       showToast(`${ids.length}명 작성본 삭제됨`);
       await Promise.all([loadStudents(), loadReviewList()]);
     } catch (error) {
@@ -599,10 +710,37 @@
     const token = getToken();
     let response;
     try {
-      response = await fetch(`${API_BASE}/api/students/export/xlsx`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-    } catch {
+      if (privacySettings.store_generated) {
+        response = await fetch(`${API_BASE}/api/students/export/xlsx`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+      } else {
+        const data = await api("/api/students");
+        const students = mergeStudentsWithDrafts(data.students)
+          .filter((s) => Object.keys(s.generated || {}).length)
+          .map((s) => ({
+            id: s.id,
+            name: s.name,
+            grade: s.grade,
+            class_num: s.class_num,
+            number: s.number,
+            status: s.status,
+            generated: s.generated,
+          }));
+        if (!students.length) {
+          throw new Error("보낼 작성본이 없습니다. ④에서 작성을 실행하세요.");
+        }
+        response = await fetch(`${API_BASE}/api/students/export/xlsx`, {
+          method: "POST",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ students }),
+        });
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message) throw error;
       throw new Error("API 서버에 연결할 수 없습니다.");
     }
     if (!response.ok) {
@@ -878,11 +1016,14 @@
   async function showStudent(id, fromTab = "review") {
     currentStudentId = id;
     lastTabBeforeDetail = fromTab;
-    const student = await api(`/api/students/${id}`);
+    const student = mergeStudentWithDraft(await api(`/api/students/${id}`));
     currentStudentData = student;
     switchTab("detail");
     document.getElementById("detailTitle").textContent = studentLabel(student);
-    document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(student.status)}`;
+    const privacyNote = privacySettings.store_generated
+      ? ""
+      : ' <span class="admin-muted">· 작성본은 이 브라우저에만 저장됩니다</span>';
+    document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(student.status)}${privacyNote}`;
     buildDetailEditor(student.generated || {});
   }
 
@@ -937,11 +1078,14 @@
           `${section} 작성`,
           `${studentName} · ${sectionLabel}`,
           "완료될 때까지 기다려 주세요.",
-          () =>
-            api("/api/run", {
+          async () => {
+            const result = await api("/api/run", {
               method: "POST",
               body: { student_id: id, sections: [section] },
-            })
+            });
+            persistRunResponse(result);
+            return result;
+          }
         );
         showToast("작성 완료");
         await Promise.all([loadStudents(), loadReviewList(), loadUsage()]);
@@ -995,6 +1139,7 @@
       const result = await api("/api/students", { method: "DELETE" });
       selectedStudentIds.clear();
       selectedReviewIds.clear();
+      clearAllDrafts();
       showToast(`${result.count || count}명 전체 삭제됨`);
       await Promise.all([loadStudents(), loadReviewList()]);
     } catch (error) {
@@ -1043,7 +1188,7 @@
 
   document.getElementById("resetAllReviewBtn")?.addEventListener("click", async () => {
     const data = await api("/api/students");
-    const count = data.students.filter((s) => Object.keys(s.generated || {}).length).length;
+    const count = mergeStudentsWithDrafts(data.students).filter((s) => Object.keys(s.generated || {}).length).length;
     if (!count) {
       showToast("삭제할 작성본이 없습니다.");
       return;
@@ -1056,6 +1201,7 @@
     try {
       const result = await api("/api/students/generated/all", { method: "DELETE" });
       selectedReviewIds.clear();
+      clearAllDrafts();
       showToast(`${result.count || count}건 작성본 삭제됨`);
       await Promise.all([loadStudents(), loadReviewList()]);
     } catch (error) {
@@ -1084,8 +1230,13 @@
         method: "PATCH",
         body: { generated },
       });
-      currentStudentData = updated;
-      showToast("저장됨");
+      if (!privacySettings.store_generated) {
+        setDraft(currentStudentId, generated, updated.status);
+        currentStudentData = mergeStudentWithDraft(updated);
+      } else {
+        currentStudentData = updated;
+      }
+      showToast(privacySettings.store_generated ? "저장됨" : "이 브라우저에 저장됨");
     } catch (error) {
       showToast(error.message);
     }
@@ -1379,6 +1530,7 @@
             body: { sections: [section], limit },
           })
       );
+      persistRunResponse(data);
       const errCount = (data.errors || []).length;
       const msg = data.message || `완료 ${data.processed || 0}명${errCount ? `, 오류 ${errCount}건` : ""}`;
       showToast(msg);
@@ -1406,10 +1558,15 @@
   document.getElementById("guideModal")?.addEventListener("click", (event) => {
     if (event.target.id === "guideModal") closeGuideModal();
   });
+  document.getElementById("privacyBtn")?.addEventListener("click", openPrivacyModal);
+  document.getElementById("privacyCloseBtn")?.addEventListener("click", closePrivacyModal);
+  document.getElementById("privacyModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "privacyModal") closePrivacyModal();
+  });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !document.getElementById("guideModal")?.hidden) {
-      closeGuideModal();
-    }
+    if (event.key !== "Escape") return;
+    if (!document.getElementById("guideModal")?.hidden) closeGuideModal();
+    if (!document.getElementById("privacyModal")?.hidden) closePrivacyModal();
   });
 
   document.getElementById("studentWriteTargets")?.addEventListener("change", (event) => {

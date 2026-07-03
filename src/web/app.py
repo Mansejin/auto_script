@@ -43,6 +43,12 @@ def create_app() -> FastAPI:
         def admin_page() -> FileResponse:
             return FileResponse(ADMIN_STATIC / "index.html")
 
+        privacy_doc = ROOT / "docs" / "privacy-policy.md"
+
+        @app.get("/docs/privacy-policy.md")
+        def privacy_policy() -> FileResponse:
+            return FileResponse(privacy_doc, media_type="text/markdown; charset=utf-8")
+
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}

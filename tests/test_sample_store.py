@@ -22,6 +22,7 @@ def samples_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     path = tmp_path / "samples"
     path.mkdir()
     monkeypatch.setattr(sample_store, "SAMPLES_DIR", path)
+    monkeypatch.setenv("SGB_ENCRYPT_DATA", "0")
     return path
 
 

@@ -863,6 +863,19 @@ body.admin-guide-open {
   margin-top: 6px;
 }
 
+.admin-privacy-card {
+  max-width: 36rem;
+}
+
+.admin-privacy-body h3 {
+  margin: 16px 0 8px;
+  font-size: 0.9375rem;
+}
+
+.admin-privacy-body h3:first-of-type {
+  margin-top: 8px;
+}
+
 .admin-subheading {
   font-size: 0.9375rem;
   font-weight: 600;

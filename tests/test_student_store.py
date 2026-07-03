@@ -27,6 +27,8 @@ def students_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     outputs.mkdir(parents=True)
     monkeypatch.setattr("src.saenggibu.student_store.STUDENTS_DIR", root)
     monkeypatch.setattr("src.saenggibu.student_store.OUTPUTS_DIR", outputs)
+    monkeypatch.setenv("SGB_STORE_GENERATED", "1")
+    monkeypatch.setenv("SGB_ENCRYPT_DATA", "0")
     return root
 
 

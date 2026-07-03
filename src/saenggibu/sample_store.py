@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 
 from .config import SAMPLES_DIR, ensure_data_dirs
-from .io_utils import load_json, read_table_file, save_json
+from .io_utils import read_table_file
+from .secure_io import load_secure_json, save_secure_json
 from .models import SampleRecord, new_id
 from .document_import import parse_docx_records, parse_xlsx_records
 
@@ -17,11 +18,11 @@ def _load_index() -> list[dict]:
     path = _index_path()
     if not path.exists():
         return []
-    return load_json(path)
+    return load_secure_json(path)
 
 
 def _save_index(items: list[dict]) -> None:
-    save_json(_index_path(), items)
+    save_secure_json(_index_path(), items)
 
 
 def _sample_json_path(sample_id: str) -> Path:
@@ -51,7 +52,7 @@ def _resolve_sample_dict(item: dict) -> dict | None:
     json_path = _sample_json_path(sample_id)
     if json_path.exists():
         try:
-            return load_json(json_path)
+            return load_secure_json(json_path)
         except (json.JSONDecodeError, OSError):
             pass
     if _has_sections_content(item):
@@ -98,7 +99,7 @@ def add_sample(record: SampleRecord) -> SampleRecord:
     items = _load_index()
     items.append(record.to_dict())
     _save_index(items)
-    save_json(SAMPLES_DIR / f"{record.id}.json", record.to_dict())
+    save_secure_json(SAMPLES_DIR / f"{record.id}.json", record.to_dict())
     return record
 
 
@@ -140,7 +141,7 @@ def delete_all_samples() -> int:
 
 
 def import_json_file(path: Path) -> SampleRecord:
-    data = load_json(path)
+    data = load_secure_json(path)
     if isinstance(data, list):
         raise ValueError("JSON 배열은 import-dir로 처리하세요. 단일 객체 파일만 지원합니다.")
     record = SampleRecord.from_dict(data)

@@ -10,7 +10,8 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from src.saenggibu.config import get_gemini_model
+from src.saenggibu.data_crypto import encrypt_data_enabled
+from src.saenggibu.storage_policy import store_generated_on_server
 from src.saenggibu.generator import generate_for_student, run_batch
 from src.saenggibu.models import StudentInput
 from src.saenggibu.pattern_analyzer import analyze_and_save, load_patterns, update_style_guide
@@ -94,6 +95,20 @@ class StudentUpdateRequest(BaseModel):
     status: str | None = None
 
 
+class StudentExportItem(BaseModel):
+    id: str = ""
+    name: str = ""
+    grade: int = 1
+    class_num: int = 1
+    number: int = 1
+    status: str = "pending"
+    generated: dict[str, Any] = Field(default_factory=dict)
+
+
+class StudentExportRequest(BaseModel):
+    students: list[StudentExportItem] = Field(default_factory=list)
+
+
 def _extract_token(request: Request) -> str:
     auth = request.headers.get("authorization", "")
     if auth.lower().startswith("bearer "):
@@ -134,6 +149,10 @@ def auth_me(session: AdminSession = Depends(require_admin)) -> dict[str, Any]:
         "admin": True,
         "usage": usage_summary(),
         "gemini_model": get_gemini_model(),
+        "privacy": {
+            "store_generated": store_generated_on_server(),
+            "encrypt_data": encrypt_data_enabled(),
+        },
     }
 
 
@@ -234,12 +253,46 @@ def api_students_list(status: str | None = None, _: AdminSession = Depends(requi
 
 
 @router.get("/students/export/xlsx")
-def api_students_export_xlsx(_: AdminSession = Depends(require_admin)) -> Response:
+def api_students_export_xlsx_get(_: AdminSession = Depends(require_admin)) -> Response:
     students = list_students()
     if not students:
         raise HTTPException(status_code=404, detail="보낼 학생이 없습니다.")
     if not any(s.generated for s in students):
+        raise HTTPException(
+            status_code=404,
+            detail="서버에 저장된 작성본이 없습니다. 브라우저에 있는 초안으로내려면 POST를 사용하세요.",
+        )
+    return _build_xlsx_response(students)
+
+
+@router.post("/students/export/xlsx")
+def api_students_export_xlsx_post(
+    payload: StudentExportRequest,
+    _: AdminSession = Depends(require_admin),
+) -> Response:
+    if not payload.students:
+        raise HTTPException(status_code=400, detail="보낼 학생 데이터가 없습니다.")
+    students: list[StudentInput] = []
+    for item in payload.students:
+        if not item.generated:
+            continue
+        students.append(
+            StudentInput(
+                id=item.id or "export",
+                name=item.name,
+                grade=item.grade,
+                class_num=item.class_num,
+                number=item.number,
+                status=item.status,
+                generated=item.generated,
+            )
+        )
+    if not students:
         raise HTTPException(status_code=404, detail="작성된 생기부가 없습니다.")
+    return _build_xlsx_response(students)
+
+
+def _build_xlsx_response(students: list[StudentInput]) -> Response:
     from datetime import datetime, timezone
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
@@ -329,17 +382,26 @@ def api_student_update(
     student = get_student(student_id)
     if not student:
         raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
+    response_generated = student.generated
     if payload.generated is not None:
-        student.generated = payload.generated
+        if store_generated_on_server():
+            student.generated = payload.generated
+        response_generated = payload.generated
     if payload.notes is not None:
         student.notes = payload.notes
     if payload.subjects is not None:
         student.subjects = payload.subjects
     if payload.changche is not None:
         student.changche = payload.changche
-    if payload.status is not None:
+    if payload.status is not None and store_generated_on_server():
         student.status = payload.status
-    return save_student(student).to_dict()
+    saved = save_student(student)
+    data = saved.to_dict()
+    if not store_generated_on_server():
+        data["generated"] = response_generated
+        if response_generated:
+            data["status"] = payload.status or ("done" if response_generated else saved.status)
+    return data
 
 
 @router.post("/students/import")

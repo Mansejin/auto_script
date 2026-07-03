@@ -6,8 +6,10 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .config import OUTPUTS_DIR, ensure_data_dirs
+from .curriculum import find_relevant_standards, format_curriculum_context
 from .gemini_client import generate_text
 from .subject_info import format_setuk_prompt_context
+from .storage_policy import store_generated_on_server
 from .io_utils import save_json
 from .models import StudentInput
 from .pattern_analyzer import analyze_and_save, load_patterns
@@ -58,11 +60,15 @@ def _generate_haengbal(student: StudentInput, style_guide: str) -> str:
 
 def _generate_setuk(student: StudentInput, subject: str, info: dict[str, Any], style_guide: str) -> str:
     context = format_setuk_prompt_context(subject, info)
+    standards = find_relevant_standards(subject, info, limit=3)
+    curriculum_block = format_curriculum_context(standards)
+    curriculum_section = f"\n{curriculum_block}\n" if curriculum_block else ""
     user = (
         f"## 스타일 가이드\n{style_guide}\n\n"
         f"## 학생 정보\n"
         f"- 학년/반/번호: {student.grade}-{student.class_num}-{student.number}\n"
-        f"{context}\n\n"
+        f"{context}"
+        f"{curriculum_section}\n"
         f"위 정보를 바탕으로 **{subject} 세부능력 및 특기사항**을 작성하세요. "
         "비어 있는 항목(진로·수행평가 형식·주제)은 언급하지 마세요."
     )
@@ -127,12 +133,16 @@ def generate_for_student(
         student.status = "done" if student_sections_complete(student) else "partial"
         save_student(student)
         record_generation()
-        _export_student_output(student)
+        if store_generated_on_server():
+            _export_student_output(student)
         return student
     except Exception as exc:
         student.status = "error"
         student.error_message = str(exc)
-        student.generated = generated
+        if store_generated_on_server():
+            student.generated = generated
+        else:
+            student.generated = {}
         save_student(student)
         raise
 
@@ -166,7 +176,14 @@ def run_batch(
     for student in students:
         try:
             updated = generate_for_student(student, sections=sections, progress=progress)
-            results.append({"id": updated.id, "name": updated.display_name, "status": updated.status})
+            item: dict[str, Any] = {
+                "id": updated.id,
+                "name": updated.display_name,
+                "status": updated.status,
+            }
+            if not store_generated_on_server():
+                item["generated"] = updated.generated
+            results.append(item)
         except Exception as exc:
             errors.append({"id": student.id, "name": student.display_name, "error": str(exc)})
             if not continue_on_error:

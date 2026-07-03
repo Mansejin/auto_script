@@ -10,7 +10,7 @@
 #>
 param(
   [Parameter(Position = 0)]
-  [ValidateSet("setup", "connect", "update", "logs", "map", "unmap", "status", "fix-ssh", "install-key", "sync-ui")]
+  [ValidateSet("setup", "connect", "update", "deploy", "logs", "map", "unmap", "status", "fix-ssh", "install-key", "sync-ui")]
   [string]$Command = "connect",
 
   [ValidateSet("remote", "local")]
@@ -334,7 +334,7 @@ function Sync-NasDeployScripts([hashtable]$Cfg) {
     New-Item -ItemType Directory -Path $destDir | Out-Null
   }
 
-  $files = @("nas-docker-update.sh", "nas-cleanup-example-samples.sh")
+  $files = @("nas-docker-update.sh", "nas-cleanup-example-samples.sh", "nas-scheduled-pull.sh")
   foreach ($name in $files) {
     $src = Join-Path $Root "scripts\$name"
     if (-not (Test-Path $src)) { continue }
@@ -369,6 +369,14 @@ function Sync-NasAdminUi([hashtable]$Cfg) {
   Write-Ok "Synced admin UI -> $dest"
   Write-Host "  Browser: Ctrl+F5 on sgb.mansejin.com"
   return $true
+}
+
+function Invoke-NasDeploy {
+  $cfg = Get-NasConfig
+  Write-Info "Full deploy: sync UI (SMB) + NAS pull/rebuild (SSH)..."
+  Sync-NasAdminUi $cfg | Out-Null
+  Invoke-NasUpdate
+  Write-Ok "Deploy complete. For auto deploy on git push, see docs/deploy-nas-auto.md"
 }
 
 function Invoke-NasUpdate {
@@ -531,6 +539,7 @@ try {
     "setup" { Invoke-NasSetup }
     "connect" { Invoke-NasConnect }
     "update" { Invoke-NasUpdate }
+    "deploy" { Invoke-NasDeploy }
     "logs" { Invoke-NasLogs }
     "map" { Invoke-NasMap }
     "unmap" { Invoke-NasUnmap }

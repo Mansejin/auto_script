@@ -1,0 +1,73 @@
+# Push to GitHub -> SSH into Synology NAS -> git pull + docker rebuild
+#
+# One-time setup: docs/deploy-nas-auto.md
+# Secrets: NAS_SSH_HOST, NAS_SSH_USER, NAS_SSH_KEY
+# Optional: NAS_SSH_PORT (default 22), NAS_REPO_PATH
+
+name: Deploy to NAS
+
+on:
+  push:
+    branches: [main, cursor/saenggibu-writer-5821]
+    paths-ignore:
+      - "docs/**"
+      - "deploy/tools-site-admin/**"
+      - "changes/**"
+      - "prompts/**"
+      - "*.md"
+      - ".cursor/**"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to deploy (empty = branch that triggered workflow)"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-nas
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check NAS SSH secrets
+        run: |
+          if [ -z "${{ secrets.NAS_SSH_HOST }}" ] || [ -z "${{ secrets.NAS_SSH_USER }}" ] || [ -z "${{ secrets.NAS_SSH_KEY }}" ]; then
+            echo "::warning::NAS SSH secrets not set — skipping deploy (see docs/deploy-nas-auto.md)"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+        id: check
+
+      - name: Resolve deploy branch
+        if: steps.check.outputs.skip != 'true'
+        run: echo "Deploy branch will be ${{ github.event.inputs.branch || github.ref_name }}"
+
+      - name: Deploy via SSH
+        if: steps.check.outputs.skip != 'true'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.NAS_SSH_HOST }}
+          username: ${{ secrets.NAS_SSH_USER }}
+          key: ${{ secrets.NAS_SSH_KEY }}
+          port: ${{ secrets.NAS_SSH_PORT }}
+          command_timeout: 20m
+          envs: SGB_BRANCH,NAS_REPO_PATH
+          script: |
+            set -e
+            REPO="${NAS_REPO_PATH:-/volume1/docker/saenggibu}"
+            export PATH="/usr/local/bin:/var/packages/ContainerManager/target/usr/bin:/var/packages/Docker/target/usr/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+            export SGB_BRANCH
+            cd "$REPO"
+            sed -i 's/\r$//' scripts/nas-docker-update.sh 2>/dev/null || true
+            sh scripts/nas-docker-update.sh
+        env:
+          SGB_BRANCH: ${{ github.event.inputs.branch || github.ref_name }}
+          NAS_REPO_PATH: ${{ secrets.NAS_REPO_PATH }}
+
+      - name: Summary
+        if: steps.check.outputs.skip != 'true'
+        run: echo "NAS deploy finished for branch ${{ github.event.inputs.branch || github.ref_name }}"

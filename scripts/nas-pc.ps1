@@ -159,7 +159,10 @@ function Invoke-NasConnect {
   Ensure-OpenSsh
   Install-AllSshConfigs $cfg
   Write-Info "Connecting [$($profile.Label)]: ssh $($profile.Alias) ($($profile.Host))"
-  ssh $profile.Alias
+  ssh -o ConnectTimeout=10 $profile.Alias
+  if ($LASTEXITCODE -ne 0) {
+    throw "SSH failed (code $LASTEXITCODE). Check DSM SSH, IP $($profile.Host), password/key."
+  }
 }
 
 function Invoke-NasRemote([string]$RemoteCommand) {
@@ -247,12 +250,18 @@ function Invoke-NasStatus {
 
 Set-Location $Root
 
-switch ($Command) {
-  "setup" { Invoke-NasSetup }
-  "connect" { Invoke-NasConnect }
-  "update" { Invoke-NasUpdate }
-  "logs" { Invoke-NasLogs }
-  "map" { Invoke-NasMap }
-  "unmap" { Invoke-NasUnmap }
-  "status" { Invoke-NasStatus }
+try {
+  switch ($Command) {
+    "setup" { Invoke-NasSetup }
+    "connect" { Invoke-NasConnect }
+    "update" { Invoke-NasUpdate }
+    "logs" { Invoke-NasLogs }
+    "map" { Invoke-NasMap }
+    "unmap" { Invoke-NasUnmap }
+    "status" { Invoke-NasStatus }
+  }
+} catch {
+  Write-Host ""
+  Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red
+  exit 1
 }

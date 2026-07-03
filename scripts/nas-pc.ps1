@@ -199,7 +199,7 @@ Then log in to DSM once as $user and retry install-key.
   Invoke-FixSshPerms
 
   Write-Info "Testing passwordless SSH..."
-  if (Test-SshProfile $cfg $Profile) {
+  if (Test-SshProfile $cfg $script:NasProfile) {
     Write-Ok "Key login OK for $($profile.Label)"
   } else {
     Write-Warn "Key test failed. On DSM: Control Panel - Terminal - enable SSH key auth if available."
@@ -236,24 +236,24 @@ function Install-AllSshConfigs([hashtable]$Cfg) {
 }
 
 function Build-SshArgs([hashtable]$Cfg) {
-  $args = @("-o", "ConnectTimeout=15", "-p", $Cfg["NAS_SSH_PORT"])
+  $sshOpts = @("-o", "ConnectTimeout=15", "-p", $Cfg["NAS_SSH_PORT"])
   if ($Cfg["NAS_SSH_KEY"]) {
-    $args += @("-i", $Cfg["NAS_SSH_KEY"])
+    $sshOpts += @("-i", $Cfg["NAS_SSH_KEY"])
   }
-  return $args
+  return $sshOpts
 }
 
-function Invoke-NasSsh([hashtable]$Cfg, [hashtable]$Profile, [string]$RemoteCommand) {
-  $target = "$($Cfg['NAS_USER'])@$($Profile.Host)"
-  $sshArgs = Build-SshArgs $Cfg
-  Write-Info "SSH [$($Profile.Label)]: $target"
+function Invoke-NasSsh([hashtable]$Cfg, [hashtable]$Target, [string]$RemoteCommand) {
+  $hostAddr = "$($Cfg['NAS_USER'])@$($Target.Host)"
+  $sshOpts = Build-SshArgs $Cfg
+  Write-Info "SSH [$($Target.Label)]: $hostAddr"
   if ($RemoteCommand) {
-    & ssh @sshArgs $target $RemoteCommand
+    & ssh @sshOpts $hostAddr $RemoteCommand
   } else {
-    & ssh @sshArgs $target
+    & ssh @sshOpts $hostAddr
   }
   if ($LASTEXITCODE -ne 0) {
-    throw "SSH failed (code $LASTEXITCODE) to $($Profile.Host)"
+    throw "SSH failed (code $LASTEXITCODE) to $($Target.Host)"
   }
 }
 
@@ -294,19 +294,64 @@ function Invoke-NasRemote([string]$RemoteCommand) {
   Invoke-NasSsh $cfg $profile $RemoteCommand
 }
 
+function Find-NasMappedRepo([hashtable]$Cfg) {
+  $letters = @($Cfg["NAS_DRIVE_LETTER"].TrimEnd(":").ToUpper())
+  $letters += @("T", "Y", "Z", "X", "W", "V", "U", "S")
+  $seen = @{}
+  foreach ($letter in $letters) {
+    if (-not $letter -or $letter.Length -ne 1) { continue }
+    if ($seen.ContainsKey($letter)) { continue }
+    $seen[$letter] = $true
+    $repo = "${letter}:\saenggibu"
+    if (Test-Path $repo) { return $repo }
+  }
+  return $null
+}
+
+function Sync-NasDeployScripts([hashtable]$Cfg) {
+  $mappedRepo = Find-NasMappedRepo $Cfg
+  if (-not $mappedRepo) {
+    Write-Warn "SMB drive not mapped (no X:\saenggibu). Run: .\scripts\nas-pc.ps1 map -Profile local"
+    return $false
+  }
+
+  $destDir = Join-Path $mappedRepo "scripts"
+  if (-not (Test-Path $destDir)) {
+    New-Item -ItemType Directory -Path $destDir | Out-Null
+  }
+
+  $files = @("nas-docker-update.sh", "nas-cleanup-example-samples.sh")
+  foreach ($name in $files) {
+    $src = Join-Path $Root "scripts\$name"
+    if (-not (Test-Path $src)) { continue }
+    Copy-Item $src (Join-Path $destDir $name) -Force
+  }
+
+  Write-Ok "Synced deploy scripts -> $destDir"
+  return $true
+}
+
+function Get-NasRemotePathPrefix {
+  return 'export PATH="/usr/local/bin:/var/packages/ContainerManager/target/usr/bin:/var/packages/Docker/target/usr/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"'
+}
+
 function Invoke-NasUpdate {
   $cfg = Get-NasConfig
   $repo = $cfg["NAS_REPO_PATH"]
   $profile = Resolve-NasProfile $cfg $script:NasProfile
   Write-Info "NAS update [$($profile.Label)] -> $($profile.Host)..."
-  Invoke-NasRemote "cd '$repo' && sh scripts/nas-docker-update.sh"
+  Sync-NasDeployScripts $cfg | Out-Null
+  $pathPrefix = Get-NasRemotePathPrefix
+  Invoke-NasRemote "${pathPrefix}; cd '$repo' && sh scripts/nas-docker-update.sh"
   Write-Ok "Done"
 }
 
 function Invoke-NasLogs {
   $cfg = Get-NasConfig
   $repo = $cfg["NAS_REPO_PATH"]
-  Invoke-NasRemote "cd '$repo' && docker compose logs -f --tail=80"
+  Sync-NasDeployScripts $cfg | Out-Null
+  $pathPrefix = Get-NasRemotePathPrefix
+  Invoke-NasRemote "${pathPrefix}; cd '$repo' && sh scripts/nas-docker-update.sh --logs-only"
 }
 
 function Get-FreeDriveLetter([string[]]$Prefer) {
@@ -353,10 +398,10 @@ function Invoke-NasUnmap {
 }
 
 function Test-SshProfile([hashtable]$Cfg, [string]$ProfileName) {
-  $profile = Resolve-NasProfile $Cfg $ProfileName
-  $sshArgs = Build-SshArgs $Cfg
-  $target = "$($Cfg['NAS_USER'])@$($profile.Host)"
-  & ssh @sshArgs -o BatchMode=yes $target "echo ok" 2>$null
+  $target = Resolve-NasProfile $Cfg $ProfileName
+  $sshOpts = Build-SshArgs $Cfg
+  $hostAddr = "$($Cfg['NAS_USER'])@$($target.Host)"
+  & ssh @sshOpts -o BatchMode=yes $hostAddr "echo ok" 2>$null
   return ($LASTEXITCODE -eq 0)
 }
 

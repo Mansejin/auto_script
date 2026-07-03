@@ -204,11 +204,28 @@ log "==> deploy start (branch=$BRANCH)"
 cd "$REPO_DIR" || exit 1
 
 compose_up() {
+  files="-f docker-compose.yml"
+  use_cf=0
   if [ -f docker-compose.cloudflare.yml ] && grep -q '^CLOUDFLARE_TUNNEL_TOKEN=' .env 2>/dev/null; then
-    $DOCKER compose -f docker-compose.yml -f docker-compose.cloudflare.yml up -d --build
-  else
-    $DOCKER compose up -d --build
+    files="$files -f docker-compose.cloudflare.yml"
+    use_cf=1
   fi
+
+  # Orphaned named containers block compose recreate (common after manual/docker updates)
+  if [ "$use_cf" = "1" ] && $DOCKER container inspect saenggibu-tunnel >/dev/null 2>&1; then
+    log "==> remove stale saenggibu-tunnel (will recreate)"
+    $DOCKER rm -f saenggibu-tunnel 2>/dev/null || true
+  fi
+  if $DOCKER container inspect saenggibu-api >/dev/null 2>&1; then
+    running=$($DOCKER inspect -f '{{.State.Running}}' saenggibu-api 2>/dev/null || echo false)
+    if [ "$running" != "true" ]; then
+      log "==> remove stopped saenggibu-api"
+      $DOCKER rm -f saenggibu-api 2>/dev/null || true
+    fi
+  fi
+
+  # shellcheck disable=SC2086
+  $DOCKER compose $files up -d --build
 }
 
 if [ "$LOGS_ONLY" = "1" ]; then

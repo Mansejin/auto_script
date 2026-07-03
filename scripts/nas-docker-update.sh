@@ -142,6 +142,8 @@ read_env_flag() {
 if [ -z "$SGB_DOCKER_SUDO" ]; then
   SGB_DOCKER_SUDO=$(read_env_flag SGB_DOCKER_SUDO)
 fi
+
+DOCKER=$(resolve_docker)
 if [ -z "$DOCKER" ]; then
   log "ERROR: docker not found."
   log "Open DSM Container Manager and ensure it is running."

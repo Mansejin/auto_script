@@ -17,16 +17,28 @@ GitHub 서버가 집 나스에 직접 못 들어와도 **나스가 밖으로 나
 
 ### 한 번만 설정
 
-1. DSM → **제어판** → **작업 스케줄러** → **생성** → **예약된 작업** → **사용자 정의 스크립트**
-2. **일반**: 이름 `saenggibu-auto-pull`, 사용자 **`root`**
-3. **일정**: **매 10분** (`0,10,20,30,40,50` 분 — DSM UI에 맞게 설정)
-4. **작업 설정** → 스크립트:
+**중요:** DSM 작업은 repo 안의 `nas-docker-update.sh` 를 **직접 실행하지 마세요** (SMB로 더러워진 옛 파일). 아래 `nas-dsm-task.sh` 를 사용합니다.
+
+1. 나스에 파일 복사 (PC `git pull` 후 탐색기 `K:\saenggibu\scripts\nas-dsm-task.sh` 복사되게 deploy 1회 성공 후, 또는 SSH):
 
 ```bash
-/volume1/docker/saenggibu/scripts/nas-scheduled-pull.sh
+curl -fsSL https://raw.githubusercontent.com/Mansejin/auto_script/cursor/saenggibu-writer-5821/scripts/nas-dsm-task.sh \
+  -o /volume1/docker/saenggibu/scripts/nas-dsm-task.sh
+chmod +x /volume1/docker/saenggibu/scripts/nas-dsm-task.sh
 ```
 
-> 스크립트가 없으면 PC에서 한 번만: `.\scripts\nas-pc.ps1 update -Profile local`
+2. **더러운 git 한 번 정리** (merge 오류 났을 때만):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Mansejin/auto_script/cursor/saenggibu-writer-5821/scripts/nas-one-time-git-reset.sh | sh
+```
+
+3. DSM → **작업 스케줄러** → `saenggibu-auto-pull` → 사용자 **`root`**
+4. **작업 설정** 스크립트:
+
+```bash
+sh /volume1/docker/saenggibu/scripts/nas-dsm-task.sh
+```
 
 5. 나스 `.env` (선택):
 

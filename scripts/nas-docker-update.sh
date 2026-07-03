@@ -95,21 +95,35 @@ resolve_docker() {
 }
 
 resolve_git() {
-  if command -v git >/dev/null 2>&1; then
-    command -v git
-    return
-  fi
   for candidate in \
     /usr/bin/git \
     /usr/local/bin/git \
-    /var/packages/Git/target/usr/bin/git
+    /var/packages/Git/target/usr/bin/git \
+    /var/packages/Git/target/bin/git
   do
     if [ -x "$candidate" ]; then
       echo "$candidate"
       return
     fi
   done
+  if command -v git >/dev/null 2>&1; then
+    command -v git
+    return
+  fi
   echo ""
+}
+
+git_sync_deploy() {
+  GIT=$(resolve_git)
+  if [ -z "$GIT" ]; then
+    log "ERROR: git not found. DSM Package Center -> install Git."
+    exit 1
+  fi
+  log "==> git sync ($BRANCH) via $GIT"
+  "$GIT" fetch origin "$BRANCH" || "$GIT" fetch origin
+  "$GIT" clean -fd -e .env -e logs
+  "$GIT" reset --hard "origin/$BRANCH"
+  log "==> git at $("$GIT" rev-parse --short HEAD)"
 }
 
 docker_can_run() {
@@ -174,6 +188,25 @@ log "==> deploy start (branch=$BRANCH)"
 
 cd "$REPO_DIR" || exit 1
 
+# Download latest script from GitHub and re-exec once (fixes SMB / old script on NAS)
+if [ -z "$SGB_SCRIPT_BOOTSTRAPPED" ] && command -v curl >/dev/null 2>&1; then
+  if curl -fsSL "https://raw.githubusercontent.com/Mansejin/auto_script/${BRANCH}/scripts/nas-docker-update.sh" \
+    -o scripts/nas-docker-update.sh.tmp; then
+    sed -i 's/\r$//' scripts/nas-docker-update.sh.tmp 2>/dev/null || true
+    mv -f scripts/nas-docker-update.sh.tmp scripts/nas-docker-update.sh
+    chmod +x scripts/nas-docker-update.sh 2>/dev/null || true
+    export SGB_SCRIPT_BOOTSTRAPPED=1
+    exec env \
+      SGB_SCRIPT_BOOTSTRAPPED=1 \
+      SGB_BRANCH="${SGB_BRANCH:-}" \
+      SGB_DOCKER_SUDO="${SGB_DOCKER_SUDO:-}" \
+      NAS_SUDO_PASSWORD="${NAS_SUDO_PASSWORD:-}" \
+      SGB_DEPLOY_AS_ROOT="${SGB_DEPLOY_AS_ROOT:-}" \
+      sh scripts/nas-docker-update.sh "$@"
+  fi
+  rm -f scripts/nas-docker-update.sh.tmp
+fi
+
 compose_up() {
   if [ -f docker-compose.cloudflare.yml ] && grep -q '^CLOUDFLARE_TUNNEL_TOKEN=' .env 2>/dev/null; then
     $DOCKER compose -f docker-compose.yml -f docker-compose.cloudflare.yml up -d --build
@@ -194,24 +227,7 @@ if [ ! -d .git ]; then
   exit 1
 fi
 
-GIT=$(resolve_git)
-log "==> git sync ($BRANCH)"
-if [ -n "$GIT" ]; then
-  "$GIT" fetch origin "$BRANCH" || "$GIT" fetch origin
-  # SMB sync-ui / script copy leaves local changes — NAS deploy always matches GitHub
-  "$GIT" clean -fd -e .env -e logs
-  "$GIT" checkout -B "$BRANCH" "origin/$BRANCH" -f
-  "$GIT" reset --hard "origin/$BRANCH"
-  log "==> git at $( "$GIT" rev-parse --short HEAD )"
-else
-  ensure_docker_access
-  log "==> docker: $DOCKER"
-  $DOCKER run --rm \
-    -v "$REPO_DIR:/git" \
-    -w /git \
-    "$GIT_IMAGE" \
-    pull origin "$BRANCH"
-fi
+git_sync_deploy
 
 if [ "$NO_BUILD" = "1" ]; then
   log "==> skip rebuild (--no-build)"

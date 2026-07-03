@@ -400,14 +400,14 @@ function Build-NasRemoteExports([hashtable]$Cfg) {
 function Build-NasUpdateRemote([hashtable]$Cfg, [string]$Repo) {
   $pathPrefix = Get-NasRemotePathPrefix
   $remoteEnv = Build-NasRemoteExports $Cfg
-  $run = "cd '$Repo' && sed -i 's/\r$//' scripts/nas-docker-update.sh 2>/dev/null; sh scripts/nas-docker-update.sh"
+  $run = "cd '$Repo' && sh scripts/nas-docker-update.sh"
   return "${pathPrefix}; ${remoteEnv}; $run"
 }
 
 function Invoke-NasDeploy {
   $cfg = Get-NasConfig
   Write-Info "Deploy: NAS git pull + docker rebuild (SSH)..."
-  Write-Info "UI is included via git — use sync-ui only for emergency hotfix"
+  Write-Info "UI comes from git. sync-ui only for emergency hotfix."
   Invoke-NasUpdate
   Write-Ok "Deploy complete. Browser: Ctrl+F5 on sgb.mansejin.com"
 }
@@ -417,7 +417,6 @@ function Invoke-NasUpdate {
   $repo = $cfg["NAS_REPO_PATH"]
   $profile = Resolve-NasProfile $cfg $script:NasProfile
   Write-Info "NAS update [$($profile.Label)] -> $($profile.Host)..."
-  Sync-NasDeployScripts $cfg | Out-Null
   Write-Info "Branch: $(Get-DeployBranch $cfg)"
   if (-not $cfg["NAS_SUDO_PASSWORD"]) {
     Write-Warn "No NAS_SUDO_PASSWORD in config — if docker fails, add ohola password to config/nas-pc.local.env"

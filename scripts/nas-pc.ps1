@@ -294,15 +294,29 @@ function Invoke-NasRemote([string]$RemoteCommand) {
   Invoke-NasSsh $cfg $profile $RemoteCommand
 }
 
+function Write-NasUnixFile([string]$Src, [string]$Dest) {
+  $text = [System.IO.File]::ReadAllText($Src)
+  $text = $text -replace "`r`n", "`n" -replace "`r", "`n"
+  $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+  [System.IO.File]::WriteAllText($Dest, $text, $utf8NoBom)
+}
+
 function Find-NasMappedRepo([hashtable]$Cfg) {
+  $checked = @{}
   $letters = @($Cfg["NAS_DRIVE_LETTER"].TrimEnd(":").ToUpper())
-  $letters += @("T", "Y", "Z", "X", "W", "V", "U", "S")
-  $seen = @{}
+  $letters += @("K", "T", "Y", "Z", "X", "W", "V", "U", "S", "R")
   foreach ($letter in $letters) {
     if (-not $letter -or $letter.Length -ne 1) { continue }
-    if ($seen.ContainsKey($letter)) { continue }
-    $seen[$letter] = $true
+    if ($checked.ContainsKey($letter)) { continue }
+    $checked[$letter] = $true
     $repo = "${letter}:\saenggibu"
+    if (Test-Path $repo) { return $repo }
+  }
+  foreach ($drive in Get-PSDrive -PSProvider FileSystem) {
+    if ($drive.Name.Length -ne 1) { continue }
+    if ($checked.ContainsKey($drive.Name)) { continue }
+    $checked[$drive.Name] = $true
+    $repo = "$($drive.Name):\saenggibu"
     if (Test-Path $repo) { return $repo }
   }
   return $null
@@ -324,10 +338,10 @@ function Sync-NasDeployScripts([hashtable]$Cfg) {
   foreach ($name in $files) {
     $src = Join-Path $Root "scripts\$name"
     if (-not (Test-Path $src)) { continue }
-    Copy-Item $src (Join-Path $destDir $name) -Force
+    Write-NasUnixFile $src (Join-Path $destDir $name)
   }
 
-  Write-Ok "Synced deploy scripts -> $destDir"
+  Write-Ok "Synced deploy scripts (LF) -> $destDir"
   return $true
 }
 
@@ -342,7 +356,7 @@ function Invoke-NasUpdate {
   Write-Info "NAS update [$($profile.Label)] -> $($profile.Host)..."
   Sync-NasDeployScripts $cfg | Out-Null
   $pathPrefix = Get-NasRemotePathPrefix
-  Invoke-NasRemote "${pathPrefix}; cd '$repo' && sh scripts/nas-docker-update.sh"
+  Invoke-NasRemote "${pathPrefix}; cd '$repo' && sed -i 's/\r$//' scripts/nas-docker-update.sh 2>/dev/null; sh scripts/nas-docker-update.sh"
   Write-Ok "Done"
 }
 
@@ -405,20 +419,59 @@ function Test-SshProfile([hashtable]$Cfg, [string]$ProfileName) {
   return ($LASTEXITCODE -eq 0)
 }
 
+function Get-IcaclsPrincipals([string]$Path) {
+  $principals = @()
+  $raw = & icacls $Path 2>$null
+  foreach ($line in $raw) {
+    if ($line -match '^\s+(.+?):\([^)]*\)\s*$') {
+      $principals += $Matches[1].Trim()
+    }
+  }
+  return $principals
+}
+
+function Repair-IcaclsPrivate([string]$Path) {
+  if (-not (Test-Path $Path)) { return }
+  icacls $Path /reset | Out-Null
+  icacls $Path /inheritance:r | Out-Null
+  $me = (& whoami).Trim()
+  foreach ($principal in (Get-IcaclsPrincipals $Path)) {
+    if ($principal -ne $me -and $principal -ne $env:USERNAME) {
+      icacls $Path /remove $principal 2>$null | Out-Null
+    }
+  }
+  icacls $Path /grant:r "${env:USERNAME}:F" | Out-Null
+}
+
+function Repair-IcaclsDir([string]$Path) {
+  if (-not (Test-Path $Path)) { return }
+  icacls $Path /inheritance:r | Out-Null
+  $me = (& whoami).Trim()
+  foreach ($principal in (Get-IcaclsPrincipals $Path)) {
+    if ($principal -ne $me -and $principal -ne $env:USERNAME) {
+      icacls $Path /remove $principal 2>$null | Out-Null
+    }
+  }
+  icacls $Path /grant:r "${env:USERNAME}:(OI)(CI)F" | Out-Null
+}
+
 function Invoke-FixSshPerms {
   $sshDir = Join-Path $env:USERPROFILE ".ssh"
   $config = Join-Path $sshDir "config"
   if (-not (Test-Path $sshDir)) { New-Item -ItemType Directory -Path $sshDir | Out-Null }
 
   if (Test-Path $config) {
-    icacls $config /inheritance:r | Out-Null
-    icacls $config /grant:r "${env:USERNAME}:F" | Out-Null
+    Repair-IcaclsPrivate $config
     Write-Ok "Fixed: $config"
   } else {
     Write-Warn "No config file yet."
   }
-  icacls $sshDir /inheritance:r | Out-Null
-  icacls $sshDir /grant:r "${env:USERNAME}:(OI)(CI)F" | Out-Null
+
+  Repair-IcaclsDir $sshDir
+
+  $keyPath = Join-Path $sshDir "id_ed25519"
+  if (Test-Path $keyPath) { Fix-SshKeyPerms $keyPath }
+
   Write-Ok "Try: ssh saenggibu-nas-local"
 }
 

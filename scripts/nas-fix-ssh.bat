@@ -11,10 +11,12 @@ if not exist "%SSH_DIR%" (
 )
 
 if exist "%SSH_CFG%" (
+  icacls "%SSH_CFG%" /reset >nul 2>&1
   icacls "%SSH_CFG%" /inheritance:r >nul 2>&1
   icacls "%SSH_CFG%" /remove "Authenticated Users" >nul 2>&1
   icacls "%SSH_CFG%" /remove "Users" >nul 2>&1
   icacls "%SSH_CFG%" /remove "Everyone" >nul 2>&1
+  icacls "%SSH_CFG%" /remove "UNKNOWN\UNKNOWN" >nul 2>&1
   icacls "%SSH_CFG%" /grant:r "%USERNAME%:F" >nul
   echo OK: %SSH_CFG%
 ) else (

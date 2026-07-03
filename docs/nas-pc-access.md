@@ -160,7 +160,9 @@ net use Y: \\169.254.158.191\docker /persistent:yes
 | SSH 연결 거부 | DSM SSH 활성화, 방화벽 22번, Tailscale 같은 네트워크 |
 | SMB 로그인 창만 뜸 | 시놀로지 계정·비밀번호, 공유 폴더 권한 |
 | `Z:` 안 보임 | `.\scripts\nas-pc.ps1 status` → `map` 재실행 |
-| `docker: command not found` (SSH update) | `update` copies latest `scripts/nas-docker-update.sh` via SMB (T:\saenggibu) first. Ensure `map -Profile local` works. Script uses Synology Container Manager paths + native `git pull`. |
+| `docker: command not found` (SSH update) | `update` copies latest scripts via SMB first. Ensure `map -Profile local` works. |
+| `$'\r': command not found` / `set: invalid option` | Windows CRLF in `.sh` on NAS. Run `git pull` then `update` again (syncs LF). Or: `sed -i 's/\r$//' /volume1/docker/saenggibu/scripts/nas-docker-update.sh` on NAS |
+| SSH `Bad permissions` on `~/.ssh/config` | `.\scripts\nas-pc.ps1 fix-ssh` (removes UNKNOWN/extra ACL entries) |
 
 ---
 

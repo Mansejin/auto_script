@@ -101,6 +101,7 @@ resolve_git() {
 }
 
 docker_can_run() {
+  # shellcheck disable=SC2086
   $DOCKER info >/dev/null 2>&1
 }
 
@@ -108,19 +109,20 @@ ensure_docker_access() {
   if docker_can_run; then
     return
   fi
-  if [ "$SGB_DOCKER_SUDO" = "1" ] || [ "$SGB_DOCKER_SUDO" = "true" ]; then
-    DOCKER="sudo $DOCKER"
+
+  base=$DOCKER
+  for prefix in "sudo -n" "sudo"; do
+    DOCKER="$prefix $base"
     if docker_can_run; then
-      log "==> docker (sudo): $DOCKER"
+      log "==> docker ($prefix): $DOCKER"
       return
     fi
-  fi
-  if sudo $DOCKER info >/dev/null 2>&1; then
-    DOCKER="sudo $DOCKER"
-    log "==> docker (sudo, auto): $DOCKER"
-    return
-  fi
-  log "ERROR: cannot access docker daemon (try SGB_DOCKER_SUDO=1)"
+  done
+
+  log "ERROR: cannot access docker daemon."
+  log "  1) NAS .env: SGB_DOCKER_SUDO=1"
+  log "  2) DSM: ohola user in administrators group (passwordless sudo)"
+  log "  3) Or DSM Task Scheduler as root (see docs/deploy-nas-auto.md)"
   exit 126
 }
 
@@ -142,16 +144,16 @@ read_env_flag() {
 if [ -z "$SGB_DOCKER_SUDO" ]; then
   SGB_DOCKER_SUDO=$(read_env_flag SGB_DOCKER_SUDO)
 fi
+# default: try sudo for Synology non-root SSH users
+if [ -z "$SGB_DOCKER_SUDO" ]; then
+  SGB_DOCKER_SUDO=1
+fi
 
 DOCKER=$(resolve_docker)
 if [ -z "$DOCKER" ]; then
   log "ERROR: docker not found."
   log "Open DSM Container Manager and ensure it is running."
   exit 127
-fi
-
-if [ "$SGB_DOCKER_SUDO" = "1" ]; then
-  DOCKER="sudo $DOCKER"
 fi
 
 mkdir -p "$LOG_DIR"

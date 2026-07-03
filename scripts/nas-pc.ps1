@@ -371,6 +371,23 @@ function Sync-NasAdminUi([hashtable]$Cfg) {
   return $true
 }
 
+function Get-DeployBranch([hashtable]$Cfg) {
+  if ($Cfg["NAS_DEPLOY_BRANCH"]) { return $Cfg["NAS_DEPLOY_BRANCH"] }
+  try {
+    $branch = & git -C $Root rev-parse --abbrev-ref HEAD 2>$null
+    if ($LASTEXITCODE -eq 0 -and $branch -and $branch -ne "HEAD") {
+      return $branch
+    }
+  } catch {}
+  return "cursor/saenggibu-writer-5821"
+}
+
+function Build-NasRemoteExports([hashtable]$Cfg) {
+  $branch = Get-DeployBranch $Cfg
+  $sudo = if ($Cfg["NAS_DOCKER_SUDO"]) { $Cfg["NAS_DOCKER_SUDO"] } else { "1" }
+  return "export SGB_DOCKER_SUDO=$sudo; export SGB_BRANCH='$branch'"
+}
+
 function Invoke-NasDeploy {
   $cfg = Get-NasConfig
   Write-Info "Full deploy: sync UI (SMB) + NAS pull/rebuild (SSH)..."
@@ -386,7 +403,9 @@ function Invoke-NasUpdate {
   Write-Info "NAS update [$($profile.Label)] -> $($profile.Host)..."
   Sync-NasDeployScripts $cfg | Out-Null
   $pathPrefix = Get-NasRemotePathPrefix
-  Invoke-NasRemote "${pathPrefix}; export SGB_DOCKER_SUDO=1; cd '$repo' && sed -i 's/\r$//' scripts/nas-docker-update.sh 2>/dev/null; sh scripts/nas-docker-update.sh"
+  $remoteEnv = Build-NasRemoteExports $cfg
+  Write-Info "Branch: $(Get-DeployBranch $cfg)"
+  Invoke-NasRemote "${pathPrefix}; ${remoteEnv}; cd '$repo' && sed -i 's/\r$//' scripts/nas-docker-update.sh 2>/dev/null; sh scripts/nas-docker-update.sh"
   Write-Ok "Done"
 }
 

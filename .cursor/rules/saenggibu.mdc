@@ -1,0 +1,30 @@
+---
+description: 생기부 자동 작성 워크플로
+globs:
+  - "sgb.py"
+  - "src/saenggibu/**"
+  - "data/saenggibu/**"
+  - "prompts/saenggibu.md"
+---
+
+# 생기부 작성 머신 규칙
+
+생기부 작성·수정 요청은 **관리자 웹** 또는 **sgb.py CLI**로 처리한다.
+
+## 관리자 웹 (권장)
+- URL: `https://mansejin.com/admin/saenggibu/` (공개 메뉴 없음)
+- API: `python server.py` 로 띄운 백엔드 (`ADMIN_PASSWORD` 로그인)
+- UI에서 샘플 업로드 → 분석 → 학생 등록 → 작성 실행
+
+## CLI (서버/로컬)
+1. `python sgb.py samples list` / `python sgb.py students list`로 현재 상태 확인
+2. 샘플 추가: `python sgb.py samples import <경로>`
+3. 패턴 갱신: `python sgb.py analyze` (필요 시 `--gemini`)
+4. 학생 등록: `python sgb.py students import <tsv>` 또는 `students add`
+5. 작성 실행: `python sgb.py run --student <id>` 또는 `python sgb.py run -y`
+6. 검증: `python sgb.py students show <id>`
+
+## 주의
+- `GEMINI_API_KEY` 미설정 시 run/analyze --gemini 불가
+- 학생 데이터는 사실 기반 메모만 사용
+- 작성 결과는 교사 검토 전제

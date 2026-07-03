@@ -1,0 +1,16 @@
+services:
+  sgb-api:
+    build: .
+    container_name: saenggibu-api
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    env_file:
+      - .env
+    environment:
+      # Must listen on all interfaces — cloudflared reaches sgb-api via docker network
+      SGB_HOST: "0.0.0.0"
+      SGB_PLAN: "admin"
+    volumes:
+      - ./data/saenggibu:/app/data/saenggibu
+      - ./web/admin:/app/web/admin

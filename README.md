@@ -128,3 +128,19 @@ https://docs.google.com/spreadsheets/d/19XxPdDT3ezxriN5hVgXUZ4z4dYxIxU-fNblS1pOt
 열 구성: **대본 | 장면 | 사이즈 | 자막 | 코멘트**
 
 대본 작성 규칙은 `prompts/dididit.md` 참고.
+
+---
+
+## 생기부 작성 머신
+
+고등학교 생활기록부를 **과거 샘플 패턴 학습 + 학생 데이터 + Gemini**로 자동 작성하는 별도 CLI입니다.
+
+자세한 사용법: [`docs/saenggibu.md`](docs/saenggibu.md)
+
+```bash
+python sgb.py init
+python sgb.py samples import data/saenggibu/examples/
+python sgb.py analyze
+python sgb.py students import data/saenggibu/examples/students.example.tsv
+python sgb.py run --yes
+```

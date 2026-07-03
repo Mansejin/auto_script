@@ -1,0 +1,38 @@
+name: Sync saenggibu redirect
+
+# tools-site 저장소용 — PAT 없이 동작 (GITHUB_TOKEN으로 push)
+# auto_script 의 redirect HTML 을 주기적으로 가져옵니다.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 * * * *"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/sync-saenggibu-admin.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download redirect from auto_script
+        run: |
+          mkdir -p admin/saenggibu
+          curl -fsSL \
+            "https://raw.githubusercontent.com/Mansejin/auto_script/cursor/saenggibu-writer-5821/deploy/tools-site-admin/admin/saenggibu/index.html" \
+            -o admin/saenggibu/index.html
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add admin/saenggibu/index.html
+          git diff --staged --quiet && echo "Already up to date" && exit 0
+          git commit -m "chore: sync saenggibu redirect from auto_script"
+          git push

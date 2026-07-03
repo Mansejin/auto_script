@@ -1,0 +1,105 @@
+# Push to GitHub -> Tailscale -> SSH -> NAS git pull + docker rebuild
+#
+# Setup: docs/deploy-nas-auto.md
+# Required secrets: NAS_SSH_HOST (Tailscale IP), NAS_SSH_USER, NAS_SSH_KEY, TAILSCALE_AUTHKEY
+
+name: Deploy to NAS
+
+on:
+  push:
+    branches: [main, cursor/saenggibu-writer-5821]
+    paths-ignore:
+      - "docs/**"
+      - "deploy/tools-site-admin/**"
+      - "changes/**"
+      - "prompts/**"
+      - "*.md"
+      - ".cursor/**"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to deploy (empty = branch that triggered workflow)"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-nas
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check deploy secrets
+        run: |
+          skip=false
+          if [ -z "${{ secrets.NAS_SSH_HOST }}" ] || [ -z "${{ secrets.NAS_SSH_USER }}" ] || [ -z "${{ secrets.NAS_SSH_KEY }}" ]; then
+            echo "::warning::NAS_SSH_* secrets missing — skip (docs/deploy-nas-auto.md)"
+            skip=true
+          fi
+          if [ -z "${{ secrets.TAILSCALE_AUTHKEY }}" ]; then
+            echo "::error::TAILSCALE_AUTHKEY missing — GitHub cannot SSH into home NAS (i/o timeout)."
+            echo "::error::Fix: docs/deploy-nas-auto.md — add Tailscale auth key OR use NAS Task Scheduler (section A)."
+            skip=true
+          fi
+          if [ "$skip" = "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+        id: check
+
+      - name: Connect Tailscale
+        if: steps.check.outputs.skip != 'true'
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
+      - name: Wait for NAS SSH port
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          host="${{ secrets.NAS_SSH_HOST }}"
+          port="${{ secrets.NAS_SSH_PORT }}"
+          port="${port:-22}"
+          echo "Checking ${host}:${port} ..."
+          for i in $(seq 1 30); do
+            if timeout 2 bash -c "cat < /dev/null > /dev/tcp/${host}/${port}" 2>/dev/null; then
+              echo "NAS SSH port open"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Cannot reach NAS at ${host}:${port} even via Tailscale."
+          echo "::error::Check NAS_SSH_HOST is Tailscale IP (100.x.x.x), DSM SSH enabled, Tailscale on NAS online."
+          exit 1
+
+      - name: Deploy via SSH
+        if: steps.check.outputs.skip != 'true'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.NAS_SSH_HOST }}
+          username: ${{ secrets.NAS_SSH_USER }}
+          key: ${{ secrets.NAS_SSH_KEY }}
+          passphrase: ${{ secrets.NAS_SSH_PASSPHRASE }}
+          port: ${{ secrets.NAS_SSH_PORT || 22 }}
+          command_timeout: 20m
+          envs: SGB_BRANCH,NAS_REPO_PATH,SGB_DOCKER_SUDO
+          script: |
+            set -e
+            REPO="${NAS_REPO_PATH:-/volume1/docker/saenggibu}"
+            export PATH="/usr/local/bin:/var/packages/ContainerManager/target/usr/bin:/var/packages/Docker/target/usr/bin:/var/packages/Git/target/usr/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+            export SGB_BRANCH
+            export SGB_DOCKER_SUDO="${SGB_DOCKER_SUDO:-1}"
+            curl -fsSL "https://raw.githubusercontent.com/Mansejin/auto_script/${SGB_BRANCH}/scripts/nas-docker-update.sh" -o /tmp/sgb-deploy.sh
+            sed -i 's/\r$//' /tmp/sgb-deploy.sh 2>/dev/null || true
+            cd "$REPO"
+            sh /tmp/sgb-deploy.sh
+        env:
+          SGB_BRANCH: ${{ github.event.inputs.branch || github.ref_name }}
+          NAS_REPO_PATH: ${{ secrets.NAS_REPO_PATH }}
+          SGB_DOCKER_SUDO: "1"
+
+      - name: Summary
+        if: steps.check.outputs.skip != 'true'
+        run: echo "NAS deploy finished for branch ${{ github.event.inputs.branch || github.ref_name }}"

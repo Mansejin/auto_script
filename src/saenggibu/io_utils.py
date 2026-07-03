@@ -1,0 +1,34 @@
+from __future__ import annotations
+
+import csv
+import json
+from pathlib import Path
+from typing import Any
+
+
+def load_json(path: Path) -> Any:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def save_json(path: Path, data: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def parse_tsv_rows(text: str) -> list[dict[str, str]]:
+    lines = [line for line in text.strip().splitlines() if line.strip()]
+    if not lines:
+        return []
+
+    delimiter = "\t" if "\t" in lines[0] else ","
+    reader = csv.DictReader(lines, delimiter=delimiter)
+    rows: list[dict[str, str]] = []
+    for row in reader:
+        cleaned = {k.strip(): (v or "").strip() for k, v in row.items() if k}
+        if any(cleaned.values()):
+            rows.append(cleaned)
+    return rows
+
+
+def read_table_file(path: Path) -> list[dict[str, str]]:
+    return parse_tsv_rows(path.read_text(encoding="utf-8"))

@@ -160,7 +160,7 @@ net use Y: \\169.254.158.191\docker /persistent:yes
 | SSH 연결 거부 | DSM SSH 활성화, 방화벽 22번, Tailscale 같은 네트워크 |
 | SMB 로그인 창만 뜸 | 시놀로지 계정·비밀번호, 공유 폴더 권한 |
 | `Z:` 안 보임 | `.\scripts\nas-pc.ps1 status` → `map` 재실행 |
-| 밖에서 SMB 안 됨 | `NAS_SMB_HOST` 를 Tailscale IP로 변경 |
+| `docker: command not found` (SSH update) | Script uses `/usr/local/bin/docker` on Synology. Or: `SGB_DOCKER_SUDO=1 sh scripts/nas-docker-update.sh` |
 
 ---
 

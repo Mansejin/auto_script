@@ -105,7 +105,7 @@ Actions → **Deploy to NAS** → **Run workflow**
 |------|------|
 | `i/o timeout` (port 22) | **A안 스케줄러** 쓰거나 **B안** `TAILSCALE_AUTHKEY` + Tailscale IP |
 | Actions Skip | Secrets 4개 모두 등록 |
-| `docker: permission denied` | 나스 `.env`에 `SGB_DOCKER_SUDO=1`, 스케줄러 사용자 `root` |
+| `cannot access docker daemon` | **A)** PC `config/nas-pc.local.env`에 `NAS_SUDO_PASSWORD=ohola비밀번호` 추가 후 deploy 재실행. **B)** 나스에서 root로 1회: `sh scripts/nas-setup-docker-sudo.sh` (DSM 작업 스케줄러). **C)** 스케줄러 사용자 **root** |
 | UI만 옛날 | Ctrl+F5, `sync-ui` |
 | 10분 지나도 안 바뀜 | `scheduled-pull.log`, `deploy.log` 확인 |
 

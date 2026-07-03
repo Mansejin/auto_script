@@ -334,7 +334,7 @@ function Sync-NasDeployScripts([hashtable]$Cfg) {
     New-Item -ItemType Directory -Path $destDir | Out-Null
   }
 
-  $files = @("nas-docker-update.sh", "nas-cleanup-example-samples.sh", "nas-scheduled-pull.sh")
+  $files = @("nas-docker-update.sh", "nas-cleanup-example-samples.sh", "nas-scheduled-pull.sh", "nas-setup-docker-sudo.sh")
   foreach ($name in $files) {
     $src = Join-Path $Root "scripts\$name"
     if (-not (Test-Path $src)) { continue }
@@ -382,10 +382,26 @@ function Get-DeployBranch([hashtable]$Cfg) {
   return "cursor/saenggibu-writer-5821"
 }
 
+function Escape-ShSingleQuoted([string]$Value) {
+  return $Value -replace "'", "'\\''"
+}
+
 function Build-NasRemoteExports([hashtable]$Cfg) {
   $branch = Get-DeployBranch $Cfg
   $sudo = if ($Cfg["NAS_DOCKER_SUDO"]) { $Cfg["NAS_DOCKER_SUDO"] } else { "1" }
-  return "export SGB_DOCKER_SUDO=$sudo; export SGB_BRANCH='$branch'"
+  $exports = "export SGB_DOCKER_SUDO=$sudo; export SGB_BRANCH='$branch'"
+  if ($Cfg["NAS_SUDO_PASSWORD"]) {
+    $pass = Escape-ShSingleQuoted $Cfg["NAS_SUDO_PASSWORD"]
+    $exports += "; export NAS_SUDO_PASSWORD='$pass'"
+  }
+  return $exports
+}
+
+function Build-NasUpdateRemote([hashtable]$Cfg, [string]$Repo) {
+  $pathPrefix = Get-NasRemotePathPrefix
+  $remoteEnv = Build-NasRemoteExports $Cfg
+  $run = "cd '$Repo' && sed -i 's/\r$//' scripts/nas-docker-update.sh 2>/dev/null; sh scripts/nas-docker-update.sh"
+  return "${pathPrefix}; ${remoteEnv}; $run"
 }
 
 function Invoke-NasDeploy {
@@ -402,10 +418,12 @@ function Invoke-NasUpdate {
   $profile = Resolve-NasProfile $cfg $script:NasProfile
   Write-Info "NAS update [$($profile.Label)] -> $($profile.Host)..."
   Sync-NasDeployScripts $cfg | Out-Null
-  $pathPrefix = Get-NasRemotePathPrefix
-  $remoteEnv = Build-NasRemoteExports $cfg
   Write-Info "Branch: $(Get-DeployBranch $cfg)"
-  Invoke-NasRemote "${pathPrefix}; ${remoteEnv}; cd '$repo' && sed -i 's/\r$//' scripts/nas-docker-update.sh 2>/dev/null; sh scripts/nas-docker-update.sh"
+  if (-not $cfg["NAS_SUDO_PASSWORD"]) {
+    Write-Warn "No NAS_SUDO_PASSWORD in config — if docker fails, add ohola password to config/nas-pc.local.env"
+    Write-Warn "Or run once on NAS as root: sh scripts/nas-setup-docker-sudo.sh"
+  }
+  Invoke-NasRemote (Build-NasUpdateRemote $cfg $repo)
   Write-Ok "Done"
 }
 

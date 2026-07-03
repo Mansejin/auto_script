@@ -26,6 +26,18 @@ done
 
 export PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
+# Re-run as root when PC passes NAS_SUDO_PASSWORD (Synology SSH sudo needs password)
+if [ "$(id -u)" != "0" ] && [ -n "$NAS_SUDO_PASSWORD" ] && [ -z "$SGB_DEPLOY_AS_ROOT" ]; then
+  export SGB_DEPLOY_AS_ROOT=1
+  printf '%s\n' "$NAS_SUDO_PASSWORD" | sudo -S -E env \
+    SGB_BRANCH="${SGB_BRANCH:-}" \
+    SGB_DOCKER_SUDO="${SGB_DOCKER_SUDO:-}" \
+    NAS_SUDO_PASSWORD="$NAS_SUDO_PASSWORD" \
+    SGB_DEPLOY_AS_ROOT=1 \
+    sh "$0" "$@"
+  exit $?
+fi
+
 log() {
   echo "$@"
   if [ -n "$LOG_FILE" ]; then
@@ -120,9 +132,10 @@ ensure_docker_access() {
   done
 
   log "ERROR: cannot access docker daemon."
-  log "  1) NAS .env: SGB_DOCKER_SUDO=1"
-  log "  2) DSM: ohola user in administrators group (passwordless sudo)"
-  log "  3) Or DSM Task Scheduler as root (see docs/deploy-nas-auto.md)"
+  log "  1) One-time (root): sh scripts/nas-setup-docker-sudo.sh"
+  log "  2) PC config: NAS_SUDO_PASSWORD in config/nas-pc.local.env"
+  log "  3) NAS .env: SGB_DOCKER_SUDO=1"
+  log "  4) DSM Task Scheduler as root"
   exit 126
 }
 

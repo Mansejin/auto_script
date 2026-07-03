@@ -24,8 +24,65 @@ def _save_index(items: list[dict]) -> None:
     save_json(_index_path(), items)
 
 
+def _sample_json_path(sample_id: str) -> Path:
+    return SAMPLES_DIR / f"{sample_id}.json"
+
+
+def _has_sections_content(data: dict) -> bool:
+    sections = data.get("sections") or {}
+    if not isinstance(sections, dict):
+        return False
+    hangbal = sections.get("행발")
+    if hangbal and str(hangbal).strip():
+        return True
+    setuk = sections.get("세특")
+    if isinstance(setuk, dict) and any(str(value).strip() for value in setuk.values()):
+        return True
+    changche = sections.get("창체")
+    if isinstance(changche, dict) and any(str(value).strip() for value in changche.values()):
+        return True
+    return False
+
+
+def _resolve_sample_dict(item: dict) -> dict | None:
+    sample_id = item.get("id")
+    if not sample_id:
+        return None
+    json_path = _sample_json_path(sample_id)
+    if json_path.exists():
+        try:
+            return load_json(json_path)
+        except (json.JSONDecodeError, OSError):
+            pass
+    if _has_sections_content(item):
+        return item
+    return None
+
+
+def reconcile_sample_index() -> list[str]:
+    """Remove index rows with no json file and no inline section text."""
+    ensure_data_dirs()
+    items = _load_index()
+    kept: list[dict] = []
+    removed: list[str] = []
+    for item in items:
+        sample_id = item.get("id")
+        if not sample_id:
+            removed.append("(no-id)")
+            continue
+        resolved = _resolve_sample_dict(item)
+        if resolved:
+            kept.append(resolved)
+        else:
+            removed.append(sample_id)
+    if removed or kept != items:
+        _save_index(kept)
+    return removed
+
+
 def list_samples() -> list[SampleRecord]:
     ensure_data_dirs()
+    reconcile_sample_index()
     return [SampleRecord.from_dict(item) for item in _load_index()]
 
 
@@ -48,13 +105,15 @@ def add_sample(record: SampleRecord) -> SampleRecord:
 def delete_sample(sample_id: str) -> bool:
     ensure_data_dirs()
     items = _load_index()
-    kept = [item for item in items if item.get("id") != sample_id]
-    if len(kept) == len(items):
+    in_index = any(item.get("id") == sample_id for item in items)
+    sample_path = _sample_json_path(sample_id)
+    has_json = sample_path.exists()
+    if not in_index and not has_json:
         return False
-    _save_index(kept)
-    sample_path = SAMPLES_DIR / f"{sample_id}.json"
-    if sample_path.exists():
-        sample_path.unlink()
+    if in_index:
+        kept = [item for item in items if item.get("id") != sample_id]
+        _save_index(kept)
+    sample_path.unlink(missing_ok=True)
     return True
 
 

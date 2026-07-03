@@ -317,6 +317,16 @@
       showToast("삭제됨");
       await loadSamples();
     } catch (error) {
+      try {
+        const data = await api("/api/samples/reconcile", { method: "POST" });
+        if (data.removed?.length) {
+          showToast(`고스트 샘플 ${data.removed.length}건 정리됨`);
+          await loadSamples();
+          return;
+        }
+      } catch {
+        /* reconcile unavailable on old API */
+      }
       showToast(error.message || "삭제 실패 · 나스 API 업데이트 후 docker 재시작 필요");
     }
   });

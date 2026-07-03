@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from src.saenggibu.generator import generate_for_student, run_batch
 from src.saenggibu.models import StudentInput
 from src.saenggibu.pattern_analyzer import analyze_and_save, load_patterns, update_style_guide
-from src.saenggibu.sample_store import delete_sample, import_path, list_samples
+from src.saenggibu.sample_store import delete_sample, import_path, list_samples, reconcile_sample_index
 from src.saenggibu.student_parser import parse_and_save, parse_file_to_student, parse_text_to_student
 from src.saenggibu.upload_formats import SAMPLE_EXTENSIONS, STUDENT_EXTENSIONS, check_upload_extension
 from src.saenggibu.usage import usage_summary
@@ -104,6 +104,13 @@ def api_usage(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
 def api_samples_list(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
     samples = list_samples()
     return {"samples": [s.to_dict() for s in samples], "count": len(samples)}
+
+
+@router.post("/samples/reconcile")
+def api_samples_reconcile(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    removed = reconcile_sample_index()
+    samples = list_samples()
+    return {"removed": removed, "count": len(samples), "samples": [s.to_dict() for s in samples]}
 
 
 @router.post("/samples/import")

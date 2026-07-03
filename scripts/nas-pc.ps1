@@ -229,14 +229,28 @@ Host $Alias
 }
 
 function Install-AllSshConfigs([hashtable]$Cfg) {
-  $remote = Resolve-NasProfile $Cfg "remote"
-  $local = Resolve-NasProfile $Cfg "local"
+  Rewrite-AllSshConfigs $Cfg
+}
 
-  if (Install-SshHost $Cfg $remote.Alias $remote.Host) {
-    Write-Ok "SSH: $($remote.Alias) -> $($remote.Host) (tailscale)"
+function Build-SshArgs([hashtable]$Cfg) {
+  $args = @("-o", "ConnectTimeout=15", "-p", $Cfg["NAS_SSH_PORT"])
+  if ($Cfg["NAS_SSH_KEY"]) {
+    $args += @("-i", $Cfg["NAS_SSH_KEY"])
   }
-  if (Install-SshHost $Cfg $local.Alias $local.Host) {
-    Write-Ok "SSH: $($local.Alias) -> $($local.Host) (local LAN)"
+  return $args
+}
+
+function Invoke-NasSsh([hashtable]$Cfg, [hashtable]$Profile, [string]$RemoteCommand) {
+  $target = "$($Cfg['NAS_USER'])@$($Profile.Host)"
+  $sshArgs = Build-SshArgs $Cfg
+  Write-Info "SSH [$($Profile.Label)]: $target"
+  if ($RemoteCommand) {
+    & ssh @sshArgs $target $RemoteCommand
+  } else {
+    & ssh @sshArgs $target
+  }
+  if ($LASTEXITCODE -ne 0) {
+    throw "SSH failed (code $LASTEXITCODE) to $($Profile.Host)"
   }
 }
 
@@ -266,27 +280,22 @@ function Invoke-NasConnect {
   $cfg = Get-NasConfig
   $profile = Resolve-NasProfile $cfg $Profile
   Ensure-OpenSsh
-  Install-AllSshConfigs $cfg
-  Write-Info "Connecting [$($profile.Label)]: ssh $($profile.Alias) ($($profile.Host))"
-  ssh -o ConnectTimeout=10 $profile.Alias
-  if ($LASTEXITCODE -ne 0) {
-    throw "SSH failed (code $LASTEXITCODE). Check DSM SSH, IP $($profile.Host), password/key."
-  }
+  Rewrite-AllSshConfigs $cfg | Out-Null
+  Invoke-NasSsh $cfg $profile ""
 }
 
 function Invoke-NasRemote([string]$RemoteCommand) {
   $cfg = Get-NasConfig
   $profile = Resolve-NasProfile $cfg $Profile
   Ensure-OpenSsh
-  Install-AllSshConfigs $cfg
-  ssh $profile.Alias $RemoteCommand
+  Invoke-NasSsh $cfg $profile $RemoteCommand
 }
 
 function Invoke-NasUpdate {
   $cfg = Get-NasConfig
   $repo = $cfg["NAS_REPO_PATH"]
   $profile = Resolve-NasProfile $cfg $Profile
-  Write-Info "NAS update [$($profile.Label)]..."
+  Write-Info "NAS update [$($profile.Label)] -> $($profile.Host)..."
   Invoke-NasRemote "cd '$repo' && sh scripts/nas-docker-update.sh"
   Write-Ok "Done"
 }
@@ -297,24 +306,40 @@ function Invoke-NasLogs {
   Invoke-NasRemote "cd '$repo' && docker compose logs -f --tail=80"
 }
 
+function Get-FreeDriveLetter([string[]]$Prefer) {
+  foreach ($l in $Prefer) {
+    $l = $l.TrimEnd(":").ToUpper()
+    if ($l.Length -ne 1) { continue }
+    if (-not (Test-Path "${l}:\")) { return $l }
+  }
+  throw "No free drive letter. Unmap one: net use Z: /delete"
+}
+
 function Invoke-NasMap {
   $cfg = Get-NasConfig
   $profile = Resolve-NasProfile $cfg $Profile
-  $letter = $cfg["NAS_DRIVE_LETTER"].TrimEnd(":")
+  $letter = if ($DriveLetter) { $DriveLetter.TrimEnd(":").ToUpper() } else { $cfg["NAS_DRIVE_LETTER"].TrimEnd(":").ToUpper() }
   $unc = "\\$($profile.SmbHost)\$($cfg['NAS_SMB_SHARE'])"
 
-  $null = net use "${letter}:" 2>$null
-  if ($LASTEXITCODE -eq 0) {
-    Write-Warn "Drive ${letter}: already mapped. Run: .\scripts\nas-pc.ps1 unmap"
-    return
+  if (Test-Path "${letter}:\") {
+    $current = (Get-PSDrive -Name $letter -PSProvider FileSystem -ErrorAction SilentlyContinue).DisplayRoot
+    if ($current -eq $unc) {
+      Write-Ok "Already mapped: ${letter}: -> $unc"
+      Write-Host "  Open: ${letter}:\saenggibu"
+      return
+    }
+    Write-Warn "Drive ${letter}: is used by something else."
+    $letter = Get-FreeDriveLetter @("Y", "X", "W", "V", "U", "T", "S")
+    Write-Info "Trying ${letter}: instead. Set NAS_DRIVE_LETTER=$letter in config/nas-pc.local.env"
   }
 
   Write-Info "SMB [$($profile.Label)]: $unc -> ${letter}:"
   cmd /c "net use ${letter}: `"$unc`" /persistent:yes"
   if ($LASTEXITCODE -ne 0) {
-    throw "SMB failed. Check DSM shared folder and credentials."
+    throw "SMB failed. Check DSM shared folder 'docker' and SMB enabled."
   }
-  Write-Ok "Mapped ${letter}: to $unc"
+  Write-Ok "Mapped ${letter}: -> $unc"
+  Write-Host "  Open: ${letter}:\saenggibu"
 }
 
 function Invoke-NasUnmap {

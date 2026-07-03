@@ -652,6 +652,170 @@ body.admin-is-busy .admin-tab {
   color: var(--text);
 }
 
+.admin-header-btn {
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.admin-header-btn:hover {
+  color: var(--text);
+  border-color: var(--blue);
+}
+
+.admin-target-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-target-chip {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 0.875rem;
+}
+
+.admin-target-chip:has(.write-target:checked) {
+  border-color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 12%, var(--card));
+}
+
+.admin-memo-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.admin-memo-panel {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 0 12px 12px;
+}
+
+.admin-memo-panel[hidden] {
+  display: none;
+}
+
+.admin-memo-panel > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 12px 0 8px;
+  list-style: none;
+}
+
+.admin-memo-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-memo-panel > summary::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.admin-memo-panel[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.admin-guide-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.admin-guide-backdrop[hidden] {
+  display: none;
+}
+
+body.admin-guide-open {
+  overflow: hidden;
+}
+
+.admin-guide-card {
+  width: min(520px, 100%);
+  max-height: min(80vh, 640px);
+  overflow: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+}
+
+.admin-guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-guide-header h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.admin-guide-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.admin-guide-close:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--border) 40%, var(--bg));
+}
+
+.admin-guide-steps {
+  margin: 0 0 16px;
+  padding-left: 1.25rem;
+  line-height: 1.6;
+}
+
+.admin-guide-steps li + li {
+  margin-top: 8px;
+}
+
+.admin-guide-tips {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.admin-guide-tips li + li {
+  margin-top: 6px;
+}
+
+.admin-subheading {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
 @media (max-width: 640px) {
   .admin-table {
     display: block;

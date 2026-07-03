@@ -7,6 +7,7 @@ from src.saenggibu.write_sections import (
     normalize_write_sections,
     student_needs_section,
     student_sections_complete,
+    student_write_targets,
     students_needing_section,
 )
 
@@ -21,6 +22,36 @@ def test_normalize_requires_single_section() -> None:
 def test_normalize_accepts_one_section() -> None:
     assert normalize_write_sections(["행발"]) == ["행발"]
     assert normalize_write_sections(["세특"]) == ["세특"]
+    assert normalize_write_sections(["자율"]) == ["자율"]
+
+
+def test_student_write_targets_from_notes() -> None:
+    student = StudentInput(
+        id="s1",
+        name="김민수",
+        grade=2,
+        class_num=1,
+        number=1,
+        notes={"write_targets": ["행발", "자율"]},
+        changche={"자율": "학급 회의"},
+    )
+    assert student_write_targets(student) == ["행발", "자율"]
+
+
+def test_student_needs_section_respects_write_targets() -> None:
+    student = StudentInput(
+        id="s1",
+        name="김민수",
+        grade=2,
+        class_num=1,
+        number=1,
+        notes={"행발": "메모", "write_targets": ["행발"]},
+        subjects={"윤사": {"activities": ["토론"], "notes": ""}},
+        changche={"자율": "회의"},
+    )
+    assert student_needs_section(student, "행발") is True
+    assert student_needs_section(student, "세특") is False
+    assert student_needs_section(student, "자율") is False
 
 
 def test_students_needing_section_filters_by_generated() -> None:
@@ -30,7 +61,7 @@ def test_students_needing_section_filters_by_generated() -> None:
         grade=2,
         class_num=1,
         number=1,
-        notes={"행발": "메모"},
+        notes={"행발": "메모", "write_targets": ["행발", "세특"]},
         subjects={"윤사": {"activities": ["토론"], "notes": ""}},
     )
     partial = StudentInput(
@@ -39,7 +70,7 @@ def test_students_needing_section_filters_by_generated() -> None:
         grade=2,
         class_num=1,
         number=2,
-        notes={"행발": "메모"},
+        notes={"행발": "메모", "write_targets": ["행발", "세특"]},
         subjects={"윤사": {"activities": ["발표"], "notes": ""}},
         generated={"행발": "작성됨"},
         status="partial",

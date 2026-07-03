@@ -271,8 +271,60 @@
   const WRITE_SECTION_LABELS = {
     행발: "행동특성 및 종합의견",
     세특: "세부능력 및 특기사항",
+    자율: "자율활동",
+    동아리: "동아리활동",
+    진로: "진로활동",
     창체: "창의적 체험활동",
   };
+
+  function getSelectedWriteTargets() {
+    return [...document.querySelectorAll(".write-target:checked")].map((el) => el.value);
+  }
+
+  function updateStudentMemoPanels() {
+    const selected = new Set(getSelectedWriteTargets());
+    let firstVisible = null;
+    document.querySelectorAll(".admin-memo-panel").forEach((panel) => {
+      const target = panel.dataset.target;
+      const visible = selected.has(target);
+      panel.hidden = !visible;
+      if (visible && !firstVisible) firstVisible = panel;
+    });
+    if (firstVisible && !document.querySelector(".admin-memo-panel:not([hidden])[open]")) {
+      firstVisible.open = true;
+    }
+  }
+
+  function formatWriteTargets(student) {
+    const raw = student.notes?.write_targets;
+    if (Array.isArray(raw) && raw.length) {
+      return raw.join(", ");
+    }
+    const inferred = [];
+    if (student.notes?.행발 || student.notes?.행발_notes) inferred.push("행발");
+    if (student.subjects && Object.keys(student.subjects).length) inferred.push("세특");
+    const changche = student.changche || {};
+    for (const key of ["자율", "동아리", "진로", "봉사"]) {
+      if (changche[key]) inferred.push(key);
+    }
+    return inferred.length ? inferred.join(", ") : "-";
+  }
+
+  function openGuideModal() {
+    const modal = document.getElementById("guideModal");
+    if (!modal) return;
+    modal.hidden = false;
+    document.body.classList.add("admin-guide-open");
+    document.getElementById("guideCloseBtn")?.focus();
+  }
+
+  function closeGuideModal() {
+    const modal = document.getElementById("guideModal");
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.classList.remove("admin-guide-open");
+    document.getElementById("guideBtn")?.focus();
+  }
 
   function getSelectedWriteSection() {
     const checked = document.querySelector('input[name="writeSection"]:checked');
@@ -338,7 +390,7 @@
     }
     tbody.innerHTML = data.students
       .map((s) => {
-        const subjects = Object.keys(s.subjects || {}).join(", ") || "-";
+        const targets = formatWriteTargets(s);
         const actions =
           s.status === "done"
             ? `<button class="admin-btn secondary" data-action="review" data-id="${s.id}">검토</button>`
@@ -348,7 +400,7 @@
         return `<tr>
           <td>${studentLabel(s)}</td>
           <td>${statusPill(s.status)}</td>
-          <td>${subjects}</td>
+          <td>${targets}</td>
           <td>${actions}</td>
         </tr>`;
       })
@@ -684,8 +736,8 @@
       try {
         await withBusy(
           `${section} 작성`,
-          `${studentName} 학생의 ${sectionLabel}을(를) 작성하고 있습니다.`,
-          "④ 작성·검토에서 선택한 영역만 작성합니다.",
+          `${studentName} · ${sectionLabel}`,
+          "완료될 때까지 기다려 주세요.",
           () =>
             api("/api/run", {
               method: "POST",
@@ -749,12 +801,32 @@
 
   document.getElementById("simpleStudentForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const subject = document.getElementById("simpleSubject").value.trim();
-    const activities = document.getElementById("simpleActivities").value.trim();
-    const subjects = {};
-    if (subject) {
-      subjects[subject] = { activities: activities ? [activities] : [], notes: activities };
+    const writeTargets = getSelectedWriteTargets();
+    if (!writeTargets.length) {
+      showToast("작성할 항목을 하나 이상 선택하세요.");
+      return;
     }
+
+    const subjects = {};
+    if (writeTargets.includes("세특")) {
+      const subject = document.getElementById("simpleSubject").value.trim();
+      const activities = document.getElementById("simpleActivities").value.trim();
+      if (subject) {
+        subjects[subject] = { activities: activities ? [activities] : [], notes: activities };
+      }
+    }
+
+    const changche = {};
+    if (writeTargets.includes("자율")) {
+      changche.자율 = document.getElementById("simpleJayul").value.trim();
+    }
+    if (writeTargets.includes("동아리")) {
+      changche.동아리 = document.getElementById("simpleDongari").value.trim();
+    }
+    if (writeTargets.includes("진로")) {
+      changche.진로 = document.getElementById("simpleJillo").value.trim();
+    }
+
     try {
       await api("/api/students", {
         method: "POST",
@@ -763,8 +835,12 @@
           grade: Number(document.getElementById("simpleGrade").value),
           class_num: Number(document.getElementById("simpleClass").value),
           number: Number(document.getElementById("simpleNumber").value),
-          haengbal_notes: document.getElementById("simpleHaengbal").value.trim(),
+          haengbal_notes: writeTargets.includes("행발")
+            ? document.getElementById("simpleHaengbal").value.trim()
+            : "",
           subjects,
+          changche,
+          write_targets: writeTargets,
         },
       });
       showToast("학생 추가됨");
@@ -772,6 +848,10 @@
       document.getElementById("simpleGrade").value = "2";
       document.getElementById("simpleClass").value = "1";
       document.getElementById("simpleNumber").value = "1";
+      document.querySelectorAll(".write-target").forEach((box) => {
+        box.checked = box.value === "행발";
+      });
+      updateStudentMemoPanels();
       await loadStudents();
     } catch (error) {
       showToast(error.message);
@@ -957,7 +1037,7 @@
       const data = await withBusy(
         `${section} 일괄 작성`,
         `${limitText} · ${sectionLabel}`,
-        "학생마다 API를 따로 호출합니다. 영역은 한 번에 하나만 작성됩니다.",
+        "완료될 때까지 기다려 주세요.",
         () =>
           api("/api/run", {
             method: "POST",
@@ -980,11 +1060,35 @@
     switchTab("learn");
   }
 
+  document.getElementById("guideBtn")?.addEventListener("click", openGuideModal);
+  document.getElementById("guideCloseBtn")?.addEventListener("click", closeGuideModal);
+  document.getElementById("guideModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "guideModal") closeGuideModal();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !document.getElementById("guideModal")?.hidden) {
+      closeGuideModal();
+    }
+  });
+
+  document.getElementById("studentWriteTargets")?.addEventListener("change", (event) => {
+    if (event.target.classList.contains("write-target")) {
+      const selected = getSelectedWriteTargets();
+      if (!selected.length) {
+        event.target.checked = true;
+        showToast("최소 한 항목은 선택해야 합니다.");
+        return;
+      }
+      updateStudentMemoPanels();
+    }
+  });
+
   async function bootstrap() {
     setupFilePickers();
     restoreWriteSectionChoice();
     document.getElementById("writeSectionChoices")?.addEventListener("change", updateWriteSectionUi);
     updateWriteSectionUi();
+    updateStudentMemoPanels();
     const expectedPanels = ["panelLearn", "panelStyle", "panelStudents", "panelReview"];
     const missing = expectedPanels.filter((id) => !document.getElementById(id));
     if (missing.length) {

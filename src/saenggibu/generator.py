@@ -118,19 +118,13 @@ def generate_for_student(
             for subject, info in student.subjects.items():
                 notify("세특", f"{student.display_name} · {subject}")
                 generated["세특"][subject] = _generate_setuk(student, subject, info, style_guide)
-        elif section == "창체":
-            if not student.changche:
-                raise ValueError(f"{student.display_name}: 창체 작성에 필요한 활동 메모가 없습니다.")
+        elif section in ("자율", "동아리", "봉사", "진로"):
+            notes = str(student.changche.get(section) or "").strip()
+            if not notes:
+                raise ValueError(f"{student.display_name}: {section} 활동 메모가 없습니다.")
             generated.setdefault("창체", {})
-            wrote = False
-            for subsection, notes in student.changche.items():
-                if not notes:
-                    continue
-                wrote = True
-                notify("창체", f"{student.display_name} · {subsection}")
-                generated["창체"][subsection] = _generate_changche(student, subsection, notes, style_guide)
-            if not wrote:
-                raise ValueError(f"{student.display_name}: 작성할 창체 활동이 없습니다.")
+            notify("창체", f"{student.display_name} · {section}")
+            generated["창체"][section] = _generate_changche(student, section, notes, style_guide)
 
         student.generated = generated
         student.status = "done" if student_sections_complete(student) else "partial"

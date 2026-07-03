@@ -52,6 +52,7 @@ class StudentCreateRequest(BaseModel):
     keywords: list[str] = Field(default_factory=list)
     subjects: dict[str, dict[str, Any]] = Field(default_factory=dict)
     changche: dict[str, str] = Field(default_factory=dict)
+    write_targets: list[str] = Field(default_factory=list)
 
 
 class RunRequest(BaseModel):
@@ -237,7 +238,11 @@ def api_student_create(payload: StudentCreateRequest, _: AdminSession = Depends(
         class_num=payload.class_num,
         number=payload.number,
         gender=payload.gender,
-        notes={"행발": payload.haengbal_notes, "keywords": payload.keywords},
+        notes={
+            "행발": payload.haengbal_notes,
+            "keywords": payload.keywords,
+            "write_targets": payload.write_targets,
+        },
         subjects=payload.subjects,
         changche=payload.changche,
     )

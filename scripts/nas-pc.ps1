@@ -174,7 +174,8 @@ function Invoke-InstallKey {
   Write-Info "Copy public key to NAS [$($profile.Label)]..."
   Write-Warn "Enter NAS password ONE LAST TIME:"
   $user = $cfg["NAS_USER"]
-  $remoteCmd = "HOME_DIR=/var/services/homes/$user; if [ ! -d `"`$HOME_DIR`" ]; then echo SYNO_HOME_MISSING; exit 2; fi; umask 077; mkdir -p `"`$HOME_DIR/.ssh`"; cat >> `"`$HOME_DIR/.ssh/authorized_keys`"; chmod 700 `"`$HOME_DIR/.ssh`"; chmod 600 `"`$HOME_DIR/.ssh/authorized_keys`""
+  $homeDir = "/var/services/homes/$user"
+  $remoteCmd = "if [ ! -d '$homeDir' ]; then echo SYNO_HOME_MISSING; exit 2; fi; umask 077; mkdir -p '$homeDir/.ssh'; cat >> '$homeDir/.ssh/authorized_keys'; chmod 700 '$homeDir/.ssh'; chmod 600 '$homeDir/.ssh/authorized_keys'"
   Get-Content "$keyPath.pub" -Raw | ssh $profile.Alias $remoteCmd
 
   if ($LASTEXITCODE -eq 2) {

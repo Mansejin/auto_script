@@ -12,6 +12,7 @@ from .models import StudentInput
 from .pattern_analyzer import analyze_and_save, load_patterns
 from .student_store import save_student
 from .usage import check_generation_allowed, record_generation
+from .write_sections import normalize_write_sections, student_sections_complete
 
 
 ProgressCallback = Callable[[str, str], None]
@@ -96,8 +97,8 @@ def generate_for_student(
 ) -> StudentInput:
     notify = progress or _default_progress
     check_generation_allowed()
+    target_sections = normalize_write_sections(sections)
     style_guide = _load_style_guide()
-    target_sections = sections or ["행발", "세특", "창체"]
 
     student.status = "in_progress"
     student.error_message = ""
@@ -106,26 +107,33 @@ def generate_for_student(
     generated: dict[str, Any] = dict(student.generated or {})
 
     try:
-        if "행발" in target_sections:
+        section = target_sections[0]
+        if section == "행발":
             notify("행발", f"{student.display_name} 작성 중...")
             generated["행발"] = _generate_haengbal(student, style_guide)
-
-        if "세특" in target_sections and student.subjects:
+        elif section == "세특":
+            if not student.subjects:
+                raise ValueError(f"{student.display_name}: 세특 작성에 필요한 과목 정보가 없습니다.")
             generated.setdefault("세특", {})
             for subject, info in student.subjects.items():
                 notify("세특", f"{student.display_name} · {subject}")
                 generated["세특"][subject] = _generate_setuk(student, subject, info, style_guide)
-
-        if "창체" in target_sections and student.changche:
+        elif section == "창체":
+            if not student.changche:
+                raise ValueError(f"{student.display_name}: 창체 작성에 필요한 활동 메모가 없습니다.")
             generated.setdefault("창체", {})
+            wrote = False
             for subsection, notes in student.changche.items():
                 if not notes:
                     continue
+                wrote = True
                 notify("창체", f"{student.display_name} · {subsection}")
                 generated["창체"][subsection] = _generate_changche(student, subsection, notes, style_guide)
+            if not wrote:
+                raise ValueError(f"{student.display_name}: 작성할 창체 활동이 없습니다.")
 
         student.generated = generated
-        student.status = "done"
+        student.status = "done" if student_sections_complete(student) else "partial"
         save_student(student)
         record_generation()
         _export_student_output(student)

@@ -230,7 +230,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_run = sub.add_parser("run", help="생기부 자동 작성 실행")
     p_run.add_argument("--student", help="특정 학생 ID만 작성")
     p_run.add_argument("--status", help="일괄 작성 시 대상 상태 (기본: pending)")
-    p_run.add_argument("--sections", help="행발,세특,창체 중 선택 (쉼표 구분)")
+    p_run.add_argument("--sections", help="작성 영역 하나만: 행발 | 세특 | 창체")
     p_run.add_argument("--limit", type=int, help="일괄 작성 인원 제한")
     p_run.add_argument("--yes", "-y", action="store_true", help="확인 없이 실행")
     p_run.set_defaults(func=cmd_run)

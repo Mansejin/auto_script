@@ -24,6 +24,7 @@ from src.saenggibu.sample_store import (
 from src.saenggibu.student_parser import parse_and_save, parse_file_to_student, parse_text_to_student
 from src.saenggibu.upload_formats import SAMPLE_EXTENSIONS, STUDENT_EXTENSIONS, check_upload_extension
 from src.saenggibu.usage import usage_summary
+from src.saenggibu.write_sections import normalize_write_sections, students_needing_section
 from src.saenggibu.student_store import (
     add_student,
     get_student,
@@ -347,19 +348,31 @@ def api_student_reset(student_id: str, _: AdminSession = Depends(require_admin))
 
 @router.post("/run")
 def api_run(payload: RunRequest, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
-    sections = payload.sections
+    try:
+        sections = normalize_write_sections(payload.sections)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    section = sections[0]
 
     if payload.student_id:
         student = get_student(payload.student_id)
         if not student:
             raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
         updated = generate_for_student(student, sections=sections)
-        return {"mode": "single", "student": updated.to_dict()}
+        return {"mode": "single", "section": section, "student": updated.to_dict()}
 
-    students = list_students(status=payload.status or "pending")
+    students = students_needing_section(list_students(), section)
     if payload.limit:
         students = students[: payload.limit]
     if not students:
-        return {"mode": "batch", "processed": 0, "errors": [], "results": []}
+        return {
+            "mode": "batch",
+            "section": section,
+            "processed": 0,
+            "errors": [],
+            "results": [],
+            "message": f"작성이 필요한 학생이 없습니다 ({section}).",
+        }
 
-    return {"mode": "batch", **run_batch(students, sections=sections, continue_on_error=True)}
+    result = run_batch(students, sections=sections, continue_on_error=True)
+    return {"mode": "batch", "section": section, **result}

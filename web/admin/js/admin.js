@@ -258,8 +258,45 @@
   }
 
   function statusPill(status) {
-    const labels = { pending: "대기", done: "완료", error: "오류", in_progress: "작성 중" };
+    const labels = {
+      pending: "대기",
+      done: "완료",
+      partial: "일부 완료",
+      error: "오류",
+      in_progress: "작성 중",
+    };
     return `<span class="status-pill status-${status}">${labels[status] || status}</span>`;
+  }
+
+  const WRITE_SECTION_LABELS = {
+    행발: "행동특성 및 종합의견",
+    세특: "세부능력 및 특기사항",
+    창체: "창의적 체험활동",
+  };
+
+  function getSelectedWriteSection() {
+    const checked = document.querySelector('input[name="writeSection"]:checked');
+    if (!checked) {
+      throw new Error("작성할 영역을 선택하세요.");
+    }
+    return checked.value;
+  }
+
+  function updateWriteSectionUi() {
+    const section = document.querySelector('input[name="writeSection"]:checked')?.value || "행발";
+    const btn = document.getElementById("runBatchBtn");
+    if (btn) {
+      btn.textContent = `${section} 미작성 학생 작성`;
+    }
+    sessionStorage.setItem("sgb_write_section", section);
+  }
+
+  function restoreWriteSectionChoice() {
+    const saved = sessionStorage.getItem("sgb_write_section");
+    if (!saved) return;
+    const input = document.querySelector(`input[name="writeSection"][value="${saved}"]`);
+    if (input) input.checked = true;
+    updateWriteSectionUi();
   }
 
   function studentLabel(s) {
@@ -305,7 +342,9 @@
         const actions =
           s.status === "done"
             ? `<button class="admin-btn secondary" data-action="review" data-id="${s.id}">검토</button>`
-            : `<button class="admin-btn secondary" data-action="run-one" data-id="${s.id}">작성</button>`;
+            : `<button class="admin-btn secondary" data-action="run-one" data-id="${s.id}">${
+                s.status === "partial" ? "추가 작성" : "작성"
+              }</button>`;
         return `<tr>
           <td>${studentLabel(s)}</td>
           <td>${statusPill(s.status)}</td>
@@ -633,12 +672,25 @@
     }
     if (target.dataset.action === "run-one") {
       const studentName = target.closest("tr")?.querySelector("td")?.textContent?.trim() || "학생";
+      let section;
+      try {
+        section = getSelectedWriteSection();
+      } catch (error) {
+        showToast(error.message);
+        switchTab("review");
+        return;
+      }
+      const sectionLabel = WRITE_SECTION_LABELS[section] || section;
       try {
         await withBusy(
-          "AI 생기부 작성",
-          `${studentName} 학생의 생기부를 작성하고 있습니다.`,
-          "한 명 기준 30초~2분 정도 걸릴 수 있습니다.",
-          () => api("/api/run", { method: "POST", body: { student_id: id } })
+          `${section} 작성`,
+          `${studentName} 학생의 ${sectionLabel}을(를) 작성하고 있습니다.`,
+          "④ 작성·검토에서 선택한 영역만 작성합니다.",
+          () =>
+            api("/api/run", {
+              method: "POST",
+              body: { student_id: id, sections: [section] },
+            })
         );
         showToast("작성 완료");
         await Promise.all([loadStudents(), loadReviewList(), loadUsage()]);
@@ -892,20 +944,29 @@
 
   document.getElementById("runBatchBtn")?.addEventListener("click", async () => {
     const limit = Number(document.getElementById("runLimit").value || 0) || null;
-    const limitText = limit ? `${limit}명` : "전원";
+    let section;
+    try {
+      section = getSelectedWriteSection();
+    } catch (error) {
+      showToast(error.message);
+      return;
+    }
+    const sectionLabel = WRITE_SECTION_LABELS[section] || section;
+    const limitText = limit ? `${limit}명` : `${section} 미작성 전원`;
     try {
       const data = await withBusy(
-        "일괄 AI 작성",
-        `${limitText} 생기부를 작성하고 있습니다.`,
-        "학생 수에 따라 수 분 이상 걸릴 수 있습니다.",
+        `${section} 일괄 작성`,
+        `${limitText} · ${sectionLabel}`,
+        "학생마다 API를 따로 호출합니다. 영역은 한 번에 하나만 작성됩니다.",
         () =>
           api("/api/run", {
             method: "POST",
-            body: { status: "pending", limit },
+            body: { sections: [section], limit },
           })
       );
       const errCount = (data.errors || []).length;
-      showToast(`완료 ${data.processed || 0}명${errCount ? `, 오류 ${errCount}건` : ""}`);
+      const msg = data.message || `완료 ${data.processed || 0}명${errCount ? `, 오류 ${errCount}건` : ""}`;
+      showToast(msg);
       document.getElementById("runLog").textContent = JSON.stringify(data, null, 2);
       await Promise.all([loadStudents(), loadReviewList(), loadUsage()]);
     } catch (error) {
@@ -921,6 +982,9 @@
 
   async function bootstrap() {
     setupFilePickers();
+    restoreWriteSectionChoice();
+    document.getElementById("writeSectionChoices")?.addEventListener("change", updateWriteSectionUi);
+    updateWriteSectionUi();
     const expectedPanels = ["panelLearn", "panelStyle", "panelStudents", "panelReview"];
     const missing = expectedPanels.filter((id) => !document.getElementById(id));
     if (missing.length) {

@@ -157,6 +157,7 @@
 
 .status-pending { background: var(--orange-bg); color: var(--orange); }
 .status-done { background: var(--green-bg); color: var(--green); }
+.status-partial { background: var(--blue-light); color: var(--blue); }
 .status-error { background: rgba(229, 72, 77, 0.12); color: #e5484d; }
 .status-in_progress { background: var(--blue-light); color: var(--blue); }
 
@@ -323,6 +324,36 @@
   flex-shrink: 0;
   accent-color: var(--blue);
   cursor: pointer;
+}
+
+.admin-option-radio {
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.admin-option-radio:has(input:checked) {
+  border-color: var(--blue);
+  background: var(--blue-light);
+}
+
+.admin-option input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  margin: 3px 0 0;
+  flex-shrink: 0;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+
+.admin-write-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0 4px;
+}
+
+.admin-subheading {
+  font-size: 0.95rem;
+  margin: 16px 0 8px;
 }
 
 .admin-option-text {

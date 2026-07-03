@@ -45,7 +45,7 @@ class StudentInput:
     class_num: int
     number: int
     gender: str = ""
-    status: str = "pending"  # pending | in_progress | done | error
+    status: str = "pending"  # pending | partial | done | error | in_progress
     notes: dict[str, Any] = field(default_factory=dict)
     subjects: dict[str, dict[str, Any]] = field(default_factory=dict)
     changche: dict[str, str] = field(default_factory=dict)

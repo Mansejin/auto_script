@@ -208,11 +208,36 @@
         <div class="admin-card">
           <h2>일괄 AI 작성</h2>
           <p class="admin-muted" id="usageText">무료 플랜: 이번 달 작성 가능 횟수를 확인하세요.</p>
-          <div class="admin-field">
-            <label for="runLimit">인원 제한 (비우면 전원)</label>
+          <h3 class="admin-subheading">작성 영역 선택</h3>
+          <p class="admin-muted">행발과 세특은 성격이 달라 <strong>따로</strong> 작성합니다. 이번 실행에서 작성할 영역을 하나만 고르세요.</p>
+          <div class="admin-write-mode" id="writeSectionChoices">
+            <label class="admin-option admin-option-radio">
+              <input type="radio" name="writeSection" value="행발" checked>
+              <span class="admin-option-text">
+                <strong>행동특성 및 종합의견 (행발)</strong>
+                <span>학교생활 태도·성품·대인관계 중심</span>
+              </span>
+            </label>
+            <label class="admin-option admin-option-radio">
+              <input type="radio" name="writeSection" value="세특">
+              <span class="admin-option-text">
+                <strong>세부능력 및 특기사항 (세특)</strong>
+                <span>과목별 수업·탐구·활동 중심</span>
+              </span>
+            </label>
+            <label class="admin-option admin-option-radio">
+              <input type="radio" name="writeSection" value="창체">
+              <span class="admin-option-text">
+                <strong>창의적 체험활동 (창체)</strong>
+                <span>자율·동아리·봉사·진로</span>
+              </span>
+            </label>
+          </div>
+          <div class="admin-field" style="margin-top:16px">
+            <label for="runLimit">인원 제한 (비우면 해당 영역 미작성 전원)</label>
             <input id="runLimit" type="number" min="1" placeholder="예: 5">
           </div>
-          <button id="runBatchBtn" class="admin-btn" type="button">미작성 학생 전원 작성</button>
+          <button id="runBatchBtn" class="admin-btn" type="button">행발 미작성 학생 작성</button>
           <pre id="runLog" class="admin-output" style="margin-top:16px"></pre>
         </div>
         <div class="admin-card" style="margin-top:16px">
@@ -257,6 +282,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260703d"></script>
+  <script src="/admin-static/js/admin.js?v=20260703e"></script>
 </body>
 </html>

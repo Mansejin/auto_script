@@ -101,14 +101,6 @@
   const logoutBtn = document.getElementById("logoutBtn");
   const toast = document.getElementById("toast");
 
-  const panels = {
-    learn: document.getElementById("panelLearn"),
-    style: document.getElementById("panelStyle"),
-    students: document.getElementById("panelStudents"),
-    review: document.getElementById("panelReview"),
-    detail: document.getElementById("panelDetail"),
-  };
-
   let currentStudentId = null;
   let currentStudentData = null;
   let lastTabBeforeDetail = "review";
@@ -194,8 +186,8 @@
       }
       btn.classList.toggle("active", tabName === name);
     });
-    Object.entries(panels).forEach(([key, panel]) => {
-      if (!panel) return;
+    document.querySelectorAll(".admin-panel").forEach((panel) => {
+      const key = panel.id.replace(/^panel/, "").toLowerCase();
       panel.hidden = key !== name;
     });
   }
@@ -729,6 +721,11 @@
 
   async function bootstrap() {
     setupFilePickers();
+    const expectedPanels = ["panelLearn", "panelStyle", "panelStudents", "panelReview"];
+    const missing = expectedPanels.filter((id) => !document.getElementById(id));
+    if (missing.length) {
+      showToast("관리자 UI가 오래됐습니다. NAS-UI-동기화.bat 실행 후 Ctrl+F5");
+    }
     const token = getToken();
     if (!token) {
       showGate();

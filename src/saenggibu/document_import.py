@@ -85,7 +85,23 @@ def _records_from_document_text(path: Path, text: str) -> list[SampleRecord]:
     ]
 
 
-def parse_xlsx_records(path: Path) -> list[SampleRecord]:
+def _xlsx_to_text(path: Path) -> str:
+    from openpyxl import load_workbook
+
+    wb = load_workbook(path, read_only=True, data_only=True)
+    lines: list[str] = []
+    for sheet in wb.sheetnames:
+        ws = wb[sheet]
+        for row in ws.iter_rows(values_only=True):
+            cells = ["" if cell is None else str(cell).strip() for cell in row]
+            line = "\t".join(cell for cell in cells if cell)
+            if line:
+                lines.append(line)
+    wb.close()
+    return "\n".join(lines)
+
+
+def _parse_xlsx_rows(path: Path) -> list[SampleRecord]:
     from openpyxl import load_workbook
 
     wb = load_workbook(path, read_only=True, data_only=True)
@@ -122,9 +138,27 @@ def parse_xlsx_records(path: Path) -> list[SampleRecord]:
             )
 
     wb.close()
-    if not records:
-        raise ValueError(f"엑셀에서 학생 세특을 찾지 못했습니다: {path.name}")
     return records
+
+
+def parse_xlsx_records(path: Path) -> list[SampleRecord]:
+    try:
+        records = _parse_xlsx_rows(path)
+        if records:
+            return records
+    except Exception:
+        pass
+
+    try:
+        text = _xlsx_to_text(path)
+    except ImportError as exc:
+        raise ValueError("엑셀 처리 패키지(openpyxl)가 설치되지 않았습니다. NAS update 후 재시도하세요.") from exc
+    except Exception as exc:
+        raise ValueError(f"엑셀 파일을 읽을 수 없습니다: {path.name} ({exc})") from exc
+
+    record = _records_from_document_text(path, text)[0]
+    record.label = _label_from_path(path)
+    return [record]
 
 
 def _docx_to_text(path: Path) -> str:

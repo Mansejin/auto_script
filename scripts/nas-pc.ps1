@@ -10,7 +10,7 @@
 #>
 param(
   [Parameter(Position = 0)]
-  [ValidateSet("setup", "connect", "update", "logs", "map", "unmap", "status", "fix-ssh", "install-key")]
+  [ValidateSet("setup", "connect", "update", "logs", "map", "unmap", "status", "fix-ssh", "install-key", "sync-ui")]
   [string]$Command = "connect",
 
   [ValidateSet("remote", "local")]
@@ -349,6 +349,28 @@ function Get-NasRemotePathPrefix {
   return 'export PATH="/usr/local/bin:/var/packages/ContainerManager/target/usr/bin:/var/packages/Docker/target/usr/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"'
 }
 
+function Sync-NasAdminUi([hashtable]$Cfg) {
+  $mappedRepo = Find-NasMappedRepo $Cfg
+  if (-not $mappedRepo) {
+    Write-Warn "SMB drive not mapped. Run: .\scripts\nas-pc.ps1 map -Profile local"
+    return $false
+  }
+
+  $src = Join-Path $Root "web\admin"
+  $dest = Join-Path $mappedRepo "web\admin"
+  if (-not (Test-Path $src)) {
+    throw "Missing web\admin in repo"
+  }
+  if (-not (Test-Path $dest)) {
+    New-Item -ItemType Directory -Path $dest -Force | Out-Null
+  }
+
+  Copy-Item -Path (Join-Path $src "*") -Destination $dest -Recurse -Force
+  Write-Ok "Synced admin UI -> $dest"
+  Write-Host "  Browser: Ctrl+F5 on sgb.mansejin.com"
+  return $true
+}
+
 function Invoke-NasUpdate {
   $cfg = Get-NasConfig
   $repo = $cfg["NAS_REPO_PATH"]
@@ -515,6 +537,10 @@ try {
     "status" { Invoke-NasStatus }
     "fix-ssh" { Invoke-FixSshPerms }
     "install-key" { Invoke-InstallKey }
+    "sync-ui" {
+      $cfg = Get-NasConfig
+      Sync-NasAdminUi $cfg | Out-Null
+    }
   }
 } catch {
   Write-Host ""

@@ -4,6 +4,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$OutputEncoding = [System.Text.UTF8Encoding]::new()
+
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
@@ -11,70 +14,98 @@ function Write-Step([string]$Text) {
   Write-Host ">> $Text" -ForegroundColor Cyan
 }
 
+function Test-PythonExe([string]$Exe, [string[]]$Prefix = @()) {
+  if (-not $Exe) { return $false }
+  if ($Exe -like "*\Microsoft\WindowsApps\*") { return $false }
+  try {
+    & $Exe @Prefix -c "import sys; print(sys.executable)" 2>$null | Out-Null
+    return $LASTEXITCODE -eq 0
+  } catch {
+    return $false
+  }
+}
+
 function Invoke-ProjectPython {
   param([string[]]$PythonArgs)
-  if ($script:PythonLauncher -eq "py") {
-    & py -3 @PythonArgs
-  } else {
-    & $script:PythonExe @PythonArgs
-  }
+  & $script:PythonExe @script:PythonPrefix @PythonArgs
   if ($LASTEXITCODE -ne 0) {
-    throw "Python command failed (exit $LASTEXITCODE): $($PythonArgs -join ' ')"
+    throw "Python failed (exit $LASTEXITCODE): $($script:PythonExe) $($script:PythonPrefix -join ' ') $($PythonArgs -join ' ')"
   }
 }
 
 Write-Host ""
-Write-Host "========================================" -ForegroundColor Yellow
-Write-Host " 생기부 로컬 테스트 서버" -ForegroundColor Yellow
-Write-Host "========================================" -ForegroundColor Yellow
-Write-Host "폴더: $Root"
+Write-Host "========================================"
+Write-Host " Saenggibu local dev server"
+Write-Host "========================================"
+Write-Host "Folder: $Root"
 Write-Host ""
 
 if (-not (Test-Path .env)) {
-  Write-Step ".env 없음 -> config.example.env 복사"
+  Write-Step "Creating .env from config.example.env"
   Copy-Item config.example.env .env
-  Write-Host "  .env 를 열어 ADMIN_PASSWORD, GEMINI_API_KEY 를 설정하세요." -ForegroundColor DarkYellow
+  Write-Host "  Edit .env -> set ADMIN_PASSWORD and GEMINI_API_KEY"
 }
 
-$pythonCmd = Get-Command python -ErrorAction SilentlyContinue
-$pyCmd = Get-Command py -ErrorAction SilentlyContinue
-$python3Cmd = Get-Command python3 -ErrorAction SilentlyContinue
+$script:PythonExe = $null
+$script:PythonPrefix = @()
 
-if ($pythonCmd) {
-  $script:PythonExe = $pythonCmd.Source
-  $script:PythonLauncher = "python"
-} elseif ($pyCmd) {
-  $script:PythonExe = $pyCmd.Source
-  $script:PythonLauncher = "py"
-} elseif ($python3Cmd) {
-  $script:PythonExe = $python3Cmd.Source
-  $script:PythonLauncher = "python3"
-} else {
+$pyLauncher = Get-Command py -ErrorAction SilentlyContinue
+if ($pyLauncher -and (Test-PythonExe $pyLauncher.Source @("-3"))) {
+  $script:PythonExe = $pyLauncher.Source
+  $script:PythonPrefix = @("-3")
+  Write-Step "Python: py -3"
+}
+
+if (-not $script:PythonExe) {
+  foreach ($name in @("python", "python3")) {
+    $cmd = Get-Command $name -ErrorAction SilentlyContinue
+    if ($cmd -and (Test-PythonExe $cmd.Source)) {
+      $script:PythonExe = $cmd.Source
+      $script:PythonPrefix = @()
+      Write-Step "Python: $name ($($cmd.Source))"
+      break
+    }
+  }
+}
+
+if (-not $script:PythonExe) {
   throw @"
-Python 을 찾을 수 없습니다.
-  1) https://www.python.org/downloads/ 에서 Python 3.10+ 설치
-  2) 설치 시 'Add python.exe to PATH' 체크
-  3) 터미널을 새로 연 뒤 다시 실행
+
+Python not found (or only Windows Store stub).
+
+Fix:
+  1) Install Python 3.10+ from https://www.python.org/downloads/
+  2) Check "Add python.exe to PATH"
+  3) Windows Settings -> Apps -> Advanced app settings -> App execution aliases
+     -> turn OFF "python.exe" and "python3.exe" store aliases
+  4) Open a NEW terminal and run again
+
+Or test manually:
+  py -3 --version
 "@
 }
 
-Write-Step "Python: $($script:PythonLauncher)"
+try {
+  Invoke-ProjectPython -PythonArgs @("-m", "pip", "--version") | Out-Null
+} catch {
+  Write-Step "Installing packages (first run)..."
+  Invoke-ProjectPython -PythonArgs @("-m", "pip", "install", "-r", "requirements.txt")
+}
 
 try {
   Invoke-ProjectPython -PythonArgs @("-c", "import fastapi, uvicorn")
 } catch {
-  Write-Step "패키지 설치 중 (최초 1회)..."
+  Write-Step "Installing packages (first run)..."
   Invoke-ProjectPython -PythonArgs @("-m", "pip", "install", "-r", "requirements.txt")
+  Invoke-ProjectPython -PythonArgs @("-c", "import fastapi, uvicorn")
 }
 
 $portInUse = $null
 try {
   $portInUse = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
-} catch {
-  # Some Windows editions lack Get-NetTCPConnection; skip port check.
-}
+} catch {}
 if ($portInUse) {
-  throw "포트 $Port 이(가) 이미 사용 중입니다. 다른 프로그램을 끄거나 -Port 8788 로 다시 실행하세요."
+  throw "Port $Port is already in use. Close the other app or run: .\scripts\dev-local.ps1 -Port 8788"
 }
 
 $env:SGB_HOST = "127.0.0.1"
@@ -87,11 +118,11 @@ $adminUrl = "http://127.0.0.1:$Port/admin/saenggibu"
 $healthUrl = "http://127.0.0.1:$Port/health"
 
 Write-Host ""
-Write-Host "서버 주소"
+Write-Host "Server URLs"
 Write-Host "  Admin : $adminUrl"
 Write-Host "  Health: $healthUrl"
 Write-Host ""
-Write-Host "이 창을 닫으면 서버가 종료됩니다. 테스트 중에는 창을 유지하세요." -ForegroundColor Green
+Write-Host "Keep this window OPEN while testing. Closing it stops the server." -ForegroundColor Green
 Write-Host ""
 
 if (-not $NoBrowser) {

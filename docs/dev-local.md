@@ -67,9 +67,22 @@ chmod +x scripts/dev-local.sh
 | 증상 | 확인 |
 |------|------|
 | 연결할 수 없음 / ERR_CONNECTION_REFUSED | **서버 창이 켜져 있는지** 확인. bat 실행 후 창이 바로 닫히면 Python 미설치·오류 |
+| `exit 9009` / Python command failed | Windows **가짜 python** (스토어 스텁). 아래 "Python 9009" 참고 |
 | `DEV-로컬테스트.bat` 없음 | `git pull` 후 `scripts\` 폴더 확인 |
-| Python not found | [python.org](https://www.python.org/downloads/) 설치, **Add to PATH** 체크, 터미널 재시작 |
 | 포트 사용 중 | `dev-local.ps1 -Port 8788` 로 다른 포트 사용 |
 | 로그인 안 됨 | `.env` 의 `ADMIN_PASSWORD=` 값 설정 후 서버 재시작 |
 
-**서버만 켜져 있는지 확인:** 브라우저에서 http://127.0.0.1:8787/health → `{"status":"ok"}` 나오면 정상.
+**서버만 켜져 있는지 확인:** http://127.0.0.1:8787/health → `{"status":"ok"}`
+
+### Python 9009 (Windows 흔한 오류)
+
+`python`이 설치된 것처럼 보이지만 실제로는 **Microsoft Store 링크**인 경우입니다.
+
+1. **설정** → **앱** → **고급 앱 설정** → **앱 실행 별칭**
+2. **python.exe**, **python3.exe** 를 **끔**
+3. https://www.python.org/downloads/ 에서 Python 3.10+ 설치 (**Add to PATH** 체크)
+4. **새** PowerShell 열고 확인:
+   ```powershell
+   py -3 --version
+   ```
+5. `scripts\DEV-Python확인.bat` 실행 후 `DEV-로컬테스트.bat` 재실행

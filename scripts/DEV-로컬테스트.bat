@@ -1,19 +1,22 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0.."
-title 생기부 로컬 테스트 서버
+title Saenggibu local dev
 echo.
-echo [폴더] %CD%
+echo Folder: %CD%
 echo.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0dev-local.ps1" %*
 if errorlevel 1 (
   echo.
   echo ========================================
-  echo  서버 시작 실패
+  echo  Server failed to start
   echo ========================================
-  echo  - Python 설치 및 PATH 확인
-  echo  - 이 폴더에 .env 있는지 확인
-  echo  - 포트 8787 사용 중이면 다른 프로그램 종료
+  echo.
+  echo Common fixes:
+  echo   1. Install Python 3.10+ from python.org
+  echo   2. Turn OFF Windows "App execution aliases" for python.exe
+  echo   3. Open NEW terminal after install
+  echo   4. Run: py -3 --version
   echo.
   pause
 )

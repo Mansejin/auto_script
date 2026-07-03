@@ -85,19 +85,22 @@
           </form>
           <div class="admin-card" style="margin-top:16px;padding:16px;background:var(--bg)">
             <h3 style="font-size:1rem;margin-bottom:8px">올린 샘플 목록</h3>
-            <p class="admin-muted" style="margin-bottom:12px">체크 후 <strong>선택 삭제</strong> 또는 <strong>전체 삭제</strong>로 정리할 수 있습니다.</p>
-            <div id="samplesList"></div>
-            <div id="samplesBulkActions" class="admin-sample-toolbar" hidden>
-              <label class="admin-check-label">
-                <input id="samplesSelectAll" type="checkbox">
-                <span>전체 선택</span>
-              </label>
-              <span id="samplesSelectedCount" class="admin-muted"></span>
-              <div class="admin-sample-toolbar-actions">
+            <div id="samplesBulkActions" class="admin-samples-toolbar" hidden>
+              <div class="admin-samples-toolbar-left">
+                <span id="samplesCountBadge" class="admin-samples-count">0건</span>
+                <span id="samplesSelectedCount" class="admin-samples-selected"></span>
+              </div>
+              <div class="admin-samples-toolbar-right">
+                <label class="admin-check">
+                  <input id="samplesSelectAll" type="checkbox" class="admin-check-input">
+                  <span class="admin-check-box" aria-hidden="true"></span>
+                  <span class="admin-check-text">전체 선택</span>
+                </label>
                 <button id="deleteSelectedSamplesBtn" class="admin-btn danger admin-btn-sm" type="button" disabled>선택 삭제</button>
                 <button id="deleteAllSamplesBtn" class="admin-btn danger admin-btn-sm" type="button">전체 삭제</button>
               </div>
             </div>
+            <div id="samplesList"></div>
           </div>
         </div>
         <div class="admin-card" style="margin-top:16px">
@@ -239,16 +242,21 @@
     </section>
   </div>
 
-  <div id="busyOverlay" class="admin-busy-overlay" hidden aria-live="polite" aria-busy="true">
-    <div class="admin-busy-card">
-      <div class="admin-busy-spinner" aria-hidden="true"></div>
-      <p id="busyMessage" class="admin-busy-message">처리 중…</p>
+  <div id="busyOverlay" class="admin-modal-backdrop" hidden aria-live="polite" aria-busy="true">
+    <div class="admin-modal" role="dialog" aria-labelledby="busyTitle">
+      <div class="admin-modal-icon" aria-hidden="true">
+        <div class="admin-busy-spinner"></div>
+      </div>
+      <h2 id="busyTitle" class="admin-modal-title">AI 처리 중</h2>
+      <p id="busyMessage" class="admin-modal-message">잠시만 기다려 주세요</p>
+      <p id="busyModel" class="admin-modal-model">사용 모델 · —</p>
       <div class="admin-busy-bar" aria-hidden="true"><span class="admin-busy-bar-fill"></span></div>
-      <p id="busyHint" class="admin-busy-hint">잠시만 기다려 주세요</p>
+      <p id="busyHint" class="admin-modal-hint">응답을 기다리는 중입니다</p>
+      <p id="busyElapsed" class="admin-modal-elapsed">0초 경과</p>
     </div>
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260703c"></script>
+  <script src="/admin-static/js/admin.js?v=20260703d"></script>
 </body>
 </html>

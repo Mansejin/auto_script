@@ -107,10 +107,14 @@
   let selectedSampleIds = new Set();
   let busyTimer = null;
   let busyStartedAt = 0;
+  let systemInfo = { gemini_model: "—" };
 
   const busyOverlay = document.getElementById("busyOverlay");
+  const busyTitle = document.getElementById("busyTitle");
   const busyMessage = document.getElementById("busyMessage");
+  const busyModel = document.getElementById("busyModel");
   const busyHint = document.getElementById("busyHint");
+  const busyElapsed = document.getElementById("busyElapsed");
 
   function showToast(message) {
     if (!toast) return;
@@ -119,12 +123,19 @@
     setTimeout(() => toast.classList.remove("show"), 3200);
   }
 
-  function setBusy(active, message = "처리 중…", hint = "AI 응답을 기다리는 중입니다. 1~2분 걸릴 수 있습니다.") {
+  function setBusy(active, title = "AI 처리 중", message = "잠시만 기다려 주세요", hint = "", options = {}) {
+    const { showModel = true } = options;
     if (active) {
       document.body.classList.add("admin-is-busy");
       if (busyOverlay) busyOverlay.hidden = false;
+      if (busyTitle) busyTitle.textContent = title;
       if (busyMessage) busyMessage.textContent = message;
       if (busyHint) busyHint.textContent = hint;
+      if (busyModel) {
+        busyModel.hidden = !showModel;
+        busyModel.textContent = `사용 모델 · ${systemInfo.gemini_model}`;
+      }
+      if (busyElapsed) busyElapsed.textContent = "0초 경과";
       return;
     }
     if (busyTimer) {
@@ -135,23 +146,34 @@
     if (busyOverlay) busyOverlay.hidden = true;
   }
 
-  function startBusy(message, hint = "AI 응답을 기다리는 중입니다. 1~2분 걸릴 수 있습니다.") {
+  function startBusy(title, message, hint = "응답을 기다리는 중입니다. 창을 닫지 마세요.", options = {}) {
+    const { showModel = true } = options;
     busyStartedAt = Date.now();
-    setBusy(true, message, hint);
+    setBusy(true, title, message, hint, { showModel });
     if (busyTimer) clearInterval(busyTimer);
     busyTimer = setInterval(() => {
       const sec = Math.floor((Date.now() - busyStartedAt) / 1000);
-      if (busyMessage) busyMessage.textContent = `${message} (${sec}초)`;
+      if (busyElapsed) busyElapsed.textContent = `${sec}초 경과`;
     }, 1000);
     return () => setBusy(false);
   }
 
-  async function withBusy(message, hint, fn) {
-    const stop = startBusy(message, hint);
+  async function withBusy(title, message, hint, fn, options = {}) {
+    const stop = startBusy(title, message, hint, options);
     try {
       return await fn();
     } finally {
       stop();
+    }
+  }
+
+  async function loadSystemInfo() {
+    try {
+      const data = await api("/api/auth/me");
+      if (data.gemini_model) systemInfo.gemini_model = data.gemini_model;
+      return data;
+    } catch {
+      return null;
     }
   }
 
@@ -247,7 +269,7 @@
   function formatUsage(usage) {
     if (!usage) return "";
     if (usage.unlimited) {
-      return `Pro 플랜 · 이번 달 ${usage.generations_used}건 작성`;
+      return `무제한 · 이번 달 ${usage.generations_used}건 작성`;
     }
     const left = usage.generations_remaining ?? 0;
     const limit = usage.generations_limit ?? 0;
@@ -324,16 +346,19 @@
     return `미명시 (${s.id})`;
   }
 
-  function updateSampleSelectionUi() {
+  function updateSampleSelectionUi(totalCount = null) {
     const toolbar = document.getElementById("samplesBulkActions");
+    const countBadge = document.getElementById("samplesCountBadge");
     const countEl = document.getElementById("samplesSelectedCount");
     const deleteSelectedBtn = document.getElementById("deleteSelectedSamplesBtn");
     const selectAll = document.getElementById("samplesSelectAll");
     const boxes = [...document.querySelectorAll(".sample-select")];
     const checkedCount = boxes.filter((box) => box.checked).length;
+    const total = totalCount ?? boxes.length;
 
+    if (countBadge) countBadge.textContent = `${total}건`;
     if (countEl) {
-      countEl.textContent = checkedCount ? `${checkedCount}건 선택` : "";
+      countEl.textContent = checkedCount ? `${checkedCount}건 선택됨` : "";
     }
     if (deleteSelectedBtn) {
       deleteSelectedBtn.disabled = checkedCount === 0;
@@ -343,7 +368,7 @@
       selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
     }
     if (toolbar) {
-      toolbar.hidden = boxes.length === 0;
+      toolbar.hidden = total === 0;
     }
   }
 
@@ -358,7 +383,7 @@
     }
     if (!confirm(confirmMessage)) return;
 
-    const stop = startBusy("샘플 삭제 중…", "선택한 항목을 정리하고 있습니다.");
+    const stop = startBusy("샘플 삭제", "선택한 항목을 정리하고 있습니다.", "잠시만 기다려 주세요.", { showModel: false });
     try {
       if (ids.length === 1) {
         await api(`/api/samples/${ids[0]}`, { method: "DELETE" });
@@ -385,14 +410,13 @@
     if (!data.samples.length) {
       list.innerHTML = `<p class="admin-muted">아직 올린 샘플이 없습니다.</p>`;
       selectedSampleIds.clear();
-      updateSampleSelectionUi();
+      updateSampleSelectionUi(0);
       return;
     }
     list.innerHTML = `
-      <p class="admin-muted">${data.count}건 · 체크 후 선택 삭제 또는 전체 삭제</p>
       <table class="admin-table admin-sample-table">
         <thead><tr>
-          <th class="sample-select-cell"></th>
+          <th class="sample-select-cell" aria-label="선택"></th>
           <th>이름</th>
           <th>ID</th>
           <th></th>
@@ -403,7 +427,10 @@
             const checked = selectedSampleIds.has(s.id) ? "checked" : "";
             return `<tr>
               <td class="sample-select-cell">
-                <input class="sample-select" type="checkbox" data-id="${s.id}" ${checked}>
+                <label class="admin-check admin-check-row" title="선택">
+                  <input class="sample-select admin-check-input" type="checkbox" data-id="${s.id}" ${checked}>
+                  <span class="admin-check-box" aria-hidden="true"></span>
+                </label>
               </td>
               <td>${label}</td>
               <td class="admin-muted">${s.id}</td>
@@ -412,7 +439,7 @@
           })
           .join("")}</tbody>
       </table>`;
-    updateSampleSelectionUi();
+    updateSampleSelectionUi(data.count);
   }
 
   document.getElementById("samplesList")?.addEventListener("change", (event) => {
@@ -447,7 +474,9 @@
     }
     if (!confirm(`올린 샘플 ${count}건을 전부 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
 
-    const stop = startBusy("샘플 전체 삭제 중…", "목록과 파일을 정리하고 있습니다.");
+    const stop = startBusy("샘플 전체 삭제", "모든 샘플을 정리하고 있습니다.", "되돌릴 수 없습니다. 잠시만 기다려 주세요.", {
+      showModel: false,
+    });
     try {
       const result = await api("/api/samples", { method: "DELETE" });
       selectedSampleIds.clear();
@@ -603,10 +632,12 @@
       return;
     }
     if (target.dataset.action === "run-one") {
+      const studentName = target.closest("tr")?.querySelector("td")?.textContent?.trim() || "학생";
       try {
         await withBusy(
-          "AI 생기부 작성 중…",
-          "학생 한 명 분량이라 30초~2분 정도 걸릴 수 있습니다.",
+          "AI 생기부 작성",
+          `${studentName} 학생의 생기부를 작성하고 있습니다.`,
+          "한 명 기준 30초~2분 정도 걸릴 수 있습니다.",
           () => api("/api/run", { method: "POST", body: { student_id: id } })
         );
         showToast("작성 완료");
@@ -724,8 +755,9 @@
   document.getElementById("aiParsePreviewBtn")?.addEventListener("click", async () => {
     try {
       await withBusy(
-        "AI가 학생 정보 정리 중…",
-        "메모·파일을 읽고 구조화하는 중입니다.",
+        "AI 학생 정보 정리",
+        "메모·파일을 읽고 구조화하고 있습니다.",
+        "완료될 때까지 창을 닫지 마세요.",
         () => aiParse(false)
       );
       showToast("미리보기 완료");
@@ -737,8 +769,9 @@
   document.getElementById("aiParseSaveBtn")?.addEventListener("click", async () => {
     try {
       await withBusy(
-        "AI가 학생 등록 중…",
-        "학생 정보를 저장할 때까지 잠시만 기다려 주세요.",
+        "AI 학생 등록",
+        "학생 정보를 저장하고 있습니다.",
+        "완료될 때까지 창을 닫지 마세요.",
         () => aiParse(true)
       );
       showToast("학생 등록됨");
@@ -843,12 +876,12 @@
 
   document.getElementById("analyzeBtn")?.addEventListener("click", async () => {
     const useGemini = document.getElementById("analyzeGemini").checked;
-    const hint = useGemini
-      ? "AI가 스타일 가이드를 정리합니다. 샘플 수에 따라 1~3분 걸릴 수 있습니다."
-      : "샘플 문체·분량을 계산하는 중입니다.";
     try {
-      await withBusy("문체·분량 분석 중…", hint, () =>
-        api(`/api/analyze?use_gemini=${useGemini}`, { method: "POST" })
+      await withBusy(
+        "문체·분량 분석",
+        useGemini ? "AI가 스타일 가이드를 정리하고 있습니다." : "샘플 문체·분량을 계산하고 있습니다.",
+        useGemini ? "샘플 수에 따라 1~3분 걸릴 수 있습니다." : "곧 완료됩니다.",
+        () => api(`/api/analyze?use_gemini=${useGemini}`, { method: "POST" })
       );
       showToast("분석 완료 · ② 스타일 설정에서 확인하세요");
       await loadStyleGuide();
@@ -862,8 +895,9 @@
     const limitText = limit ? `${limit}명` : "전원";
     try {
       const data = await withBusy(
-        "일괄 AI 작성 중…",
-        `${limitText} 분량입니다. 학생 수에 따라 수 분 이상 걸릴 수 있습니다.`,
+        "일괄 AI 작성",
+        `${limitText} 생기부를 작성하고 있습니다.`,
+        "학생 수에 따라 수 분 이상 걸릴 수 있습니다.",
         () =>
           api("/api/run", {
             method: "POST",
@@ -880,6 +914,7 @@
   });
 
   async function refreshAll() {
+    await loadSystemInfo();
     await Promise.all([loadStudents(), loadSamples(), loadReviewList(), loadStyleGuide(), loadUsage()]);
     switchTab("learn");
   }

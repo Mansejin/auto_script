@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
+from src.saenggibu.config import get_gemini_model
 from src.saenggibu.generator import generate_for_student, run_batch
 from src.saenggibu.models import StudentInput
 from src.saenggibu.pattern_analyzer import analyze_and_save, load_patterns, update_style_guide
@@ -103,7 +104,12 @@ def login(payload: LoginRequest) -> dict[str, str]:
 
 @router.get("/auth/me")
 def auth_me(session: AdminSession = Depends(require_admin)) -> dict[str, Any]:
-    return {"ok": True, "admin": True, "usage": usage_summary()}
+    return {
+        "ok": True,
+        "admin": True,
+        "usage": usage_summary(),
+        "gemini_model": get_gemini_model(),
+    }
 
 
 @router.get("/usage")

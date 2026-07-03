@@ -15,6 +15,10 @@
       exts: [".tsv", ".csv", ".txt"],
       label: "tsv, csv, txt",
     },
+    aiStudentFile: {
+      exts: [".txt", ".tsv", ".csv", ".docx", ".xlsx", ".pdf", ".hwp"],
+      label: "txt, tsv, csv, docx, xlsx 등",
+    },
   };
 
   function fileExtension(name) {
@@ -69,7 +73,7 @@
           nameEl.textContent = `지원 안 함: ${formatRejectedNames(check.rejected)}`;
           nameEl.classList.add("is-invalid");
           nameEl.classList.remove("has-file");
-          showToast(`지원하지 않는 형식입니다. (${check.rule.label} 만 가능)`);
+          showToast(`지원하지 않는 형식입니다. (${check.rule.label})`);
           input.value = "";
           return;
         }
@@ -98,13 +102,16 @@
   const toast = document.getElementById("toast");
 
   const panels = {
+    learn: document.getElementById("panelLearn"),
+    style: document.getElementById("panelStyle"),
     students: document.getElementById("panelStudents"),
-    samples: document.getElementById("panelSamples"),
-    run: document.getElementById("panelRun"),
+    review: document.getElementById("panelReview"),
     detail: document.getElementById("panelDetail"),
   };
 
   let currentStudentId = null;
+  let currentStudentData = null;
+  let lastTabBeforeDetail = "review";
 
   function showToast(message) {
     if (!toast) return;
@@ -181,7 +188,11 @@
 
   function switchTab(name) {
     document.querySelectorAll(".admin-tab").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.tab === name);
+      const tabName = btn.dataset.tab;
+      if (tabName === "detail") {
+        btn.hidden = name !== "detail";
+      }
+      btn.classList.toggle("active", tabName === name);
     });
     Object.entries(panels).forEach(([key, panel]) => {
       if (!panel) return;
@@ -190,51 +201,196 @@
   }
 
   function statusPill(status) {
-    return `<span class="status-pill status-${status}">${status}</span>`;
+    const labels = { pending: "대기", done: "완료", error: "오류", in_progress: "작성 중" };
+    return `<span class="status-pill status-${status}">${labels[status] || status}</span>`;
+  }
+
+  function studentLabel(s) {
+    return `${s.grade}-${s.class_num} ${s.number}번 ${s.name}`;
+  }
+
+  function formatUsage(usage) {
+    if (!usage) return "";
+    if (usage.unlimited) {
+      return `Pro 플랜 · 이번 달 ${usage.generations_used}건 작성`;
+    }
+    const left = usage.generations_remaining ?? 0;
+    const limit = usage.generations_limit ?? 0;
+    return `무료 플랜 · 이번 달 ${left}/${limit}건 남음`;
+  }
+
+  async function loadUsage() {
+    try {
+      const usage = await api("/api/usage");
+      const badge = document.getElementById("usageBadge");
+      const text = document.getElementById("usageText");
+      const line = formatUsage(usage);
+      if (badge) badge.textContent = line ? `${line} · ① 학습 → ② 설정 → ③ 학생 → ④ 작성·검토` : badge.textContent;
+      if (text) text.textContent = line || text.textContent;
+      return usage;
+    } catch {
+      return null;
+    }
   }
 
   async function loadStudents() {
     const tbody = document.getElementById("studentsTableBody");
-    tbody.innerHTML = `<tr><td colspan="5">불러오는 중…</td></tr>`;
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="4">불러오는 중…</td></tr>`;
     const data = await api("/api/students");
     if (!data.students.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="admin-muted">등록된 학생이 없습니다.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="admin-muted">등록된 학생이 없습니다.</td></tr>`;
       return;
     }
     tbody.innerHTML = data.students
       .map((s) => {
         const subjects = Object.keys(s.subjects || {}).join(", ") || "-";
+        const actions =
+          s.status === "done"
+            ? `<button class="admin-btn secondary" data-action="review" data-id="${s.id}">검토</button>`
+            : `<button class="admin-btn secondary" data-action="run-one" data-id="${s.id}">작성</button>`;
         return `<tr>
-          <td>${s.grade}-${s.class_num} ${s.number}번 ${s.name}</td>
+          <td>${studentLabel(s)}</td>
           <td>${statusPill(s.status)}</td>
           <td>${subjects}</td>
-          <td><button class="admin-btn secondary" data-action="show" data-id="${s.id}">보기</button></td>
-          <td><button class="admin-btn secondary" data-action="run-one" data-id="${s.id}">작성</button></td>
+          <td>${actions}</td>
         </tr>`;
       })
       .join("");
   }
 
+  async function loadReviewList() {
+    const tbody = document.getElementById("reviewTableBody");
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="3">불러오는 중…</td></tr>`;
+    const data = await api("/api/students");
+    const reviewable = data.students.filter((s) => s.status === "done" || Object.keys(s.generated || {}).length);
+    if (!reviewable.length) {
+      tbody.innerHTML = `<tr><td colspan="3" class="admin-muted">아직 작성된 생기부가 없습니다. ④에서 일괄 작성을 실행하세요.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = reviewable
+      .map(
+        (s) => `<tr>
+          <td>${studentLabel(s)}</td>
+          <td>${statusPill(s.status)}</td>
+          <td><button class="admin-btn secondary" data-action="review" data-id="${s.id}">열기</button></td>
+        </tr>`
+      )
+      .join("");
+  }
+
   async function loadSamples() {
     const list = document.getElementById("samplesList");
+    if (!list) return;
     list.textContent = "불러오는 중…";
     const data = await api("/api/samples");
     if (!data.samples.length) {
-      list.innerHTML = `<p class="admin-muted">샘플이 없습니다. JSON/TSV 파일을 업로드하세요.</p>`;
+      list.innerHTML = `<p class="admin-muted">아직 올린 샘플이 없습니다. 위에서 과거 생기부를 업로드하세요.</p>`;
       return;
     }
-    list.innerHTML = `<ul>${data.samples
-      .map((s) => `<li><strong>${s.label}</strong> <span class="admin-muted">(${s.id})</span></li>`)
+    list.innerHTML = `<p class="admin-muted">${data.count}건 등록됨</p><ul>${data.samples
+      .map((s) => `<li><strong>${s.label}</strong></li>`)
       .join("")}</ul>`;
   }
 
-  async function showStudent(id) {
+  async function loadStyleGuide() {
+    const editor = document.getElementById("styleGuideEditor");
+    if (!editor) return;
+    try {
+      const data = await api("/api/patterns");
+      editor.value = data.style_guide || "";
+    } catch {
+      editor.placeholder = "①에서 샘플을 올리고 분석을 실행한 뒤 여기서 확인·수정할 수 있습니다.";
+    }
+  }
+
+  function buildDetailEditor(generated) {
+    const editor = document.getElementById("detailEditor");
+    if (!editor) return;
+    const parts = [];
+
+    if (generated.행발) {
+      parts.push(`
+        <div class="admin-field">
+          <label>행동특성 및 종합의견</label>
+          <textarea class="admin-textarea detail-field" data-key="행발" rows="6">${escapeHtml(generated.행발)}</textarea>
+        </div>`);
+    }
+
+    const setuk = generated.세특 || {};
+    for (const [subject, text] of Object.entries(setuk)) {
+      parts.push(`
+        <div class="admin-field">
+          <label>세특 · ${escapeHtml(subject)}</label>
+          <textarea class="admin-textarea detail-field" data-key="세특:${escapeAttr(subject)}" rows="5">${escapeHtml(text)}</textarea>
+        </div>`);
+    }
+
+    const changche = generated.창체 || {};
+    for (const [key, text] of Object.entries(changche)) {
+      parts.push(`
+        <div class="admin-field">
+          <label>창체 · ${escapeHtml(key)}</label>
+          <textarea class="admin-textarea detail-field" data-key="창체:${escapeAttr(key)}" rows="4">${escapeHtml(text)}</textarea>
+        </div>`);
+    }
+
+    if (!parts.length) {
+      editor.innerHTML = `<p class="admin-muted">아직 생성된 본문이 없습니다.</p>`;
+      return;
+    }
+    editor.innerHTML = parts.join("");
+  }
+
+  function escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function escapeAttr(text) {
+    return String(text).replace(/"/g, "&quot;");
+  }
+
+  function collectGeneratedFromEditor() {
+    const generated = JSON.parse(JSON.stringify(currentStudentData?.generated || {}));
+    document.querySelectorAll("#detailEditor .detail-field").forEach((el) => {
+      const key = el.dataset.key;
+      const value = el.value;
+      if (key === "행발") {
+        generated.행발 = value;
+      } else if (key.startsWith("세특:")) {
+        generated.세특 = generated.세특 || {};
+        generated.세특[key.slice(4)] = value;
+      } else if (key.startsWith("창체:")) {
+        generated.창체 = generated.창체 || {};
+        generated.창체[key.slice(4)] = value;
+      }
+    });
+    return generated;
+  }
+
+  function allDetailText() {
+    return [...document.querySelectorAll("#detailEditor .detail-field")]
+      .map((el) => {
+        const label = el.closest(".admin-field")?.querySelector("label")?.textContent || "";
+        return `【${label}】\n${el.value}`;
+      })
+      .join("\n\n");
+  }
+
+  async function showStudent(id, fromTab = "review") {
     currentStudentId = id;
+    lastTabBeforeDetail = fromTab;
     const student = await api(`/api/students/${id}`);
+    currentStudentData = student;
     switchTab("detail");
-    document.getElementById("detailTitle").textContent = `${student.grade}-${student.class_num} ${student.number}번 ${student.name}`;
+    document.getElementById("detailTitle").textContent = studentLabel(student);
     document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(student.status)}`;
-    document.getElementById("detailOutput").textContent = JSON.stringify(student.generated || {}, null, 2);
+    buildDetailEditor(student.generated || {});
   }
 
   loginForm?.addEventListener("submit", async (event) => {
@@ -257,15 +413,17 @@
   });
 
   document.querySelectorAll(".admin-tab").forEach((btn) => {
-    btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+    btn.addEventListener("click", () => {
+      if (btn.dataset.tab !== "detail") switchTab(btn.dataset.tab);
+    });
   });
 
   document.getElementById("studentsTableBody")?.addEventListener("click", async (event) => {
     const target = event.target.closest("button[data-action]");
     if (!target) return;
     const id = target.dataset.id;
-    if (target.dataset.action === "show") {
-      await showStudent(id);
+    if (target.dataset.action === "review") {
+      await showStudent(id, "students");
       return;
     }
     if (target.dataset.action === "run-one") {
@@ -273,10 +431,144 @@
       try {
         await api("/api/run", { method: "POST", body: { student_id: id } });
         showToast("작성 완료");
-        await loadStudents();
+        await Promise.all([loadStudents(), loadReviewList(), loadUsage()]);
       } catch (error) {
         showToast(error.message);
       }
+    }
+  });
+
+  document.getElementById("reviewTableBody")?.addEventListener("click", async (event) => {
+    const target = event.target.closest("button[data-action='review']");
+    if (!target) return;
+    await showStudent(target.dataset.id, "review");
+  });
+
+  document.getElementById("backToReview")?.addEventListener("click", () => switchTab(lastTabBeforeDetail));
+
+  document.getElementById("saveDetailBtn")?.addEventListener("click", async () => {
+    if (!currentStudentId) return;
+    try {
+      const generated = collectGeneratedFromEditor();
+      const updated = await api(`/api/students/${currentStudentId}`, {
+        method: "PATCH",
+        body: { generated },
+      });
+      currentStudentData = updated;
+      showToast("저장됨");
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+
+  document.getElementById("copyDetailBtn")?.addEventListener("click", async () => {
+    const text = allDetailText();
+    if (!text) {
+      showToast("복사할 내용이 없습니다.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("클립보드에 복사됨");
+    } catch {
+      showToast("복사에 실패했습니다.");
+    }
+  });
+
+  document.getElementById("saveStyleBtn")?.addEventListener("click", async () => {
+    const style_guide = document.getElementById("styleGuideEditor").value;
+    try {
+      await api("/api/patterns/style-guide", { method: "PUT", body: { style_guide } });
+      showToast("스타일 저장됨");
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+
+  document.getElementById("simpleStudentForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const subject = document.getElementById("simpleSubject").value.trim();
+    const activities = document.getElementById("simpleActivities").value.trim();
+    const subjects = {};
+    if (subject) {
+      subjects[subject] = { activities: activities ? [activities] : [], notes: activities };
+    }
+    try {
+      await api("/api/students", {
+        method: "POST",
+        body: {
+          name: document.getElementById("simpleName").value.trim(),
+          grade: Number(document.getElementById("simpleGrade").value),
+          class_num: Number(document.getElementById("simpleClass").value),
+          number: Number(document.getElementById("simpleNumber").value),
+          haengbal_notes: document.getElementById("simpleHaengbal").value.trim(),
+          subjects,
+        },
+      });
+      showToast("학생 추가됨");
+      event.target.reset();
+      document.getElementById("simpleGrade").value = "2";
+      document.getElementById("simpleClass").value = "1";
+      document.getElementById("simpleNumber").value = "1";
+      await loadStudents();
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+
+  async function aiParse(save) {
+    const fileInput = document.getElementById("aiStudentFile");
+    const text = document.getElementById("aiStudentInput").value.trim();
+    const previewEl = document.getElementById("aiParsePreview");
+
+    if (fileInput?.files?.length) {
+      const file = fileInput.files[0];
+      const form = new FormData();
+      form.append("file", file);
+      const path = save ? "/api/students/parse-file?save=true" : "/api/students/parse-file";
+      const data = await api(path, { method: "POST", body: form });
+      if (save) return data;
+      previewEl.hidden = false;
+      previewEl.textContent = JSON.stringify(data.preview, null, 2);
+      return data.preview;
+    }
+
+    if (!text) throw new Error("메모를 입력하거나 파일을 선택하세요.");
+    const path = save ? "/api/students/parse-save" : "/api/students/parse";
+    const data = await api(path, { method: "POST", body: { text } });
+    if (save) return data;
+    previewEl.hidden = false;
+    previewEl.textContent = JSON.stringify(data.preview, null, 2);
+    return data.preview;
+  }
+
+  document.getElementById("aiParsePreviewBtn")?.addEventListener("click", async () => {
+    showToast("AI가 정리 중…");
+    try {
+      await aiParse(false);
+      showToast("미리보기 완료");
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+
+  document.getElementById("aiParseSaveBtn")?.addEventListener("click", async () => {
+    showToast("AI가 학생 등록 중…");
+    try {
+      await aiParse(true);
+      showToast("학생 등록됨");
+      document.getElementById("aiStudentInput").value = "";
+      const fileInput = document.getElementById("aiStudentFile");
+      if (fileInput) fileInput.value = "";
+      const nameEl = document.getElementById("aiStudentFileName");
+      if (nameEl) {
+        nameEl.textContent = "선택된 파일 없음";
+        nameEl.classList.remove("has-file");
+      }
+      document.getElementById("aiParsePreview").hidden = true;
+      await loadStudents();
+    } catch (error) {
+      showToast(error.message);
     }
   });
 
@@ -290,7 +582,7 @@
     }
     const check = validateFiles(files, "studentsFile");
     if (!check.ok) {
-      showToast(`지원하지 않는 형식: ${formatRejectedNames(check.rejected)} (${check.rule.label} 만 가능)`);
+      showToast(`지원하지 않는 형식: ${formatRejectedNames(check.rejected)}`);
       return;
     }
     showToast(`${files.length}개 파일 업로드 중…`);
@@ -308,7 +600,7 @@
     }
     if (errors.length) {
       showUploadLog("studentsUploadLog", errors);
-      showToast(`등록 ${imported}명 · 실패 ${errors.length}건 (아래 로그 확인)`);
+      showToast(`등록 ${imported}명 · 실패 ${errors.length}건`);
     } else {
       showUploadLog("studentsUploadLog", []);
       showToast(`${imported}명 등록됨`);
@@ -332,7 +624,7 @@
     }
     const check = validateFiles(files, "samplesFile");
     if (!check.ok) {
-      showToast(`지원하지 않는 형식: ${formatRejectedNames(check.rejected)} (${check.rule.label} 만 가능)`);
+      showToast(`지원하지 않는 형식: ${formatRejectedNames(check.rejected)}`);
       return;
     }
     showToast(`${files.length}개 파일 업로드 중…`);
@@ -350,7 +642,7 @@
     }
     if (errors.length) {
       showUploadLog("samplesUploadLog", errors);
-      showToast(`샘플 ${imported}건 · 실패 ${errors.length}건 (아래 로그 확인)`);
+      showToast(`샘플 ${imported}건 · 실패 ${errors.length}건`);
     } else {
       showUploadLog("samplesUploadLog", []);
       showToast(`샘플 ${imported}건 등록됨`);
@@ -369,7 +661,8 @@
     showToast("패턴 분석 중…");
     try {
       await api(`/api/analyze?use_gemini=${useGemini}`, { method: "POST" });
-      showToast("패턴 분석 완료");
+      showToast("분석 완료 · ② 스타일 설정에서 확인하세요");
+      await loadStyleGuide();
     } catch (error) {
       showToast(error.message);
     }
@@ -383,19 +676,18 @@
         method: "POST",
         body: { status: "pending", limit },
       });
-      showToast(`완료 ${data.processed || 0}명, 오류 ${(data.errors || []).length}건`);
+      const errCount = (data.errors || []).length;
+      showToast(`완료 ${data.processed || 0}명${errCount ? `, 오류 ${errCount}건` : ""}`);
       document.getElementById("runLog").textContent = JSON.stringify(data, null, 2);
-      await loadStudents();
+      await Promise.all([loadStudents(), loadReviewList(), loadUsage()]);
     } catch (error) {
       showToast(error.message);
     }
   });
 
-  document.getElementById("backToStudents")?.addEventListener("click", () => switchTab("students"));
-
   async function refreshAll() {
-    await Promise.all([loadStudents(), loadSamples()]);
-    switchTab("students");
+    await Promise.all([loadStudents(), loadSamples(), loadReviewList(), loadStyleGuide(), loadUsage()]);
+    switchTab("learn");
   }
 
   async function bootstrap() {

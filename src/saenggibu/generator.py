@@ -11,6 +11,7 @@ from .io_utils import save_json
 from .models import StudentInput
 from .pattern_analyzer import analyze_and_save, load_patterns
 from .student_store import save_student
+from .usage import check_generation_allowed, record_generation
 
 
 ProgressCallback = Callable[[str, str], None]
@@ -38,7 +39,7 @@ def _system_prompt() -> str:
     )
 
 
-def _system_prompt() -> str:
+def _generate_haengbal(student: StudentInput, style_guide: str) -> str:
     keywords = student.notes.get("keywords") or []
     notes = student.notes.get("행발") or student.notes.get("행발_notes") or ""
     user = (
@@ -94,6 +95,7 @@ def generate_for_student(
     progress: ProgressCallback | None = None,
 ) -> StudentInput:
     notify = progress or _default_progress
+    check_generation_allowed()
     style_guide = _load_style_guide()
     target_sections = sections or ["행발", "세특", "창체"]
 
@@ -125,6 +127,7 @@ def generate_for_student(
         student.generated = generated
         student.status = "done"
         save_student(student)
+        record_generation()
         _export_student_output(student)
         return student
     except Exception as exc:

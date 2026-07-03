@@ -177,3 +177,10 @@ def analyze_and_save(*, use_gemini: bool = False) -> dict[str, Any]:
         style_guide = refine_style_guide(patterns, style_guide)
 
     return save_patterns(patterns, style_guide=style_guide)
+
+
+def update_style_guide(style_guide: str) -> dict[str, Any]:
+    patterns = load_patterns()
+    if not patterns:
+        raise ValueError("먼저 샘플을 업로드하고 스타일 분석을 실행하세요.")
+    return save_patterns(patterns, style_guide=style_guide.strip())

@@ -342,6 +342,45 @@
   color: var(--text-tertiary);
 }
 
+.admin-textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.admin-field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.admin-field-row .admin-field {
+  margin-bottom: 0;
+}
+
+.admin-advanced summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.admin-advanced[open] summary {
+  margin-bottom: 4px;
+}
+
+#detailEditor .admin-field label {
+  font-weight: 600;
+  color: var(--text);
+}
+
 @media (max-width: 640px) {
   .admin-table {
     display: block;
@@ -351,5 +390,9 @@
   .admin-file-picker-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .admin-field-row {
+    grid-template-columns: 1fr 1fr;
   }
 }

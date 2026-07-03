@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import tempfile
 from pathlib import Path
@@ -10,9 +11,11 @@ from pydantic import BaseModel, Field
 
 from src.saenggibu.generator import generate_for_student, run_batch
 from src.saenggibu.models import StudentInput
-from src.saenggibu.pattern_analyzer import analyze_and_save, load_patterns
+from src.saenggibu.pattern_analyzer import analyze_and_save, load_patterns, update_style_guide
 from src.saenggibu.sample_store import import_path, list_samples
+from src.saenggibu.student_parser import parse_and_save, parse_file_to_student, parse_text_to_student
 from src.saenggibu.upload_formats import SAMPLE_EXTENSIONS, STUDENT_EXTENSIONS, check_upload_extension
+from src.saenggibu.usage import usage_summary
 from src.saenggibu.student_store import (
     add_student,
     get_student,
@@ -49,6 +52,22 @@ class RunRequest(BaseModel):
     limit: int | None = None
 
 
+class ParseStudentRequest(BaseModel):
+    text: str
+
+
+class StyleGuideUpdate(BaseModel):
+    style_guide: str
+
+
+class StudentUpdateRequest(BaseModel):
+    generated: dict[str, Any] | None = None
+    notes: dict[str, Any] | None = None
+    subjects: dict[str, dict[str, Any]] | None = None
+    changche: dict[str, str] | None = None
+    status: str | None = None
+
+
 def _extract_token(request: Request) -> str:
     auth = request.headers.get("authorization", "")
     if auth.lower().startswith("bearer "):
@@ -72,8 +91,13 @@ def login(payload: LoginRequest) -> dict[str, str]:
 
 
 @router.get("/auth/me")
-def auth_me(session: AdminSession = Depends(require_admin)) -> dict[str, bool]:
-    return {"ok": True, "admin": True}
+def auth_me(session: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    return {"ok": True, "admin": True, "usage": usage_summary()}
+
+
+@router.get("/usage")
+def api_usage(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    return usage_summary()
 
 
 @router.get("/samples")
@@ -123,6 +147,14 @@ def api_patterns(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
     return patterns
 
 
+@router.put("/patterns/style-guide")
+def api_patterns_update(payload: StyleGuideUpdate, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    try:
+        return update_style_guide(payload.style_guide)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.get("/students")
 def api_students_list(status: str | None = None, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
     students = list_students(status=status)
@@ -151,6 +183,68 @@ def api_student_create(payload: StudentCreateRequest, _: AdminSession = Depends(
         changche=payload.changche,
     )
     return add_student(student).to_dict()
+
+
+@router.post("/students/parse")
+def api_students_parse(payload: ParseStudentRequest, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    try:
+        preview = parse_text_to_student(payload.text)
+        return {"preview": preview.to_dict(), "saved": False}
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/students/parse-save")
+def api_students_parse_save(payload: ParseStudentRequest, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    try:
+        student = parse_and_save(payload.text)
+        return student.to_dict()
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/students/parse-file")
+async def api_students_parse_file(
+    file: UploadFile = File(...),
+    save: bool = False,
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    suffix = Path(file.filename or "upload").suffix.lower() or ".txt"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+    try:
+        student = parse_file_to_student(tmp_path)
+        if save:
+            return add_student(student).to_dict()
+        return {"preview": student.to_dict(), "saved": False}
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+@router.patch("/students/{student_id}")
+def api_student_update(
+    student_id: str,
+    payload: StudentUpdateRequest,
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    student = get_student(student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
+    if payload.generated is not None:
+        student.generated = payload.generated
+    if payload.notes is not None:
+        student.notes = payload.notes
+    if payload.subjects is not None:
+        student.subjects = payload.subjects
+    if payload.changche is not None:
+        student.changche = payload.changche
+    if payload.status is not None:
+        student.status = payload.status
+    return save_student(student).to_dict()
 
 
 @router.post("/students/import")

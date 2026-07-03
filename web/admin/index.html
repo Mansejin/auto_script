@@ -51,22 +51,114 @@
 
     <section id="adminApp" hidden>
       <div class="admin-toolbar">
-        <p class="admin-muted">샘플 학습 → 학생 등록 → 자동 작성</p>
+        <p class="admin-muted" id="usageBadge">① 학습 → ② 설정 → ③ 학생 → ④ 작성·검토</p>
         <button id="logoutBtn" class="admin-logout" type="button">로그아웃</button>
       </div>
 
       <div class="admin-tabs">
-        <button class="admin-tab active" data-tab="students" type="button">학생</button>
-        <button class="admin-tab" data-tab="samples" type="button">샘플·패턴</button>
-        <button class="admin-tab" data-tab="run" type="button">일괄 작성</button>
+        <button class="admin-tab active" data-tab="learn" type="button">① 스타일 학습</button>
+        <button class="admin-tab" data-tab="style" type="button">② 스타일 설정</button>
+        <button class="admin-tab" data-tab="students" type="button">③ 학생 등록</button>
+        <button class="admin-tab" data-tab="review" type="button">④ 작성·검토</button>
         <button class="admin-tab" data-tab="detail" type="button" hidden>상세</button>
       </div>
 
-      <div id="panelStudents" class="admin-panel">
+      <div id="panelLearn" class="admin-panel">
         <div class="admin-card">
-          <h2>학생 일괄 등록</h2>
-          <p class="admin-muted">엑셀에서 복사한 활동 메모를 TSV(탭 구분)로 정리해 업로드하세요.</p>
-          <form id="importStudentsForm">
+          <h2>과거 생기부 올리기</h2>
+          <p class="admin-muted">예전에 쓴 생기부 파일을 그대로 올리세요. 엑셀·워드·한글 복사본 모두 됩니다.</p>
+          <form id="importSamplesForm">
+            <div class="admin-file-picker">
+              <div class="admin-file-picker-row">
+                <input id="samplesFile" class="admin-file-input" type="file" multiple accept="*/*">
+                <button class="admin-btn secondary" type="button" data-file-trigger="samplesFile">파일 선택</button>
+                <span class="admin-file-name" id="samplesFileName">선택된 파일 없음</span>
+              </div>
+            </div>
+            <div class="admin-actions">
+              <button class="admin-btn" type="submit">업로드</button>
+            </div>
+            <pre id="samplesUploadLog" class="admin-output admin-upload-log" hidden></pre>
+            <div class="admin-help">
+              xlsx, docx, tsv 등 · 여러 파일 한 번에 선택 가능
+            </div>
+          </form>
+          <div id="samplesList" style="margin-top:16px"></div>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
+          <h2>문체·분량 분석</h2>
+          <p class="admin-muted">올린 샘플에서 선생님 스타일을 자동으로 읽어 냅니다.</p>
+          <label class="admin-option" for="analyzeGemini">
+            <input id="analyzeGemini" type="checkbox" checked>
+            <span class="admin-option-text">
+              <strong>AI로 스타일 가이드 정리</strong>
+              <span>더 정확한 문체 요약 (권장)</span>
+            </span>
+          </label>
+          <button id="analyzeBtn" class="admin-btn" type="button">분석 시작</button>
+        </div>
+      </div>
+
+      <div id="panelStyle" class="admin-panel" hidden>
+        <div class="admin-card">
+          <h2>작성 스타일·프롬프트</h2>
+          <p class="admin-muted">분석 결과를 확인하고 원하는 톤으로 직접 수정할 수 있습니다.</p>
+          <div class="admin-field">
+            <label for="styleGuideEditor">스타일 가이드</label>
+            <textarea id="styleGuideEditor" class="admin-textarea" rows="14" placeholder="먼저 ①에서 샘플을 올리고 분석을 실행하세요."></textarea>
+          </div>
+          <button id="saveStyleBtn" class="admin-btn" type="button">스타일 저장</button>
+        </div>
+      </div>
+
+      <div id="panelStudents" class="admin-panel" hidden>
+        <div class="admin-card">
+          <h2>AI로 학생 등록</h2>
+          <p class="admin-muted">활동지·수행평가·메모를 그대로 붙여넣거나 파일을 올리면 AI가 알아서 정리합니다.</p>
+          <div class="admin-field">
+            <label for="aiStudentInput">학생 활동 메모 (자연어)</label>
+            <textarea id="aiStudentInput" class="admin-textarea" rows="8" placeholder="예) 2학년 3반 12번 김민수. 현대사회와윤리 수업에서 AI 윤리 토론에 적극 참여. 행발: 리더십 있고 배려심 깊음..."></textarea>
+          </div>
+          <div class="admin-file-picker">
+            <div class="admin-file-picker-row">
+              <input id="aiStudentFile" class="admin-file-input" type="file" accept="*/*">
+              <button class="admin-btn secondary" type="button" data-file-trigger="aiStudentFile">활동지 파일</button>
+              <span class="admin-file-name" id="aiStudentFileName">선택된 파일 없음</span>
+            </div>
+          </div>
+          <div class="admin-actions">
+            <button id="aiParsePreviewBtn" class="admin-btn secondary" type="button">미리보기</button>
+            <button id="aiParseSaveBtn" class="admin-btn" type="button">학생 등록</button>
+          </div>
+          <pre id="aiParsePreview" class="admin-output" hidden></pre>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
+          <h2>간단 양식</h2>
+          <form id="simpleStudentForm">
+            <div class="admin-field-row">
+              <div class="admin-field"><label for="simpleName">이름</label><input id="simpleName" required></div>
+              <div class="admin-field"><label for="simpleGrade">학년</label><input id="simpleGrade" type="number" min="1" max="3" value="2" required></div>
+              <div class="admin-field"><label for="simpleClass">반</label><input id="simpleClass" type="number" min="1" value="1" required></div>
+              <div class="admin-field"><label for="simpleNumber">번호</label><input id="simpleNumber" type="number" min="1" value="1" required></div>
+            </div>
+            <div class="admin-field">
+              <label for="simpleHaengbal">행발 메모</label>
+              <textarea id="simpleHaengbal" class="admin-textarea" rows="3"></textarea>
+            </div>
+            <div class="admin-field">
+              <label for="simpleSubject">과목명 (예: 현대사회와윤리)</label>
+              <input id="simpleSubject" placeholder="현대사회와윤리">
+            </div>
+            <div class="admin-field">
+              <label for="simpleActivities">세특 활동 메모</label>
+              <textarea id="simpleActivities" class="admin-textarea" rows="4"></textarea>
+            </div>
+            <button class="admin-btn" type="submit">학생 추가</button>
+          </form>
+        </div>
+        <details class="admin-card admin-advanced" style="margin-top:16px">
+          <summary>고급: TSV 파일 업로드</summary>
+          <form id="importStudentsForm" style="margin-top:12px">
             <div class="admin-file-picker">
               <div class="admin-file-picker-row">
                 <input id="studentsFile" class="admin-file-input" type="file" multiple accept="*/*">
@@ -79,87 +171,54 @@
             </div>
             <pre id="studentsUploadLog" class="admin-output admin-upload-log" hidden></pre>
             <div class="admin-sample-links">
-              <a href="samples/students.example.tsv" download="students.example.tsv">📥 학생 TSV (일반)</a>
-              <a href="samples/students-현윤-윤사.example.tsv" download="students-현윤-윤사.example.tsv">📥 현윤·윤사 TSV</a>
-            </div>
-            <div class="admin-help">
-              <strong>열 안내</strong><br>
-              필수: <code>name</code> <code>grade</code> <code>class_num</code> <code>number</code><br>
-              2학년 현윤: <code>세특_현대사회와윤리</code> · 3학년 윤사: <code>세특_윤리와사상</code><br>
-              활동 여러 개는 <code>;</code> 구분 · 행발: <code>행발_notes</code> <code>행발_keywords</code> (<code>|</code>)
+              <a href="samples/students.example.tsv" download="students.example.tsv">📥 학생 TSV (참고)</a>
             </div>
           </form>
-        </div>
+        </details>
         <div class="admin-card" style="margin-top:16px">
-          <h2>학생 목록</h2>
+          <h2>등록된 학생</h2>
           <table class="admin-table">
             <thead>
-              <tr><th>학생</th><th>상태</th><th>세특</th><th></th><th></th></tr>
+              <tr><th>학생</th><th>상태</th><th>세특</th><th></th></tr>
             </thead>
             <tbody id="studentsTableBody"></tbody>
           </table>
         </div>
       </div>
 
-      <div id="panelSamples" class="admin-panel" hidden>
+      <div id="panelReview" class="admin-panel" hidden>
         <div class="admin-card">
-          <h2>과거 생기부 샘플</h2>
-          <p class="admin-muted">엑셀·워드(docx) 등 과거 생기부 문서를 한 번에 여러 파일 올릴 수 있습니다.</p>
-          <form id="importSamplesForm">
-            <div class="admin-file-picker">
-              <div class="admin-file-picker-row">
-                <input id="samplesFile" class="admin-file-input" type="file" multiple accept="*/*">
-                <button class="admin-btn secondary" type="button" data-file-trigger="samplesFile">파일 선택</button>
-                <span class="admin-file-name" id="samplesFileName">선택된 파일 없음</span>
-              </div>
-            </div>
-            <div class="admin-actions">
-              <button class="admin-btn" type="submit">샘플 업로드</button>
-            </div>
-            <pre id="samplesUploadLog" class="admin-output admin-upload-log" hidden></pre>
-            <div class="admin-sample-links">
-              <a href="samples/saenggibu-samples.example.tsv" download="saenggibu-samples.example.tsv">📥 샘플 TSV</a>
-              <a href="samples/students.example.tsv" download="students.example.tsv">📥 학생 TSV (참고)</a>
-            </div>
-            <div class="admin-help">
-              지원: xlsx, docx, tsv, csv, json · 다른 형식은 선택 즉시 거부됩니다<br>
-              TSV 열: <code>영역</code> <code>과목</code> <code>소분류</code> <code>내용</code>
-            </div>
-          </form>
-          <div id="samplesList" style="margin-top:16px"></div>
-        </div>
-        <div class="admin-card" style="margin-top:16px">
-          <h2>패턴 분석</h2>
-          <p class="admin-muted">샘플에서 문체·분량 패턴을 추출합니다.</p>
-          <label class="admin-option" for="analyzeGemini">
-            <input id="analyzeGemini" type="checkbox">
-            <span class="admin-option-text">
-              <strong>Gemini로 스타일 가이드 정제</strong>
-              <span>API를 사용해 선생님 문체를 더 정확히 요약합니다. (선택)</span>
-            </span>
-          </label>
-          <button id="analyzeBtn" class="admin-btn" type="button">분석 실행</button>
-        </div>
-      </div>
-
-      <div id="panelRun" class="admin-panel" hidden>
-        <div class="admin-card">
-          <h2>일괄 작성</h2>
+          <h2>일괄 AI 작성</h2>
+          <p class="admin-muted" id="usageText">무료 플랜: 이번 달 작성 가능 횟수를 확인하세요.</p>
           <div class="admin-field">
             <label for="runLimit">인원 제한 (비우면 전원)</label>
             <input id="runLimit" type="number" min="1" placeholder="예: 5">
           </div>
-          <button id="runBatchBtn" class="admin-btn" type="button">pending 학생 전원 작성</button>
+          <button id="runBatchBtn" class="admin-btn" type="button">미작성 학생 전원 작성</button>
           <pre id="runLog" class="admin-output" style="margin-top:16px"></pre>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
+          <h2>검토 목록</h2>
+          <p class="admin-muted">작성 완료된 학생을 눌러 바로 수정·복사할 수 있습니다.</p>
+          <table class="admin-table">
+            <thead>
+              <tr><th>학생</th><th>상태</th><th></th></tr>
+            </thead>
+            <tbody id="reviewTableBody"></tbody>
+          </table>
         </div>
       </div>
 
       <div id="panelDetail" class="admin-panel" hidden>
         <div class="admin-card">
-          <button id="backToStudents" class="admin-btn secondary" type="button">← 목록</button>
+          <button id="backToReview" class="admin-btn secondary" type="button">← 목록</button>
           <h2 id="detailTitle" style="margin-top:12px"></h2>
           <div id="detailMeta" style="margin-bottom:12px"></div>
-          <pre id="detailOutput" class="admin-output"></pre>
+          <div id="detailEditor"></div>
+          <div class="admin-actions" style="margin-top:16px">
+            <button id="saveDetailBtn" class="admin-btn" type="button">수정 저장</button>
+            <button id="copyDetailBtn" class="admin-btn secondary" type="button">전체 복사</button>
+          </div>
         </div>
       </div>
     </section>

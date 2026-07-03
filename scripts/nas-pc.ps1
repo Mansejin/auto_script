@@ -94,6 +94,102 @@ function Get-SshConfigPath {
   return Join-Path $dir "config"
 }
 
+function Remove-SshHostBlock([string]$Alias) {
+  $path = Get-SshConfigPath
+  if (-not (Test-Path $path)) { return }
+  $content = Get-Content $path -Raw -Encoding UTF8
+  if (-not $content) { return }
+  $pattern = "(?ms)^Host\s+$([regex]::Escape($Alias))\s*\r?\n(?:  .+\r?\n)*"
+  $content = [regex]::Replace($content, $pattern, "").TrimEnd()
+  if ($content) {
+    Set-Content -Path $path -Value ($content + "`n") -Encoding UTF8 -NoNewline
+  } else {
+    Remove-Item $path -Force
+  }
+}
+
+function Rewrite-AllSshConfigs([hashtable]$Cfg) {
+  $remote = Resolve-NasProfile $Cfg "remote"
+  $local = Resolve-NasProfile $Cfg "local"
+  Remove-SshHostBlock $remote.Alias
+  Remove-SshHostBlock $local.Alias
+  Install-SshHost $Cfg $remote.Alias $remote.Host | Out-Null
+  Install-SshHost $Cfg $local.Alias $local.Host | Out-Null
+  Write-Ok "SSH config updated (with key if set)"
+}
+
+function Set-EnvValue([string]$Key, [string]$Value) {
+  $lines = @()
+  if (Test-Path $LocalConfig) {
+    $lines = @(Get-Content $LocalConfig -Encoding UTF8)
+  }
+  $found = $false
+  $out = foreach ($line in $lines) {
+    if ($line -match "^$([regex]::Escape($Key))=") {
+      $found = $true
+      "$Key=$Value"
+    } else {
+      $line
+    }
+  }
+  if (-not $found) { $out += "$Key=$Value" }
+  Set-Content -Path $LocalConfig -Value $out -Encoding UTF8
+}
+
+function Fix-SshKeyPerms([string]$KeyPath) {
+  if (-not (Test-Path $KeyPath)) { return }
+  icacls $KeyPath /inheritance:r | Out-Null
+  icacls $KeyPath /grant:r "${env:USERNAME}:R" | Out-Null
+  $pub = "$KeyPath.pub"
+  if (Test-Path $pub) {
+    icacls $pub /inheritance:r | Out-Null
+    icacls $pub /grant:r "${env:USERNAME}:R" | Out-Null
+  }
+}
+
+function Invoke-InstallKey {
+  $cfg = Get-NasConfig
+  Ensure-OpenSsh
+  Invoke-FixSshPerms
+
+  $keyPath = $cfg["NAS_SSH_KEY"]
+  if (-not $keyPath) {
+    $keyPath = Join-Path (Join-Path $env:USERPROFILE ".ssh") "id_ed25519"
+  }
+
+  if (-not (Test-Path $keyPath)) {
+    Write-Info "Creating SSH key: $keyPath"
+    $dir = Split-Path $keyPath
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+    ssh-keygen -t ed25519 -f $keyPath -N "" -C "saenggibu-nas"
+  }
+
+  Fix-SshKeyPerms $keyPath
+  Set-EnvValue "NAS_SSH_KEY" $keyPath
+  $cfg["NAS_SSH_KEY"] = $keyPath
+
+  $profile = Resolve-NasProfile $cfg $Profile
+  Install-SshHost $cfg $profile.Alias $profile.Host | Out-Null
+
+  Write-Info "Copy public key to NAS [$($profile.Label)]..."
+  Write-Warn "Enter NAS password ONE LAST TIME:"
+  Get-Content "$keyPath.pub" -Raw | ssh $profile.Alias "umask 077; mkdir -p .ssh; cat >> .ssh/authorized_keys; chmod 700 .ssh; chmod 600 .ssh/authorized_keys"
+
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to copy key to NAS."
+  }
+
+  Rewrite-AllSshConfigs $cfg
+  Invoke-FixSshPerms
+
+  Write-Info "Testing passwordless SSH..."
+  if (Test-SshProfile $cfg $Profile) {
+    Write-Ok "Key login OK for $($profile.Label)"
+  } else {
+    Write-Warn "Key test failed. On DSM: Control Panel - Terminal - enable SSH key auth if available."
+  }
+}
+
 function Install-SshHost([hashtable]$Cfg, [string]$Alias, [string]$HostName) {
   $path = Get-SshConfigPath
   $block = @"
@@ -221,6 +317,23 @@ function Test-SshProfile([hashtable]$Cfg, [string]$ProfileName) {
   return ($LASTEXITCODE -eq 0)
 }
 
+function Invoke-FixSshPerms {
+  $sshDir = Join-Path $env:USERPROFILE ".ssh"
+  $config = Join-Path $sshDir "config"
+  if (-not (Test-Path $sshDir)) { New-Item -ItemType Directory -Path $sshDir | Out-Null }
+
+  if (Test-Path $config) {
+    icacls $config /inheritance:r | Out-Null
+    icacls $config /grant:r "${env:USERNAME}:F" | Out-Null
+    Write-Ok "Fixed: $config"
+  } else {
+    Write-Warn "No config file yet."
+  }
+  icacls $sshDir /inheritance:r | Out-Null
+  icacls $sshDir /grant:r "${env:USERNAME}:(OI)(CI)F" | Out-Null
+  Write-Ok "Try: ssh saenggibu-nas-local"
+}
+
 function Invoke-NasStatus {
   $cfg = Get-NasConfig
   $remote = Resolve-NasProfile $cfg "remote"
@@ -259,6 +372,7 @@ try {
     "map" { Invoke-NasMap }
     "unmap" { Invoke-NasUnmap }
     "status" { Invoke-NasStatus }
+    "fix-ssh" { Invoke-FixSshPerms }
   }
 } catch {
   Write-Host ""

@@ -80,46 +80,60 @@ NAS_SSH_KEY=C:\Users\Ohola\.ssh\id_ed25519
 
 ## 2. SMB — PC 탐색기에 `docker` 폴더 붙이기
 
-나스의 `/volume1/docker` 는 **공유 폴더로 등록되어야** Windows에서 `\\나스\docker` 로 보입니다.
+나스 **안쪽**에는 `/volume1/docker` 가 있어도, **SMB 공유 폴더로 등록 안 하면**  
+탐색기 `\\169.254.158.191` 에는 `homes`, `video`만 보이고 **`docker`는 안 보입니다.** (지금 상태)
 
-### DSM 설정 (한 번만)
+### DSM에서 `docker` 공유 폴더 만들기 (한 번만)
 
-#### 이미 `docker` 폴더가 있고 File Station에 보일 때
+1. DSM **제어판** → **공유 폴더** → **생성**
+2. **이름:** `docker` (탐색기에 보일 이름)
+3. **위치:** `volume1` (Container Manager 쓰는 볼륨)
+4. 마법사 끝까지 → **ohola** 계정 **읽기/쓰기** 권한
+5. **제어판** → **파일 서비스** → **SMB** 켜져 있는지 확인
+6. PC 탐색기에서 `\\169.254.158.191` **새로고침** (F5)
 
-1. **제어판** → **공유 폴더**
-2. 목록에 **`docker`** 가 있으면 → 선택 → **편집** → **권한** 탭에서 본인 계정 **읽기/쓰기**
-3. **제어판** → **파일 서비스** → **SMB** → **SMB 서비스 활성화** 확인
+성공하면 `homes`, `video` 옆에 **`docker`** 폴더가 생깁니다.  
+안에 `saenggibu` 가 있으면 `\\169.254.158.191\docker\saenggibu` 로 접근.
 
-#### `docker` 가 공유 폴더 목록에 없을 때
+#### 「이미 docker 폴더가 있다」고 나올 때
 
-**경로에 데이터가 거의 없을 때 (새로 만들어도 됨)**
+- **그대로 진행**하거나, 이름을 `docker2` 로 만들고 PC 설정만 바꿈:
+  ```env
+  NAS_SMB_SHARE=docker2
+  ```
+- File Station에서 실제 경로가 `/volume1/docker` 인지 확인
 
-1. **제어판** → **공유 폴더** → **생성**
-2. 이름: `docker`
-3. 위치: `volume1`
-4. 본인 계정 읽기/쓰기
-5. `saenggibu` 등 기존 내용이 다른 곳에 있으면 File Station에서 `docker` 안으로 옮기기
+#### 공유 폴더 생성이 막힐 때 (SSH)
 
-**이미 `/volume1/docker/saenggibu` 에 서비스가 돌고 있을 때**
-
-- 공유 폴더 이름을 `docker` 로 만들면 보통 **같은 경로**(`/volume1/docker`)를 가리킵니다.
-- 이름 충돌이 나면 공유 폴더 이름을 `docker-dev` 로 만들고, PC에서는 `NAS_SMB_SHARE=docker-dev` 로 맞추면 됩니다.
-
-### PC에서 드라이브 연결
-
-```powershell
-.\scripts\nas-pc.ps1 map
+```bash
+sudo synoshare --add docker /volume1/docker "" ohola administrators 0 0 0
 ```
 
-기본: `Z:` → `\\ohola.synology.me\docker`
+(안 되면 DSM 관리자 계정으로 **제어판 → 공유 폴더**에서 수동 생성이 더 안전)
 
-탐색기에서 **`Z:\saenggibu`** 로 `.env`, `data`, `web/admin` 파일을 메모장·VS Code로 바로 열 수 있습니다.
+### PC에서 드라이브 연결 (Z:는 이미 쓰 중이면 Y:)
 
-해제:
+`config\nas-pc.local.env`:
+
+```env
+NAS_DRIVE_LETTER=Y
+NAS_SMB_SHARE=docker
+NAS_SMB_HOST_LOCAL=169.254.158.191
+```
 
 ```powershell
-.\scripts\nas-pc.ps1 unmap
+.\scripts\nas-pc.ps1 map -Profile local
 ```
+
+또는 한 줄:
+
+```powershell
+net use Y: \\169.254.158.191\docker /persistent:yes
+```
+
+탐색기: **`Y:\saenggibu`**
+
+해제: `net use Y: /delete`
 
 ### 집 밖(스튜디오)에서 SMB
 

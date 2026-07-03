@@ -366,6 +366,10 @@
   margin-bottom: 0;
 }
 
+.admin-sample-table .admin-btn-sm {
+  white-space: nowrap;
+}
+
 .admin-sample-list li {
   display: flex;
   flex-wrap: wrap;

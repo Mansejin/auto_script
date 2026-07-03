@@ -280,38 +280,52 @@
       .join("");
   }
 
+  function sampleDisplayLabel(s) {
+    const label = String(s.label || "").trim();
+    if (label && label !== "미명시") return label;
+    const src = String(s.source_file || "");
+    const file = src.split(/[/\\]/).pop();
+    if (file) return `미명시 (${file})`;
+    return `미명시 (${s.id})`;
+  }
+
   async function loadSamples() {
     const list = document.getElementById("samplesList");
     if (!list) return;
     list.textContent = "불러오는 중…";
     const data = await api("/api/samples");
     if (!data.samples.length) {
-      list.innerHTML = `<p class="admin-muted">아직 올린 샘플이 없습니다. 위에서 과거 생기부를 업로드하세요.</p>`;
+      list.innerHTML = `<p class="admin-muted">아직 올린 샘플이 없습니다.</p>`;
       return;
     }
-    list.innerHTML = `<p class="admin-muted">${data.count}건 등록됨 · 업로드할 때마다 새로 추가됩니다 (자동 삭제 안 됨)</p><ul class="admin-sample-list">${data.samples
-      .map(
-        (s) => `<li>
-          <strong>${s.label}</strong>
-          <span class="admin-muted">(${s.id})</span>
-          <button class="admin-btn secondary admin-btn-sm" type="button" data-action="delete-sample" data-id="${s.id}">삭제</button>
-        </li>`
-      )
-      .join("")}</ul>`;
+    list.innerHTML = `
+      <p class="admin-muted">${data.count}건 · 업로드할 때마다 추가됩니다</p>
+      <table class="admin-table admin-sample-table">
+        <thead><tr><th>이름</th><th>ID</th><th></th></tr></thead>
+        <tbody>${data.samples
+          .map(
+            (s) => `<tr>
+              <td>${sampleDisplayLabel(s)}</td>
+              <td class="admin-muted">${s.id}</td>
+              <td><button class="admin-btn danger admin-btn-sm" type="button" data-action="delete-sample" data-id="${s.id}" data-label="${sampleDisplayLabel(s).replace(/"/g, "&quot;")}">삭제</button></td>
+            </tr>`
+          )
+          .join("")}</tbody>
+      </table>`;
   }
 
-  document.getElementById("samplesList")?.addEventListener("click", async (event) => {
+  document.getElementById("adminApp")?.addEventListener("click", async (event) => {
     const btn = event.target.closest("button[data-action='delete-sample']");
     if (!btn) return;
     const id = btn.dataset.id;
-    const label = btn.closest("li")?.querySelector("strong")?.textContent || id;
-    if (!confirm(`「${label}」 샘플을 삭제할까요?`)) return;
+    const label = btn.dataset.label || id;
+    if (!confirm(`「${label}」\n이 샘플을 삭제할까요?`)) return;
     try {
       await api(`/api/samples/${id}`, { method: "DELETE" });
       showToast("삭제됨");
       await loadSamples();
     } catch (error) {
-      showToast(error.message);
+      showToast(error.message || "삭제 실패 · 나스 API 업데이트 후 docker 재시작 필요");
     }
   });
 
@@ -435,7 +449,9 @@
 
   document.querySelectorAll(".admin-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
-      if (btn.dataset.tab !== "detail") switchTab(btn.dataset.tab);
+      const tab = btn.dataset.tab;
+      if (tab !== "detail") switchTab(tab);
+      if (tab === "learn" || tab === "samples") loadSamples();
     });
   });
 

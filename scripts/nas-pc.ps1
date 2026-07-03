@@ -406,10 +406,10 @@ function Build-NasUpdateRemote([hashtable]$Cfg, [string]$Repo) {
 
 function Invoke-NasDeploy {
   $cfg = Get-NasConfig
-  Write-Info "Full deploy: sync UI (SMB) + NAS pull/rebuild (SSH)..."
-  Sync-NasAdminUi $cfg | Out-Null
+  Write-Info "Deploy: NAS git pull + docker rebuild (SSH)..."
+  Write-Info "UI is included via git — use sync-ui only for emergency hotfix"
   Invoke-NasUpdate
-  Write-Ok "Deploy complete. For auto deploy on git push, see docs/deploy-nas-auto.md"
+  Write-Ok "Deploy complete. Browser: Ctrl+F5 on sgb.mansejin.com"
 }
 
 function Invoke-NasUpdate {

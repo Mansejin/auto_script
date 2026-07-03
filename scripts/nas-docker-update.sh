@@ -195,11 +195,14 @@ if [ ! -d .git ]; then
 fi
 
 GIT=$(resolve_git)
-log "==> git pull ($BRANCH)"
+log "==> git sync ($BRANCH)"
 if [ -n "$GIT" ]; then
   "$GIT" fetch origin "$BRANCH" || "$GIT" fetch origin
-  "$GIT" checkout "$BRANCH" 2>/dev/null || "$GIT" checkout -B "$BRANCH" "origin/$BRANCH"
+  # SMB sync-ui / script copy leaves local changes — NAS deploy always matches GitHub
+  "$GIT" clean -fd -e .env -e logs
+  "$GIT" checkout -B "$BRANCH" "origin/$BRANCH" -f
   "$GIT" reset --hard "origin/$BRANCH"
+  log "==> git at $( "$GIT" rev-parse --short HEAD )"
 else
   ensure_docker_access
   log "==> docker: $DOCKER"

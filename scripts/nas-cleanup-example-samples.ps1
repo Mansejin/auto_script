@@ -5,26 +5,82 @@
 #   .\scripts\nas-cleanup-example-samples.ps1 -Id sample2cddc746
 
 param(
-  [string]$SamplesDir = "T:\saenggibu\data\saenggibu\samples",
+  [string]$SamplesDir = "",
   [string]$Id = ""
 )
 
 $ErrorActionPreference = "Stop"
+$Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$LocalConfig = Join-Path $Root "config\nas-pc.local.env"
 
-if (-not (Test-Path $SamplesDir)) {
-  throw "Folder not found: $SamplesDir`nMap T: first or set -SamplesDir"
+function Get-ConfigDriveLetter {
+  if (-not (Test-Path $LocalConfig)) { return "" }
+  foreach ($line in Get-Content $LocalConfig -Encoding UTF8) {
+    if ($line -match '^NAS_DRIVE_LETTER=(.+)$') {
+      return $Matches[1].Trim().TrimEnd(':')
+    }
+  }
+  return ""
 }
 
+function Find-SamplesDir([string]$Explicit) {
+  if ($Explicit) {
+    $index = Join-Path $Explicit "index.json"
+    if (Test-Path $index) { return $Explicit }
+  }
+
+  $letters = @('T', 'Y', 'X', 'W', 'V', 'U', 'S', 'Z')
+  $cfgLetter = Get-ConfigDriveLetter
+  if ($cfgLetter) { $letters = @($cfgLetter) + ($letters | Where-Object { $_ -ne $cfgLetter }) }
+
+  $suffixes = @(
+    '\saenggibu\data\saenggibu\samples',
+    '\data\saenggibu\samples'
+  )
+
+  $candidates = @()
+  foreach ($letter in $letters) {
+    if (-not (Test-Path "${letter}:\")) { continue }
+    foreach ($suffix in $suffixes) {
+      $candidates += "${letter}:$suffix"
+    }
+  }
+
+  foreach ($path in $candidates) {
+    if (Test-Path (Join-Path $path "index.json")) {
+      return $path
+    }
+  }
+  return ""
+}
+
+if (-not $SamplesDir) {
+  $SamplesDir = Find-SamplesDir ""
+} else {
+  $resolved = Find-SamplesDir $SamplesDir
+  if ($resolved) { $SamplesDir = $resolved }
+}
+
+if (-not $SamplesDir) {
+  Write-Host "Could not find data/saenggibu/samples on mapped drives."
+  Write-Host ""
+  Write-Host "1) Map NAS docker share, e.g.:"
+  Write-Host "     net use T: \\169.254.158.191\docker"
+  Write-Host "2) Check path in Explorer (one of these):"
+  Write-Host "     T:\saenggibu\data\saenggibu\samples"
+  Write-Host "     T:\data\saenggibu\samples"
+  Write-Host "3) Run with full path:"
+  Write-Host "     .\scripts\nas-cleanup-example-samples.ps1 -SamplesDir `"T:\...\samples`""
+  throw "samples folder not found"
+}
+
+Write-Host "Using: $SamplesDir"
 $indexPath = Join-Path $SamplesDir "index.json"
-if (-not (Test-Path $indexPath)) {
-  throw "index.json not found in $SamplesDir"
-}
 
 function Test-ExampleSample([object]$item) {
   if ($Id -and $item.id -eq $Id) { return $true }
   $label = [string]$item.label
   $source = [string]$item.source_file
-  # Built-in demo labels like 2025_2..._sampleB (any script)
   if ($label -match '^2025_') { return $true }
   if ($source -match 'examples[/\\]sample_[ab]\.') { return $true }
   if ($source -match 'saenggibu-samples\.example') { return $true }

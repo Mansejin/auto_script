@@ -4,16 +4,18 @@
   PC에서 나스 SSH·SMB를 쉽게 쓰기 위한 스크립트
 
 .EXAMPLE
-  .\scripts\nas-pc.ps1 setup      # 최초 1회: 설정 파일 + SSH config
-  .\scripts\nas-pc.ps1 connect    # SSH 접속
-  .\scripts\nas-pc.ps1 update     # 나스에서 pull + docker 재빌드
-  .\scripts\nas-pc.ps1 map        # docker 폴더를 Z: 드라이브로 연결
-  .\scripts\nas-pc.ps1 status     # 연결 상태 확인
+  .\scripts\nas-pc.ps1 setup
+  .\scripts\nas-pc.ps1 connect              # Tailscale (외부)
+  .\scripts\nas-pc.ps1 connect -Profile local   # 로컬 IP (집)
+  .\scripts\nas-pc.ps1 update -Profile local
 #>
 param(
   [Parameter(Position = 0)]
   [ValidateSet("setup", "connect", "update", "logs", "map", "unmap", "status")]
-  [string]$Command = "connect"
+  [string]$Command = "connect",
+
+  [ValidateSet("remote", "local")]
+  [string]$Profile = "remote"
 )
 
 $ErrorActionPreference = "Stop"
@@ -45,16 +47,39 @@ function Get-NasConfig {
     throw "설정 파일이 없습니다. 먼저 실행: .\scripts\nas-pc.ps1 setup"
   }
   $cfg = Read-EnvFile $LocalConfig
-  $required = @("NAS_SSH_HOST", "NAS_USER", "NAS_REPO_PATH")
+  $required = @("NAS_USER", "NAS_REPO_PATH")
   foreach ($key in $required) {
     if (-not $cfg[$key]) { throw "config/nas-pc.local.env 에 $key 가 필요합니다." }
   }
+  if (-not $cfg["NAS_SSH_HOST"]) { $cfg["NAS_SSH_HOST"] = "ohola.synology.me" }
   if (-not $cfg["NAS_SSH_ALIAS"]) { $cfg["NAS_SSH_ALIAS"] = "saenggibu-nas" }
+  if (-not $cfg["NAS_SSH_HOST_LOCAL"]) { $cfg["NAS_SSH_HOST_LOCAL"] = "169.254.158.191" }
+  if (-not $cfg["NAS_SSH_ALIAS_LOCAL"]) { $cfg["NAS_SSH_ALIAS_LOCAL"] = "saenggibu-nas-local" }
   if (-not $cfg["NAS_SSH_PORT"]) { $cfg["NAS_SSH_PORT"] = "22" }
   if (-not $cfg["NAS_SMB_HOST"]) { $cfg["NAS_SMB_HOST"] = $cfg["NAS_SSH_HOST"] }
+  if (-not $cfg["NAS_SMB_HOST_LOCAL"]) { $cfg["NAS_SMB_HOST_LOCAL"] = $cfg["NAS_SSH_HOST_LOCAL"] }
   if (-not $cfg["NAS_SMB_SHARE"]) { $cfg["NAS_SMB_SHARE"] = "docker" }
   if (-not $cfg["NAS_DRIVE_LETTER"]) { $cfg["NAS_DRIVE_LETTER"] = "Z" }
   return $cfg
+}
+
+function Resolve-NasProfile([hashtable]$Cfg, [string]$ProfileName) {
+  if ($ProfileName -eq "local") {
+    return @{
+      Name    = "local"
+      Label   = "로컬"
+      Host    = $Cfg["NAS_SSH_HOST_LOCAL"]
+      Alias   = $Cfg["NAS_SSH_ALIAS_LOCAL"]
+      SmbHost = $Cfg["NAS_SMB_HOST_LOCAL"]
+    }
+  }
+  return @{
+    Name    = "remote"
+    Label   = "Tailscale"
+    Host    = $Cfg["NAS_SSH_HOST"]
+    Alias   = $Cfg["NAS_SSH_ALIAS"]
+    SmbHost = $Cfg["NAS_SMB_HOST"]
+  }
 }
 
 function Ensure-OpenSsh {
@@ -73,13 +98,12 @@ function Get-SshConfigPath {
   return Join-Path $dir "config"
 }
 
-function Install-SshConfig([hashtable]$Cfg) {
-  $alias = $Cfg["NAS_SSH_ALIAS"]
+function Install-SshHost([hashtable]$Cfg, [string]$Alias, [string]$HostName) {
   $path = Get-SshConfigPath
   $block = @"
 
-Host $alias
-  HostName $($Cfg["NAS_SSH_HOST"])
+Host $Alias
+  HostName $HostName
   Port $($Cfg["NAS_SSH_PORT"])
   User $($Cfg["NAS_USER"])
 "@
@@ -91,13 +115,24 @@ Host $alias
 
   $existing = ""
   if (Test-Path $path) { $existing = Get-Content $path -Raw -Encoding UTF8 }
-  if ($existing -match "(?ms)^Host\s+$alias\s*$") {
-    Write-Warn "SSH config에 이미 '$alias' 가 있습니다. 건너뜁니다."
-    return
+  if ($existing -match "(?ms)^Host\s+$([regex]::Escape($Alias))\s*$") {
+    return $false
   }
 
   Add-Content -Path $path -Value $block -Encoding UTF8
-  Write-Ok "SSH config 등록됨 → ssh $alias"
+  return $true
+}
+
+function Install-AllSshConfigs([hashtable]$Cfg) {
+  $remote = Resolve-NasProfile $Cfg "remote"
+  $local = Resolve-NasProfile $Cfg "local"
+
+  if (Install-SshHost $Cfg $remote.Alias $remote.Host) {
+    Write-Ok "SSH 등록: $($remote.Alias) → $($remote.Host) (외부/Tailscale)"
+  }
+  if (Install-SshHost $Cfg $local.Alias $local.Host) {
+    Write-Ok "SSH 등록: $($local.Alias) → $($local.Host) (로컬)"
+  }
 }
 
 function Invoke-NasSetup {
@@ -107,41 +142,44 @@ function Invoke-NasSetup {
   }
 
   Write-Host ""
-  Write-Info "메모장으로 설정 파일을 엽니다. NAS_SSH_HOST, NAS_USER 만 맞게 고치고 저장하세요."
-  Write-Warn "Tailscale 쓰면 NAS_SSH_HOST=100.x.x.x (나스 Tailscale IP) 가 제일 편합니다."
+  Write-Info "설정 파일을 엽니다. NAS_USER, Tailscale IP, 로컬 IP 를 맞추고 저장하세요."
+  Write-Warn "로컬 IP 기본값: 169.254.158.191 (NAS_SSH_HOST_LOCAL)"
   Start-Process notepad.exe $LocalConfig
   Read-Host "저장한 뒤 Enter"
 
   $cfg = Get-NasConfig
   Ensure-OpenSsh
-  Install-SshConfig $cfg
+  Install-AllSshConfigs $cfg
 
   Write-Host ""
   Write-Ok "설정 완료"
-  Write-Host "  SSH 접속:     .\scripts\nas-pc.ps1 connect"
-  Write-Host "  나스 업데이트: .\scripts\nas-pc.ps1 update"
-  Write-Host "  SMB 연결:     .\scripts\nas-pc.ps1 map   (DSM 공유폴더 설정 후)"
+  Write-Host "  집(로컬):  scripts\NAS-접속-로컬.bat"
+  Write-Host "  밖(TS):    scripts\NAS-접속.bat"
+  Write-Host "  업데이트:  scripts\NAS-업데이트-로컬.bat / NAS-업데이트.bat"
 }
 
 function Invoke-NasConnect {
   $cfg = Get-NasConfig
+  $profile = Resolve-NasProfile $cfg $Profile
   Ensure-OpenSsh
-  Install-SshConfig $cfg
-  Write-Info "접속 중: ssh $($cfg['NAS_SSH_ALIAS'])"
-  ssh $cfg["NAS_SSH_ALIAS"]
+  Install-AllSshConfigs $cfg
+  Write-Info "접속 중 [$($profile.Label)]: ssh $($profile.Alias) ($($profile.Host))"
+  ssh $profile.Alias
 }
 
 function Invoke-NasRemote([string]$RemoteCommand) {
   $cfg = Get-NasConfig
+  $profile = Resolve-NasProfile $cfg $Profile
   Ensure-OpenSsh
-  Install-SshConfig $cfg
-  ssh $cfg["NAS_SSH_ALIAS"] $RemoteCommand
+  Install-AllSshConfigs $cfg
+  ssh $profile.Alias $RemoteCommand
 }
 
 function Invoke-NasUpdate {
   $cfg = Get-NasConfig
   $repo = $cfg["NAS_REPO_PATH"]
-  Write-Info "나스 업데이트 실행 중…"
+  $profile = Resolve-NasProfile $cfg $Profile
+  Write-Info "나스 업데이트 [$($profile.Label)]…"
   Invoke-NasRemote "cd '$repo' && sh scripts/nas-docker-update.sh"
   Write-Ok "완료"
 }
@@ -154,22 +192,22 @@ function Invoke-NasLogs {
 
 function Invoke-NasMap {
   $cfg = Get-NasConfig
+  $profile = Resolve-NasProfile $cfg $Profile
   $letter = $cfg["NAS_DRIVE_LETTER"].TrimEnd(":")
-  $unc = "\\$($cfg['NAS_SMB_HOST'])\$($cfg['NAS_SMB_SHARE'])"
+  $unc = "\\$($profile.SmbHost)\$($cfg['NAS_SMB_SHARE'])"
 
   $existing = net use "${letter}:" 2>$null
   if ($LASTEXITCODE -eq 0) {
-    Write-Warn "${letter}: 드라이브가 이미 연결되어 있습니다. 해제 후 다시 시도: .\scripts\nas-pc.ps1 unmap"
+    Write-Warn "${letter}: 드라이브가 이미 연결되어 있습니다. 해제: .\scripts\nas-pc.ps1 unmap"
     return
   }
 
-  Write-Info "SMB 연결: $unc → ${letter}:"
-  Write-Warn "DSM에서 'docker' 공유 폴더 + SMB 가 켜져 있어야 합니다. (docs/nas-pc-access.md)"
+  Write-Info "SMB [$($profile.Label)]: $unc → ${letter}:"
   cmd /c "net use ${letter}: `"$unc`" /persistent:yes"
   if ($LASTEXITCODE -ne 0) {
-    throw "SMB 연결 실패. DSM 공유 폴더·계정·Tailscale(밖에서 접속 시) 확인"
+    throw "SMB 연결 실패. DSM 공유 폴더·계정 확인"
   }
-  Write-Ok "${letter}: → $unc 연결됨 (탐색기에서 docker 폴더 사용 가능)"
+  Write-Ok "${letter}: → $unc 연결됨"
 }
 
 function Invoke-NasUnmap {
@@ -179,21 +217,37 @@ function Invoke-NasUnmap {
   Write-Ok "${letter}: 연결 해제"
 }
 
+function Test-SshProfile([hashtable]$Cfg, [string]$ProfileName) {
+  $profile = Resolve-NasProfile $Cfg $ProfileName
+  ssh -o BatchMode=yes -o ConnectTimeout=6 $profile.Alias "echo ok" 2>$null
+  return ($LASTEXITCODE -eq 0)
+}
+
 function Invoke-NasStatus {
   $cfg = Get-NasConfig
-  Write-Host "SSH alias : $($cfg['NAS_SSH_ALIAS'])"
-  Write-Host "SSH host  : $($cfg['NAS_SSH_HOST']):$($cfg['NAS_SSH_PORT'])"
-  Write-Host "SMB       : \\$($cfg['NAS_SMB_HOST'])\$($cfg['NAS_SMB_SHARE']) → $($cfg['NAS_DRIVE_LETTER']):"
-  Write-Host "Repo      : $($cfg['NAS_REPO_PATH'])"
+  $remote = Resolve-NasProfile $cfg "remote"
+  $local = Resolve-NasProfile $cfg "local"
+
+  Write-Host "=== Tailscale (외부) ==="
+  Write-Host "  ssh $($remote.Alias)  →  $($remote.Host)"
+  Write-Host "  smb \\$($remote.SmbHost)\$($cfg['NAS_SMB_SHARE'])"
+  Write-Host ""
+  Write-Host "=== 로컬 (집) ==="
+  Write-Host "  ssh $($local.Alias)  →  $($local.Host)"
+  Write-Host "  smb \\$($local.SmbHost)\$($cfg['NAS_SMB_SHARE'])"
+  Write-Host ""
+  Write-Host "Repo: $($cfg['NAS_REPO_PATH'])"
   Write-Host ""
 
   Ensure-OpenSsh
-  Write-Info "SSH 핑…"
-  ssh -o BatchMode=yes -o ConnectTimeout=8 $cfg["NAS_SSH_ALIAS"] "echo ok" 2>$null
-  if ($LASTEXITCODE -eq 0) { Write-Ok "SSH 연결 OK" } else { Write-Warn "SSH 연결 실패 (setup·Tailscale·DSM SSH 확인)" }
+  Install-AllSshConfigs $cfg | Out-Null
+
+  Write-Info "연결 테스트…"
+  if (Test-SshProfile $cfg "local") { Write-Ok "로컬 SSH OK" } else { Write-Warn "로컬 SSH 실패" }
+  if (Test-SshProfile $cfg "remote") { Write-Ok "Tailscale SSH OK" } else { Write-Warn "Tailscale SSH 실패 (밖에서만 되는 경우 정상)" }
 
   $letter = $cfg["NAS_DRIVE_LETTER"].TrimEnd(":")
-  if (Test-Path "${letter}:\") { Write-Ok "SMB ${letter}: 연결됨" } else { Write-Warn "SMB ${letter}: 미연결 (.\scripts\nas-pc.ps1 map)" }
+  if (Test-Path "${letter}:\") { Write-Ok "SMB ${letter}: 연결됨" } else { Write-Warn "SMB ${letter}: 미연결" }
 }
 
 Set-Location $Root

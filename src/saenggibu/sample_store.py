@@ -45,6 +45,19 @@ def add_sample(record: SampleRecord) -> SampleRecord:
     return record
 
 
+def delete_sample(sample_id: str) -> bool:
+    ensure_data_dirs()
+    items = _load_index()
+    kept = [item for item in items if item.get("id") != sample_id]
+    if len(kept) == len(items):
+        return False
+    _save_index(kept)
+    sample_path = SAMPLES_DIR / f"{sample_id}.json"
+    if sample_path.exists():
+        sample_path.unlink()
+    return True
+
+
 def import_json_file(path: Path) -> SampleRecord:
     data = load_json(path)
     if isinstance(data, list):

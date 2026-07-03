@@ -366,6 +366,19 @@
   margin-bottom: 0;
 }
 
+.admin-sample-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.admin-btn-sm {
+  padding: 6px 10px;
+  font-size: 0.8125rem;
+}
+
 .admin-advanced summary {
   cursor: pointer;
   font-weight: 600;

@@ -289,10 +289,31 @@
       list.innerHTML = `<p class="admin-muted">아직 올린 샘플이 없습니다. 위에서 과거 생기부를 업로드하세요.</p>`;
       return;
     }
-    list.innerHTML = `<p class="admin-muted">${data.count}건 등록됨</p><ul>${data.samples
-      .map((s) => `<li><strong>${s.label}</strong></li>`)
+    list.innerHTML = `<p class="admin-muted">${data.count}건 등록됨 · 업로드할 때마다 새로 추가됩니다 (자동 삭제 안 됨)</p><ul class="admin-sample-list">${data.samples
+      .map(
+        (s) => `<li>
+          <strong>${s.label}</strong>
+          <span class="admin-muted">(${s.id})</span>
+          <button class="admin-btn secondary admin-btn-sm" type="button" data-action="delete-sample" data-id="${s.id}">삭제</button>
+        </li>`
+      )
       .join("")}</ul>`;
   }
+
+  document.getElementById("samplesList")?.addEventListener("click", async (event) => {
+    const btn = event.target.closest("button[data-action='delete-sample']");
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const label = btn.closest("li")?.querySelector("strong")?.textContent || id;
+    if (!confirm(`「${label}」 샘플을 삭제할까요?`)) return;
+    try {
+      await api(`/api/samples/${id}`, { method: "DELETE" });
+      showToast("삭제됨");
+      await loadSamples();
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
 
   async function loadStyleGuide() {
     const editor = document.getElementById("styleGuideEditor");

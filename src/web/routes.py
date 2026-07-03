@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from src.saenggibu.generator import generate_for_student, run_batch
 from src.saenggibu.models import StudentInput
 from src.saenggibu.pattern_analyzer import analyze_and_save, load_patterns, update_style_guide
-from src.saenggibu.sample_store import import_path, list_samples
+from src.saenggibu.sample_store import delete_sample, import_path, list_samples
 from src.saenggibu.student_parser import parse_and_save, parse_file_to_student, parse_text_to_student
 from src.saenggibu.upload_formats import SAMPLE_EXTENSIONS, STUDENT_EXTENSIONS, check_upload_extension
 from src.saenggibu.usage import usage_summary
@@ -132,6 +132,13 @@ async def api_samples_import(
         raise HTTPException(status_code=500, detail=f"서버 오류: {exc}") from exc
     finally:
         tmp_path.unlink(missing_ok=True)
+
+
+@router.delete("/samples/{sample_id}")
+def api_samples_delete(sample_id: str, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    if not delete_sample(sample_id):
+        raise HTTPException(status_code=404, detail="샘플을 찾을 수 없습니다.")
+    return {"deleted": True, "id": sample_id}
 
 
 @router.post("/analyze")

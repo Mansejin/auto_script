@@ -14,10 +14,13 @@ param(
   [string]$Command = "connect",
 
   [ValidateSet("remote", "local")]
-  [string]$Profile = "remote",
+  [Alias("Profile")]
+  [string]$NasProfile = "remote",
 
   [string]$DriveLetter = ""
 )
+
+$script:NasProfile = $NasProfile
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
@@ -170,7 +173,7 @@ function Invoke-InstallKey {
   Set-EnvValue "NAS_SSH_KEY" $keyPath
   $cfg["NAS_SSH_KEY"] = $keyPath
 
-  $profile = Resolve-NasProfile $cfg $Profile
+  $profile = Resolve-NasProfile $cfg $script:NasProfile
   Install-SshHost $cfg $profile.Alias $profile.Host | Out-Null
 
   Write-Info "Copy public key to NAS [$($profile.Label)]..."
@@ -267,7 +270,7 @@ function Invoke-NasSetup {
 
   $cfg = Get-NasConfig
   Ensure-OpenSsh
-  Install-AllSshConfigs $cfg
+  Rewrite-AllSshConfigs $cfg
 
   Write-Host ""
   Write-Ok "Done."
@@ -278,7 +281,7 @@ function Invoke-NasSetup {
 
 function Invoke-NasConnect {
   $cfg = Get-NasConfig
-  $profile = Resolve-NasProfile $cfg $Profile
+  $profile = Resolve-NasProfile $cfg $script:NasProfile
   Ensure-OpenSsh
   Rewrite-AllSshConfigs $cfg | Out-Null
   Invoke-NasSsh $cfg $profile ""
@@ -286,7 +289,7 @@ function Invoke-NasConnect {
 
 function Invoke-NasRemote([string]$RemoteCommand) {
   $cfg = Get-NasConfig
-  $profile = Resolve-NasProfile $cfg $Profile
+  $profile = Resolve-NasProfile $cfg $script:NasProfile
   Ensure-OpenSsh
   Invoke-NasSsh $cfg $profile $RemoteCommand
 }
@@ -294,7 +297,7 @@ function Invoke-NasRemote([string]$RemoteCommand) {
 function Invoke-NasUpdate {
   $cfg = Get-NasConfig
   $repo = $cfg["NAS_REPO_PATH"]
-  $profile = Resolve-NasProfile $cfg $Profile
+  $profile = Resolve-NasProfile $cfg $script:NasProfile
   Write-Info "NAS update [$($profile.Label)] -> $($profile.Host)..."
   Invoke-NasRemote "cd '$repo' && sh scripts/nas-docker-update.sh"
   Write-Ok "Done"
@@ -317,7 +320,7 @@ function Get-FreeDriveLetter([string[]]$Prefer) {
 
 function Invoke-NasMap {
   $cfg = Get-NasConfig
-  $profile = Resolve-NasProfile $cfg $Profile
+  $profile = Resolve-NasProfile $cfg $script:NasProfile
   $letter = if ($DriveLetter) { $DriveLetter.TrimEnd(":").ToUpper() } else { $cfg["NAS_DRIVE_LETTER"].TrimEnd(":").ToUpper() }
   $unc = "\\$($profile.SmbHost)\$($cfg['NAS_SMB_SHARE'])"
 
@@ -351,7 +354,9 @@ function Invoke-NasUnmap {
 
 function Test-SshProfile([hashtable]$Cfg, [string]$ProfileName) {
   $profile = Resolve-NasProfile $Cfg $ProfileName
-  ssh -o BatchMode=yes -o ConnectTimeout=6 $profile.Alias "echo ok" 2>$null
+  $sshArgs = Build-SshArgs $Cfg
+  $target = "$($Cfg['NAS_USER'])@$($profile.Host)"
+  & ssh @sshArgs -o BatchMode=yes $target "echo ok" 2>$null
   return ($LASTEXITCODE -eq 0)
 }
 
@@ -389,7 +394,7 @@ function Invoke-NasStatus {
   Write-Host ""
 
   Ensure-OpenSsh
-  Install-AllSshConfigs $cfg | Out-Null
+  Rewrite-AllSshConfigs $cfg | Out-Null
 
   Write-Info "Testing SSH..."
   if (Test-SshProfile $cfg "local") { Write-Ok "Local SSH OK" } else { Write-Warn "Local SSH failed" }

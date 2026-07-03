@@ -21,12 +21,12 @@ scripts\DEV-의존성설치.bat
 ```
 
 3. 검은 창에 `Application startup complete` 또는 `Uvicorn running` 이 보이고 **에러 traceback 이 없어야** 합니다.
+### 4) 브라우저 접속 + 로그인
 
-또는 PowerShell:
+- http://127.0.0.1:8787/admin/saenggibu
+- **로컬 기본 비밀번호:** `dev-local` (`.env` 의 `ADMIN_PASSWORD`)
 
-```powershell
-.\scripts\dev-local.ps1
-```
+NAS/운영 서버는 `.env` 에 본인 비밀번호를 직접 설정하세요.
 
 ## Mac / Linux
 
@@ -72,7 +72,7 @@ chmod +x scripts/dev-local.sh
 | `ModuleNotFoundError: dotenv` 등 | `scripts\DEV-의존성설치.bat` 실행 후 재시작 |
 | `DEV-로컬테스트.bat` 없음 | `git pull` 후 `scripts\` 폴더 확인 |
 | 포트 사용 중 | `dev-local.ps1 -Port 8788` 로 다른 포트 사용 |
-| 로그인 안 됨 | `.env` 의 `ADMIN_PASSWORD=` 값 설정 후 서버 재시작 |
+| 로그인 안 됨 | 로컬: 비밀번호 **`dev-local`** / `.env` 에 `ADMIN_PASSWORD`·`ADMIN_SESSION_SECRET` 확인 후 서버 재시작 |
 
 **서버만 켜져 있는지 확인:** http://127.0.0.1:8787/health → `{"status":"ok"}`
 

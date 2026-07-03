@@ -46,6 +46,59 @@ import dotenv, fastapi, uvicorn, multipart, itsdangerous, openpyxl, docx
   }
 }
 
+function Ensure-LocalEnvFile {
+  param([string]$EnvPath)
+
+  $lines = @()
+  if (Test-Path $EnvPath) {
+    $lines = Get-Content $EnvPath -Encoding UTF8
+  } else {
+    Copy-Item config.example.env $EnvPath
+    $lines = Get-Content $EnvPath -Encoding UTF8
+  }
+
+  function Get-EnvValue([string]$Name) {
+    foreach ($line in $lines) {
+      if ($line -match "^\s*$([regex]::Escape($Name))\s*=\s*(.*)\s*$") {
+        return $matches[1].Trim()
+      }
+    }
+    return ""
+  }
+
+  function Set-EnvValue([string]$Name, [string]$Value) {
+    $script:changed = $true
+    $found = $false
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+      if ($lines[$i] -match "^\s*$([regex]::Escape($Name))\s*=") {
+        $lines[$i] = "$Name=$Value"
+        $found = $true
+        break
+      }
+    }
+    if (-not $found) {
+      $lines += "$Name=$Value"
+    }
+  }
+
+  $script:changed = $false
+  if (-not (Get-EnvValue "ADMIN_PASSWORD")) {
+    Set-EnvValue "ADMIN_PASSWORD" "dev-local"
+    Write-Host "  ADMIN_PASSWORD=dev-local  (local test only)" -ForegroundColor Yellow
+  }
+  if (-not (Get-EnvValue "ADMIN_SESSION_SECRET")) {
+    $bytes = New-Object byte[] 24
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    $secret = [Convert]::ToBase64String($bytes)
+    Set-EnvValue "ADMIN_SESSION_SECRET" $secret
+    Write-Host "  ADMIN_SESSION_SECRET auto-generated" -ForegroundColor Yellow
+  }
+
+  if ($script:changed) {
+    $lines | Set-Content -Path $EnvPath -Encoding UTF8
+  }
+}
+
 Write-Host ""
 Write-Host "========================================"
 Write-Host " Saenggibu local dev server"
@@ -56,8 +109,12 @@ Write-Host ""
 if (-not (Test-Path .env)) {
   Write-Step "Creating .env from config.example.env"
   Copy-Item config.example.env .env
-  Write-Host "  Edit .env -> set ADMIN_PASSWORD and GEMINI_API_KEY"
 }
+
+Ensure-LocalEnvFile -EnvPath (Join-Path $Root ".env")
+Write-Host "  Login password (local): dev-local" -ForegroundColor Green
+Write-Host "  Change ADMIN_PASSWORD in .env for NAS/production" -ForegroundColor DarkGray
+Write-Host ""
 
 $script:PythonExe = $null
 $script:PythonPrefix = @()

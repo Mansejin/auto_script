@@ -21,8 +21,15 @@ def _serializer() -> URLSafeTimedSerializer:
 def get_admin_password() -> str:
     password = os.getenv("ADMIN_PASSWORD", "").strip()
     if not password:
-        raise RuntimeError("ADMIN_PASSWORD가 .env에 설정되지 않았습니다.")
+        raise RuntimeError(
+            "ADMIN_PASSWORD가 .env에 설정되지 않았습니다. "
+            "프로젝트 루트 .env 파일에 ADMIN_PASSWORD=비밀번호 를 추가하세요."
+        )
     return password
+
+
+def admin_auth_configured() -> bool:
+    return bool(os.getenv("ADMIN_PASSWORD", "").strip() and os.getenv("ADMIN_SESSION_SECRET", "").strip())
 
 
 def verify_password(password: str) -> bool:

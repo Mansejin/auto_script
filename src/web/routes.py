@@ -31,7 +31,7 @@ from src.saenggibu.student_store import (
     list_students,
     save_student,
 )
-from src.web.auth import AdminSession, SESSION_COOKIE, create_session_token, verify_password, verify_session_token
+from src.web.auth import AdminSession, SESSION_COOKIE, admin_auth_configured, create_session_token, verify_password, verify_session_token
 
 router = APIRouter(prefix="/api")
 logger = logging.getLogger("sgb.web")
@@ -96,9 +96,20 @@ def require_admin(request: Request) -> AdminSession:
 
 @router.post("/auth/login")
 def login(payload: LoginRequest) -> dict[str, str]:
-    if not verify_password(payload.password):
-        raise HTTPException(status_code=401, detail="비밀번호가 올바르지 않습니다.")
-    token = create_session_token()
+    if not admin_auth_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="서버 설정이 완료되지 않았습니다. .env 에 ADMIN_PASSWORD 와 ADMIN_SESSION_SECRET 을 설정하세요.",
+        )
+    try:
+        if not verify_password(payload.password):
+            raise HTTPException(status_code=401, detail="비밀번호가 올바르지 않습니다.")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    try:
+        token = create_session_token()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"token": token}
 
 

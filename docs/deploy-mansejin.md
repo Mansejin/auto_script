@@ -111,6 +111,14 @@ UI·업로드 기능 변경은 **나스만** pull + `docker compose up -d --buil
 
 ## 업데이트 방법
 
+### PC에서 쉽게 (SSH·SMB)
+
+SSH 주소 매번 치기 귀찮으면 → **[`docs/nas-pc-access.md`](nas-pc-access.md)**
+
+- `scripts\NAS-접속.bat` — 더블클릭 SSH
+- `scripts\NAS-업데이트.bat` — 더블클릭 pull + 재빌드
+- `.\scripts\nas-pc.ps1 map` — `docker` 폴더를 PC `Z:` 드라이브로
+
 ### API (나스) — 지금은 수동, 예약 작업으로 자동화 가능
 
 **매번 손으로 할 때:**

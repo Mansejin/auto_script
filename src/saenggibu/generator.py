@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 from .config import OUTPUTS_DIR, ensure_data_dirs
 from .gemini_client import generate_text
+from .subject_info import format_setuk_prompt_context
 from .io_utils import save_json
 from .models import StudentInput
 from .pattern_analyzer import analyze_and_save, load_patterns
@@ -56,18 +57,14 @@ def _generate_haengbal(student: StudentInput, style_guide: str) -> str:
 
 
 def _generate_setuk(student: StudentInput, subject: str, info: dict[str, Any], style_guide: str) -> str:
-    activities = info.get("activities") or []
-    traits = info.get("traits") or ""
-    notes = info.get("notes") or ""
+    context = format_setuk_prompt_context(subject, info)
     user = (
         f"## 스타일 가이드\n{style_guide}\n\n"
         f"## 학생 정보\n"
         f"- 학년/반/번호: {student.grade}-{student.class_num}-{student.number}\n"
-        f"- 과목: {subject}\n"
-        f"- 수업·활동 기록: {activities}\n"
-        f"- 특성 메모: {traits}\n"
-        f"- 추가 메모: {notes}\n\n"
-        f"위 정보를 바탕으로 **{subject} 세부능력 및 특기사항**을 작성하세요."
+        f"{context}\n\n"
+        f"위 정보를 바탕으로 **{subject} 세부능력 및 특기사항**을 작성하세요. "
+        "비어 있는 항목(진로·수행평가 형식·주제)은 언급하지 마세요."
     )
     return generate_text(system=_system_prompt(), user=user)
 

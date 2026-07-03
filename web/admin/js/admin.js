@@ -1115,6 +1115,30 @@
     }
   });
 
+  function collectSetukSubjectPayload() {
+    const subject = document.getElementById("simpleSubject")?.value.trim() || "";
+    const career = document.getElementById("simpleSetukCareer")?.value.trim() || "";
+    const assessmentType = document.getElementById("simpleSetukAssessment")?.value.trim() || "";
+    const topic = document.getElementById("simpleSetukTopic")?.value.trim() || "";
+    const content = document.getElementById("simpleSetukContent")?.value.trim() || "";
+    if (!subject) return { error: "세특을 선택했다면 과목명을 입력하세요." };
+    if (content && content.length < 20) {
+      showToast("활동 내용은 20자 이상 작성을 권장합니다.");
+    }
+    return {
+      subjects: {
+        [subject]: {
+          career,
+          assessment_type: assessmentType,
+          topic,
+          content,
+          activities: content ? [content] : [],
+          notes: content,
+        },
+      },
+    };
+  }
+
   document.getElementById("simpleStudentForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const writeTargets = getSelectedWriteTargets();
@@ -1125,11 +1149,12 @@
 
     const subjects = {};
     if (writeTargets.includes("세특")) {
-      const subject = document.getElementById("simpleSubject").value.trim();
-      const activities = document.getElementById("simpleActivities").value.trim();
-      if (subject) {
-        subjects[subject] = { activities: activities ? [activities] : [], notes: activities };
+      const setuk = collectSetukSubjectPayload();
+      if (setuk.error) {
+        showToast(setuk.error);
+        return;
       }
+      Object.assign(subjects, setuk.subjects);
     }
 
     const changche = {};

@@ -45,9 +45,12 @@ def _user_prompt(raw_text: str) -> str:
   "keywords": ["키워드1", "키워드2"],
   "subjects": {{
     "현대사회와윤리": {{
-      "activities": ["활동1", "활동2"],
-      "traits": "수업 태도·특성",
-      "notes": "추가 메모"
+      "career": "사회학과, 마케팅",
+      "assessment_type": "보고서 작성, 발표",
+      "topic": "마르크스의 이상사회",
+      "content": "활동 내용 상세",
+      "traits": "",
+      "notes": ""
     }}
   }},
   "changche": {{
@@ -69,9 +72,13 @@ def _to_student(data: dict[str, Any]) -> StudentInput:
         if isinstance(activities, str):
             activities = [a.strip() for a in re.split(r"[;|/]", activities) if a.strip()]
         subjects[str(subject)] = {
+            "career": str(info.get("career", "")).strip(),
+            "assessment_type": str(info.get("assessment_type", info.get("assessment", ""))).strip(),
+            "topic": str(info.get("topic", "")).strip(),
+            "content": str(info.get("content", "")).strip(),
             "activities": activities,
-            "traits": info.get("traits", ""),
-            "notes": info.get("notes", ""),
+            "traits": str(info.get("traits", "")).strip(),
+            "notes": str(info.get("notes", info.get("content", ""))).strip(),
         }
 
     keywords = data.get("keywords") or []

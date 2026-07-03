@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260703h">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260703i">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -178,12 +178,25 @@
               <details class="admin-memo-panel" data-target="세특" hidden>
                 <summary>세특 메모</summary>
                 <div class="admin-field" style="margin-top:12px">
-                  <label for="simpleSubject">과목명</label>
+                  <label for="simpleSubject">과목명 <span class="admin-required">*</span></label>
                   <input id="simpleSubject" placeholder="예: 현대사회와윤리">
                 </div>
                 <div class="admin-field">
-                  <label for="simpleActivities">활동·수업 메모</label>
-                  <textarea id="simpleActivities" class="admin-textarea" rows="4"></textarea>
+                  <label for="simpleSetukCareer">진로</label>
+                  <input id="simpleSetukCareer" placeholder="예: 사회학과, 마케팅, 의사">
+                </div>
+                <div class="admin-field">
+                  <label for="simpleSetukAssessment">수행평가 형식</label>
+                  <input id="simpleSetukAssessment" placeholder="예: 보고서 작성, 발표, 학습지, 글쓰기, 토론 등">
+                </div>
+                <div class="admin-field">
+                  <label for="simpleSetukTopic">주제</label>
+                  <input id="simpleSetukTopic" placeholder="예: 마르크스의 이상사회, 플라톤의 이데아, 칸트의 의무론">
+                </div>
+                <div class="admin-field">
+                  <label for="simpleSetukContent">활동 내용</label>
+                  <textarea id="simpleSetukContent" class="admin-textarea" rows="5" placeholder="수업·탐구·발표 등 구체적 활동을 적어 주세요"></textarea>
+                  <p class="admin-help">최소 20자 이상 작성을 권장합니다. 비워 두면 활동 내용 없음으로 처리됩니다.</p>
                 </div>
               </details>
               <details class="admin-memo-panel" data-target="자율" hidden>
@@ -370,7 +383,7 @@
       </ol>
       <ul class="admin-guide-tips">
         <li>학년은 <strong>1·2·3 버튼</strong>, 반·번호는 <strong>드롭다운</strong>에서 고릅니다.</li>
-        <li>행발·세특·창체 등 항목을 고르면, <strong>선택한 메모만</strong> 입력란이 열립니다.</li>
+        <li>세특 메모는 <strong>과목명 필수</strong>, 진로·수행평가·주제·활동 내용은 비워 두면 없음 처리됩니다.</li>
         <li>③ <strong>등록된 학생</strong>에서 선택 삭제·전체 초기화로 학생 데이터를 지울 수 있습니다.</li>
         <li>④ <strong>검토 목록</strong>에서 작성본만 삭제(초기화)하거나 <strong>엑셀 추출</strong>할 수 있습니다.</li>
         <li>행발과 세특은 <strong>각각 따로</strong> ④에서 실행하세요.</li>
@@ -395,6 +408,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260703h"></script>
+  <script src="/admin-static/js/admin.js?v=20260703i"></script>
 </body>
 </html>

@@ -121,12 +121,12 @@ SSH 주소 매번 치기 귀찮으면 → **[`docs/nas-pc-access.md`](nas-pc-acc
 
 ### API (나스) — 자동 배포 (권장)
 
-**한 번만 설정:** [docs/deploy-nas-auto.md](deploy-nas-auto.md)
+**push만 하면 반영** — [docs/deploy-nas-auto.md](deploy-nas-auto.md)
 
-- GitHub에 `push` → Actions가 나스 SSH → `git pull` + 재빌드 (1~3분)
-- 백업: DSM 작업 스케줄러 → `scripts/nas-scheduled-pull.sh` (10분마다)
+1. **쉬운 방법:** DSM 작업 스케줄러 10분마다 `nas-scheduled-pull.sh`
+2. **빠른 방법:** GitHub Actions + Tailscale auth key
 
-PC에서 수동으로 할 때만:
+수동 긴급 배포:
 
 ```powershell
 .\scripts\nas-pc.ps1 deploy -Profile local

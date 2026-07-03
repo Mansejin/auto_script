@@ -1,108 +1,118 @@
-# NAS 자동 배포 (push만 하면 됨)
+# NAS 자동 배포 (직접 pull 안 해도 됨)
 
-수동으로 나스 SSH · `git pull` · docker 재시작을 반복하지 않아도 되도록 **두 가지 자동화**를 씁니다.
+GitHub에 push만 하면 나스가 알아서 최신 코드를 받습니다. **아래 둘 중 하나만** 설정하면 됩니다.
 
-| 방식 | 속도 | 설정 |
-|------|------|------|
-| **GitHub Actions** (권장) | push 후 1~3분 | GitHub Secrets 1회 |
-| **나스 작업 스케줄러** (백업) | 5~15분마다 | DSM 작업 1회 |
+| 방식 | 속도 | 난이도 | 추천 |
+|------|------|--------|------|
+| **A. 나스 작업 스케줄러** | 최대 10분 | 쉬움 | 집에 Tailscale 설정 귀찮을 때 |
+| **B. GitHub Actions + Tailscale** | 1~3분 | 보통 | 빠른 배포 원할 때 |
 
-둘 다 켜 두면 Actions가 실패해도 스케줄러가 따라잡습니다.
-
----
-
-## 1. GitHub Actions (push → 자동 배포)
-
-### 1-1. 나스 SSH 키 (이미 `nas-pc.ps1 install-key` 했다면 생략 가능)
-
-PC PowerShell:
-
-```powershell
-cd C:\Users\Ohola\Documents\GitHub\auto_script
-.\scripts\nas-pc.ps1 install-key -Profile remote
-```
-
-Tailscale IP(`100.x.x.x`)로 키 로그인이 되어야 GitHub에서도 접속됩니다.
-
-### 1-2. GitHub Secrets 등록
-
-저장소 **Mansejin/auto_script** → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
-
-| Secret | 값 예시 |
-|--------|---------|
-| `NAS_SSH_HOST` | `100.72.192.38` (Tailscale) 또는 DDNS |
-| `NAS_SSH_USER` | `ohola` |
-| `NAS_SSH_KEY` | `C:\Users\Ohola\.ssh\id_ed25519` **파일 전체** (BEGIN~END 포함) |
-| `NAS_SSH_PORT` | (선택) `22` |
-| `NAS_REPO_PATH` | (선택) `/volume1/docker/saenggibu` |
-
-> **중요:** Actions 러너는 집 밖에서 돌아가므로 **로컬 LAN IP(`169.254.x.x`)는 쓰지 마세요.** Tailscale·DDNS·공인 IP 중 나스에 SSH 되는 주소를 넣습니다.
-
-### 1-3. 나스 `.env`에 배포 브랜치 (선택)
-
-`/volume1/docker/saenggibu/.env`:
-
-```env
-SGB_DEPLOY_BRANCH=main
-```
-
-비우면 워크플로가 **push한 브랜치**를 그대로 배포합니다 (`main`, `cursor/saenggibu-writer-5821` 등).
-
-### 1-4. 동작 확인
-
-1. `main`(또는 배포 브랜치)에 push
-2. GitHub → **Actions** → **Deploy to NAS** 실행 로그 확인
-3. `https://sgb.mansejin.com/health` → `{"status":"ok"}`
-
-수동 실행: Actions → **Deploy to NAS** → **Run workflow**
+둘 다 켜도 됩니다.
 
 ---
 
-## 2. 나스 작업 스케줄러 (백업, GitHub 없이도 pull)
+## A. 나스 작업 스케줄러 (가장 확실, 추천)
 
-GitHub Secrets를 아직 안 넣었거나, Actions가 막혔을 때를 대비합니다.
+GitHub 서버가 집 나스에 직접 못 들어와도 **나스가 밖으로 나가서** GitHub에서 pull 합니다.
+
+### 한 번만 설정
 
 1. DSM → **제어판** → **작업 스케줄러** → **생성** → **예약된 작업** → **사용자 정의 스크립트**
-2. **일반**: 이름 `saenggibu-auto-pull`, 사용자 `root`
-3. **일정**: 매 **10분** (또는 매일 새벽 3시)
+2. **일반**: 이름 `saenggibu-auto-pull`, 사용자 **`root`**
+3. **일정**: **매 10분** (`0,10,20,30,40,50` 분 — DSM UI에 맞게 설정)
 4. **작업 설정** → 스크립트:
 
 ```bash
 /volume1/docker/saenggibu/scripts/nas-scheduled-pull.sh
 ```
 
-로그: `/volume1/docker/saenggibu/logs/scheduled-pull.log`
+> 스크립트가 없으면 PC에서 한 번만: `.\scripts\nas-pc.ps1 update -Profile local`
+
+5. 나스 `.env` (선택):
+
+```env
+SGB_DEPLOY_BRANCH=cursor/saenggibu-writer-5821
+SGB_DOCKER_SUDO=1
+```
+
+### 이후
+
+```
+코드 수정 → git push → (최대 10분) → sgb.mansejin.com 반영
+```
+
+로그: `/volume1/docker/saenggibu/logs/scheduled-pull.log`  
+배포 로그: `/volume1/docker/saenggibu/logs/deploy.log`
 
 ---
 
-## 3. PC에서 할 일 (이제 선택)
+## B. GitHub Actions + Tailscale (push 후 1~3분)
 
-자동 배포가 켜지면 **매번 나스 pull 할 필요 없습니다.**
+### 왜 Tailscale 키가 필요한가?
 
-| 상황 | PC 명령 |
-|------|---------|
-| 급히 지금 반영 | `.\scripts\nas-pc.ps1 update -Profile local` |
-| UI만 빠르게 (SMB) | `.\scripts\nas-pc.ps1 sync-ui -Profile local` |
-| 로컬에서 push | `git push` → Actions가 나스 배포 |
+`dial tcp ...:22: i/o timeout` 은 **GitHub 클라우드가 집 나스에 닿지 못해서** 납니다.  
+`169.254.x.x`(로컬)나 막힌 공인 IP로는 안 됩니다. Actions 러너를 **Tailscale 망에 잠깐 붙여** 나스 `100.x.x.x`로 SSH 합니다.
+
+### B-1. Tailscale Auth Key 발급
+
+1. https://login.tailscale.com/admin/settings/keys
+2. **Generate auth key**
+   - Ephemeral: **ON** (CI용)
+   - Reusable: ON
+3. 키 복사 (한 번만 보임)
+
+### B-2. GitHub Secrets
+
+저장소 **Settings → Secrets → Actions**:
+
+| Secret | 값 |
+|--------|-----|
+| `TAILSCALE_AUTHKEY` | 위에서 복사한 키 |
+| `NAS_SSH_HOST` | 나스 **Tailscale IP** (`100.72.192.38` 등) |
+| `NAS_SSH_USER` | `ohola` |
+| `NAS_SSH_KEY` | `id_ed25519` 파일 **전체** 내용 |
+| `NAS_REPO_PATH` | (선택) `/volume1/docker/saenggibu` |
+
+**쓰면 안 되는 주소:** `169.254.158.191` (집 안에서만 됨)
+
+### B-3. 나스 쪽 확인
+
+- DSM **SSH** 켜짐
+- 나스에 **Tailscale** 설치·로그인·Online
+- PC에서 `ssh ohola@100.x.x.x` 되면 Actions도 같은 IP 사용
+
+### B-4. 테스트
+
+Actions → **Deploy to NAS** → **Run workflow**
+
+성공 로그: `NAS SSH port open` → `==> git pull` → `==> done`
 
 ---
 
-## 4. 관리자 페이지(UI) 반영
+## PC에서 할 일 (이제 거의 없음)
 
-- `web/admin` 은 docker **볼륨 마운트** → `git pull` 만으로도 파일은 갱신됩니다.
-- 브라우저 **Ctrl+F5** (캐시 무시).
-- `index.html` 의 `?v=` 쿼리가 바뀌면 새 JS가 로드됩니다.
-
----
-
-## 5. 문제 해결
-
-| 증상 | 확인 |
+| 상황 | 명령 |
 |------|------|
-| Actions가 Skip | `NAS_SSH_*` Secrets 미설정 → 1-2절 |
-| SSH connection refused | 나스 DSM SSH 켜짐, Tailscale 같은 네트워크 |
-| `docker: permission denied` | 나스 `.env`에 `SGB_DOCKER_SUDO=1` 추가. GitHub Actions는 자동으로 sudo 시도함. DSM에서 사용자를 `administrators` 그룹에 넣거나 passwordless sudo 설정 |
-| 잘못된 브랜치 배포 | `.env`의 `SGB_DEPLOY_BRANCH` 또는 push 브랜치 확인 |
-| UI만 옛날 | Ctrl+F5, 또는 `sync-ui` |
+| 평소 | `git push` 만 |
+| 급히 지금 | `.\scripts\nas-pc.ps1 deploy -Profile local` |
+| UI만 | `.\scripts\NAS-UI-동기화.bat` 후 Ctrl+F5 |
 
-배포 로그 (나스): `/volume1/docker/saenggibu/logs/deploy.log`
+---
+
+## 문제 해결
+
+| 증상 | 해결 |
+|------|------|
+| `i/o timeout` (port 22) | **A안 스케줄러** 쓰거나 **B안** `TAILSCALE_AUTHKEY` + Tailscale IP |
+| Actions Skip | Secrets 4개 모두 등록 |
+| `docker: permission denied` | 나스 `.env`에 `SGB_DOCKER_SUDO=1`, 스케줄러 사용자 `root` |
+| UI만 옛날 | Ctrl+F5, `sync-ui` |
+| 10분 지나도 안 바뀜 | `scheduled-pull.log`, `deploy.log` 확인 |
+
+---
+
+## 관련 파일
+
+- `scripts/nas-scheduled-pull.sh` — DSM 스케줄러용
+- `scripts/nas-docker-update.sh` — pull + docker rebuild
+- `.github/workflows/deploy-nas.yml` — Actions (Tailscale + SSH)

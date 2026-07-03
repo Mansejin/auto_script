@@ -14,7 +14,9 @@ param(
   [string]$Command = "connect",
 
   [ValidateSet("remote", "local")]
-  [string]$Profile = "remote"
+  [string]$Profile = "remote",
+
+  [string]$DriveLetter = ""
 )
 
 $ErrorActionPreference = "Stop"

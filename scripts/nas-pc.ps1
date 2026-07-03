@@ -379,7 +379,7 @@ function Get-DeployBranch([hashtable]$Cfg) {
       return $branch
     }
   } catch {}
-  return "cursor/saenggibu-writer-5821"
+  return "main"
 }
 
 function Escape-ShSingleQuoted([string]$Value) {

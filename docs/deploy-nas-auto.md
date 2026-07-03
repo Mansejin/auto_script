@@ -42,6 +42,7 @@ SGB_DOCKER_SUDO=1
 ```
 
 로그: `/volume1/docker/saenggibu/logs/scheduled-pull.log`  
+(없으면 스크립트가 아직 한 번도 안 돌았거나, DSM 스크립트를 `sh /volume1/docker/saenggibu/scripts/nas-scheduled-pull.sh` 로 실행했는지 확인)  
 배포 로그: `/volume1/docker/saenggibu/logs/deploy.log`
 
 ---

@@ -127,10 +127,11 @@ git_sync_deploy() {
   log "==> git sync ($BRANCH) via docker (no native git on NAS)"
   ensure_docker_access
   short=$($DOCKER run --rm \
+    --entrypoint sh \
     -v "$REPO_DIR:/git" \
     -w /git \
     "$GIT_IMAGE" \
-    sh -ec "
+    -ec "
       git config --global --add safe.directory /git
       git fetch origin '$BRANCH'
       git clean -fd -e .env -e logs

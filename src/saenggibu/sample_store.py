@@ -117,6 +117,28 @@ def delete_sample(sample_id: str) -> bool:
     return True
 
 
+def delete_samples(sample_ids: list[str]) -> dict[str, list[str] | int]:
+    deleted: list[str] = []
+    not_found: list[str] = []
+    for sample_id in sample_ids:
+        if delete_sample(sample_id):
+            deleted.append(sample_id)
+        else:
+            not_found.append(sample_id)
+    return {"deleted": deleted, "not_found": not_found, "count": len(deleted)}
+
+
+def delete_all_samples() -> int:
+    ensure_data_dirs()
+    reconcile_sample_index()
+    items = _load_index()
+    count = len(items)
+    _save_index([])
+    for path in SAMPLES_DIR.glob("sample*.json"):
+        path.unlink(missing_ok=True)
+    return count
+
+
 def import_json_file(path: Path) -> SampleRecord:
     data = load_json(path)
     if isinstance(data, list):

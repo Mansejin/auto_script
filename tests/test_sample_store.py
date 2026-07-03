@@ -8,7 +8,9 @@ import pytest
 from src.saenggibu import sample_store
 from src.saenggibu.sample_store import (
     add_sample,
+    delete_all_samples,
     delete_sample,
+    delete_samples,
     list_samples,
     reconcile_sample_index,
 )
@@ -75,3 +77,26 @@ def test_delete_sample_works_when_only_json_exists(samples_dir: Path) -> None:
 
     assert delete_sample("samplejson01") is True
     assert not (samples_dir / "samplejson01.json").exists()
+
+
+def test_delete_samples_bulk(samples_dir: Path) -> None:
+    a = SampleRecord(id="samplea001", label="a", sections={"행발": "a"})
+    b = SampleRecord(id="sampleb002", label="b", sections={"행발": "b"})
+    add_sample(a)
+    add_sample(b)
+
+    result = delete_samples(["samplea001", "sampleb002", "samplemissing"])
+    assert result["count"] == 2
+    assert set(result["deleted"]) == {"samplea001", "sampleb002"}
+    assert result["not_found"] == ["samplemissing"]
+    assert list_samples() == []
+
+
+def test_delete_all_samples(samples_dir: Path) -> None:
+    add_sample(SampleRecord(id="samplex001", label="x", sections={"행발": "x"}))
+    add_sample(SampleRecord(id="sampley002", label="y", sections={"행발": "y"}))
+
+    count = delete_all_samples()
+    assert count == 2
+    assert list_samples() == []
+    assert not list(samples_dir.glob("sample*.json"))

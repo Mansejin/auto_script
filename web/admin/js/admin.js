@@ -104,12 +104,55 @@
   let currentStudentId = null;
   let currentStudentData = null;
   let lastTabBeforeDetail = "review";
+  let selectedSampleIds = new Set();
+  let busyTimer = null;
+  let busyStartedAt = 0;
+
+  const busyOverlay = document.getElementById("busyOverlay");
+  const busyMessage = document.getElementById("busyMessage");
+  const busyHint = document.getElementById("busyHint");
 
   function showToast(message) {
     if (!toast) return;
     toast.textContent = message;
     toast.classList.add("show");
     setTimeout(() => toast.classList.remove("show"), 3200);
+  }
+
+  function setBusy(active, message = "처리 중…", hint = "AI 응답을 기다리는 중입니다. 1~2분 걸릴 수 있습니다.") {
+    if (active) {
+      document.body.classList.add("admin-is-busy");
+      if (busyOverlay) busyOverlay.hidden = false;
+      if (busyMessage) busyMessage.textContent = message;
+      if (busyHint) busyHint.textContent = hint;
+      return;
+    }
+    if (busyTimer) {
+      clearInterval(busyTimer);
+      busyTimer = null;
+    }
+    document.body.classList.remove("admin-is-busy");
+    if (busyOverlay) busyOverlay.hidden = true;
+  }
+
+  function startBusy(message, hint = "AI 응답을 기다리는 중입니다. 1~2분 걸릴 수 있습니다.") {
+    busyStartedAt = Date.now();
+    setBusy(true, message, hint);
+    if (busyTimer) clearInterval(busyTimer);
+    busyTimer = setInterval(() => {
+      const sec = Math.floor((Date.now() - busyStartedAt) / 1000);
+      if (busyMessage) busyMessage.textContent = `${message} (${sec}초)`;
+    }, 1000);
+    return () => setBusy(false);
+  }
+
+  async function withBusy(message, hint, fn) {
+    const stop = startBusy(message, hint);
+    try {
+      return await fn();
+    } finally {
+      stop();
+    }
   }
 
   function showUploadLog(elementId, lines) {
@@ -281,54 +324,148 @@
     return `미명시 (${s.id})`;
   }
 
+  function updateSampleSelectionUi() {
+    const toolbar = document.getElementById("samplesBulkActions");
+    const countEl = document.getElementById("samplesSelectedCount");
+    const deleteSelectedBtn = document.getElementById("deleteSelectedSamplesBtn");
+    const selectAll = document.getElementById("samplesSelectAll");
+    const boxes = [...document.querySelectorAll(".sample-select")];
+    const checkedCount = boxes.filter((box) => box.checked).length;
+
+    if (countEl) {
+      countEl.textContent = checkedCount ? `${checkedCount}건 선택` : "";
+    }
+    if (deleteSelectedBtn) {
+      deleteSelectedBtn.disabled = checkedCount === 0;
+    }
+    if (selectAll && boxes.length) {
+      selectAll.checked = checkedCount > 0 && checkedCount === boxes.length;
+      selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+    }
+    if (toolbar) {
+      toolbar.hidden = boxes.length === 0;
+    }
+  }
+
+  function getSelectedSampleIds() {
+    return [...document.querySelectorAll(".sample-select:checked")].map((box) => box.dataset.id);
+  }
+
+  async function deleteSamplesByIds(ids, confirmMessage) {
+    if (!ids.length) {
+      showToast("삭제할 샘플을 선택하세요.");
+      return;
+    }
+    if (!confirm(confirmMessage)) return;
+
+    const stop = startBusy("샘플 삭제 중…", "선택한 항목을 정리하고 있습니다.");
+    try {
+      if (ids.length === 1) {
+        await api(`/api/samples/${ids[0]}`, { method: "DELETE" });
+      } else {
+        await api("/api/samples/bulk-delete", { method: "POST", body: { ids } });
+      }
+      ids.forEach((id) => selectedSampleIds.delete(id));
+      showToast(`${ids.length}건 삭제됨`);
+      await loadSamples();
+    } catch (error) {
+      showToast(error.message || "삭제 실패");
+    } finally {
+      stop();
+    }
+  }
+
   async function loadSamples() {
     const list = document.getElementById("samplesList");
+    const toolbar = document.getElementById("samplesBulkActions");
     if (!list) return;
     list.textContent = "불러오는 중…";
+    if (toolbar) toolbar.hidden = true;
     const data = await api("/api/samples");
     if (!data.samples.length) {
       list.innerHTML = `<p class="admin-muted">아직 올린 샘플이 없습니다.</p>`;
+      selectedSampleIds.clear();
+      updateSampleSelectionUi();
       return;
     }
     list.innerHTML = `
-      <p class="admin-muted">${data.count}건 · 업로드할 때마다 추가됩니다</p>
+      <p class="admin-muted">${data.count}건 · 체크 후 선택 삭제 또는 전체 삭제</p>
       <table class="admin-table admin-sample-table">
-        <thead><tr><th>이름</th><th>ID</th><th></th></tr></thead>
+        <thead><tr>
+          <th class="sample-select-cell"></th>
+          <th>이름</th>
+          <th>ID</th>
+          <th></th>
+        </tr></thead>
         <tbody>${data.samples
-          .map(
-            (s) => `<tr>
-              <td>${sampleDisplayLabel(s)}</td>
+          .map((s) => {
+            const label = sampleDisplayLabel(s);
+            const checked = selectedSampleIds.has(s.id) ? "checked" : "";
+            return `<tr>
+              <td class="sample-select-cell">
+                <input class="sample-select" type="checkbox" data-id="${s.id}" ${checked}>
+              </td>
+              <td>${label}</td>
               <td class="admin-muted">${s.id}</td>
-              <td><button class="admin-btn danger admin-btn-sm" type="button" data-action="delete-sample" data-id="${s.id}" data-label="${sampleDisplayLabel(s).replace(/"/g, "&quot;")}">삭제</button></td>
-            </tr>`
-          )
+              <td><button class="admin-btn danger admin-btn-sm" type="button" data-action="delete-sample" data-id="${s.id}" data-label="${label.replace(/"/g, "&quot;")}">삭제</button></td>
+            </tr>`;
+          })
           .join("")}</tbody>
       </table>`;
+    updateSampleSelectionUi();
   }
+
+  document.getElementById("samplesList")?.addEventListener("change", (event) => {
+    const box = event.target.closest(".sample-select");
+    if (!box) return;
+    if (box.checked) selectedSampleIds.add(box.dataset.id);
+    else selectedSampleIds.delete(box.dataset.id);
+    updateSampleSelectionUi();
+  });
+
+  document.getElementById("samplesSelectAll")?.addEventListener("change", (event) => {
+    const checked = event.target.checked;
+    document.querySelectorAll(".sample-select").forEach((box) => {
+      box.checked = checked;
+      if (checked) selectedSampleIds.add(box.dataset.id);
+      else selectedSampleIds.delete(box.dataset.id);
+    });
+    updateSampleSelectionUi();
+  });
+
+  document.getElementById("deleteSelectedSamplesBtn")?.addEventListener("click", async () => {
+    const ids = getSelectedSampleIds();
+    await deleteSamplesByIds(ids, `선택한 ${ids.length}건의 샘플을 삭제할까요?`);
+  });
+
+  document.getElementById("deleteAllSamplesBtn")?.addEventListener("click", async () => {
+    const data = await api("/api/samples");
+    const count = data.count || 0;
+    if (!count) {
+      showToast("삭제할 샘플이 없습니다.");
+      return;
+    }
+    if (!confirm(`올린 샘플 ${count}건을 전부 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
+
+    const stop = startBusy("샘플 전체 삭제 중…", "목록과 파일을 정리하고 있습니다.");
+    try {
+      const result = await api("/api/samples", { method: "DELETE" });
+      selectedSampleIds.clear();
+      showToast(`${result.count || count}건 전체 삭제됨`);
+      await loadSamples();
+    } catch (error) {
+      showToast(error.message || "전체 삭제 실패");
+    } finally {
+      stop();
+    }
+  });
 
   document.getElementById("adminApp")?.addEventListener("click", async (event) => {
     const btn = event.target.closest("button[data-action='delete-sample']");
     if (!btn) return;
     const id = btn.dataset.id;
     const label = btn.dataset.label || id;
-    if (!confirm(`「${label}」\n이 샘플을 삭제할까요?`)) return;
-    try {
-      await api(`/api/samples/${id}`, { method: "DELETE" });
-      showToast("삭제됨");
-      await loadSamples();
-    } catch (error) {
-      try {
-        const data = await api("/api/samples/reconcile", { method: "POST" });
-        if (data.removed?.length) {
-          showToast(`고스트 샘플 ${data.removed.length}건 정리됨`);
-          await loadSamples();
-          return;
-        }
-      } catch {
-        /* reconcile unavailable on old API */
-      }
-      showToast(error.message || "삭제 실패 · 나스 API 업데이트 후 docker 재시작 필요");
-    }
+    await deleteSamplesByIds([id], `「${label}」\n이 샘플을 삭제할까요?`);
   });
 
   async function loadStyleGuide() {
@@ -466,9 +603,12 @@
       return;
     }
     if (target.dataset.action === "run-one") {
-      showToast("작성 중… 시간이 걸릴 수 있습니다.");
       try {
-        await api("/api/run", { method: "POST", body: { student_id: id } });
+        await withBusy(
+          "AI 생기부 작성 중…",
+          "학생 한 명 분량이라 30초~2분 정도 걸릴 수 있습니다.",
+          () => api("/api/run", { method: "POST", body: { student_id: id } })
+        );
         showToast("작성 완료");
         await Promise.all([loadStudents(), loadReviewList(), loadUsage()]);
       } catch (error) {
@@ -582,9 +722,12 @@
   }
 
   document.getElementById("aiParsePreviewBtn")?.addEventListener("click", async () => {
-    showToast("AI가 정리 중…");
     try {
-      await aiParse(false);
+      await withBusy(
+        "AI가 학생 정보 정리 중…",
+        "메모·파일을 읽고 구조화하는 중입니다.",
+        () => aiParse(false)
+      );
       showToast("미리보기 완료");
     } catch (error) {
       showToast(error.message);
@@ -592,9 +735,12 @@
   });
 
   document.getElementById("aiParseSaveBtn")?.addEventListener("click", async () => {
-    showToast("AI가 학생 등록 중…");
     try {
-      await aiParse(true);
+      await withBusy(
+        "AI가 학생 등록 중…",
+        "학생 정보를 저장할 때까지 잠시만 기다려 주세요.",
+        () => aiParse(true)
+      );
       showToast("학생 등록됨");
       document.getElementById("aiStudentInput").value = "";
       const fileInput = document.getElementById("aiStudentFile");
@@ -697,9 +843,13 @@
 
   document.getElementById("analyzeBtn")?.addEventListener("click", async () => {
     const useGemini = document.getElementById("analyzeGemini").checked;
-    showToast("패턴 분석 중…");
+    const hint = useGemini
+      ? "AI가 스타일 가이드를 정리합니다. 샘플 수에 따라 1~3분 걸릴 수 있습니다."
+      : "샘플 문체·분량을 계산하는 중입니다.";
     try {
-      await api(`/api/analyze?use_gemini=${useGemini}`, { method: "POST" });
+      await withBusy("문체·분량 분석 중…", hint, () =>
+        api(`/api/analyze?use_gemini=${useGemini}`, { method: "POST" })
+      );
       showToast("분석 완료 · ② 스타일 설정에서 확인하세요");
       await loadStyleGuide();
     } catch (error) {
@@ -709,12 +859,17 @@
 
   document.getElementById("runBatchBtn")?.addEventListener("click", async () => {
     const limit = Number(document.getElementById("runLimit").value || 0) || null;
-    showToast("일괄 작성 시작…");
+    const limitText = limit ? `${limit}명` : "전원";
     try {
-      const data = await api("/api/run", {
-        method: "POST",
-        body: { status: "pending", limit },
-      });
+      const data = await withBusy(
+        "일괄 AI 작성 중…",
+        `${limitText} 분량입니다. 학생 수에 따라 수 분 이상 걸릴 수 있습니다.`,
+        () =>
+          api("/api/run", {
+            method: "POST",
+            body: { status: "pending", limit },
+          })
+      );
       const errCount = (data.errors || []).length;
       showToast(`완료 ${data.processed || 0}명${errCount ? `, 오류 ${errCount}건` : ""}`);
       document.getElementById("runLog").textContent = JSON.stringify(data, null, 2);

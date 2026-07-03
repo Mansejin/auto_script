@@ -85,8 +85,19 @@
           </form>
           <div class="admin-card" style="margin-top:16px;padding:16px;background:var(--bg)">
             <h3 style="font-size:1rem;margin-bottom:8px">올린 샘플 목록</h3>
-            <p class="admin-muted" style="margin-bottom:12px">잘못 올린 파일은 아래 <strong>삭제</strong>로 지울 수 있습니다.</p>
+            <p class="admin-muted" style="margin-bottom:12px">체크 후 <strong>선택 삭제</strong> 또는 <strong>전체 삭제</strong>로 정리할 수 있습니다.</p>
             <div id="samplesList"></div>
+            <div id="samplesBulkActions" class="admin-sample-toolbar" hidden>
+              <label class="admin-check-label">
+                <input id="samplesSelectAll" type="checkbox">
+                <span>전체 선택</span>
+              </label>
+              <span id="samplesSelectedCount" class="admin-muted"></span>
+              <div class="admin-sample-toolbar-actions">
+                <button id="deleteSelectedSamplesBtn" class="admin-btn danger admin-btn-sm" type="button" disabled>선택 삭제</button>
+                <button id="deleteAllSamplesBtn" class="admin-btn danger admin-btn-sm" type="button">전체 삭제</button>
+              </div>
+            </div>
           </div>
         </div>
         <div class="admin-card" style="margin-top:16px">
@@ -228,8 +239,16 @@
     </section>
   </div>
 
+  <div id="busyOverlay" class="admin-busy-overlay" hidden aria-live="polite" aria-busy="true">
+    <div class="admin-busy-card">
+      <div class="admin-busy-spinner" aria-hidden="true"></div>
+      <p id="busyMessage" class="admin-busy-message">처리 중…</p>
+      <div class="admin-busy-bar" aria-hidden="true"><span class="admin-busy-bar-fill"></span></div>
+      <p id="busyHint" class="admin-busy-hint">잠시만 기다려 주세요</p>
+    </div>
+  </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260703b"></script>
+  <script src="/admin-static/js/admin.js?v=20260703c"></script>
 </body>
 </html>

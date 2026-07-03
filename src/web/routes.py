@@ -12,7 +12,14 @@ from pydantic import BaseModel, Field
 from src.saenggibu.generator import generate_for_student, run_batch
 from src.saenggibu.models import StudentInput
 from src.saenggibu.pattern_analyzer import analyze_and_save, load_patterns, update_style_guide
-from src.saenggibu.sample_store import delete_sample, import_path, list_samples, reconcile_sample_index
+from src.saenggibu.sample_store import (
+    delete_all_samples,
+    delete_sample,
+    delete_samples,
+    import_path,
+    list_samples,
+    reconcile_sample_index,
+)
 from src.saenggibu.student_parser import parse_and_save, parse_file_to_student, parse_text_to_student
 from src.saenggibu.upload_formats import SAMPLE_EXTENSIONS, STUDENT_EXTENSIONS, check_upload_extension
 from src.saenggibu.usage import usage_summary
@@ -58,6 +65,10 @@ class ParseStudentRequest(BaseModel):
 
 class StyleGuideUpdate(BaseModel):
     style_guide: str
+
+
+class BulkDeleteSamplesRequest(BaseModel):
+    ids: list[str] = Field(default_factory=list)
 
 
 class StudentUpdateRequest(BaseModel):
@@ -146,6 +157,22 @@ def api_samples_delete(sample_id: str, _: AdminSession = Depends(require_admin))
     if not delete_sample(sample_id):
         raise HTTPException(status_code=404, detail="샘플을 찾을 수 없습니다.")
     return {"deleted": True, "id": sample_id}
+
+
+@router.delete("/samples")
+def api_samples_delete_all(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    count = delete_all_samples()
+    return {"deleted": True, "count": count}
+
+
+@router.post("/samples/bulk-delete")
+def api_samples_bulk_delete(
+    payload: BulkDeleteSamplesRequest,
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    if not payload.ids:
+        raise HTTPException(status_code=400, detail="삭제할 샘플을 선택하세요.")
+    return delete_samples(payload.ids)
 
 
 @router.post("/analyze")

@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260703g">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -143,33 +143,30 @@
           </div>
         </div>
         <div class="admin-card" style="margin-top:16px">
-          <h2>AI로 학생 등록</h2>
-          <p class="admin-muted">활동지·메모를 붙여넣거나 파일을 올리면 AI가 정리합니다.</p>
-          <div class="admin-field">
-            <label for="aiStudentInput">학생 활동 메모 (자연어)</label>
-            <textarea id="aiStudentInput" class="admin-textarea" rows="8" placeholder="예) 2학년 3반 12번 김민수. 현대사회와윤리 수업에서 AI 윤리 토론에 적극 참여. 행발: 리더십 있고 배려심 깊음..."></textarea>
-          </div>
-          <div class="admin-file-picker">
-            <div class="admin-file-picker-row">
-              <input id="aiStudentFile" class="admin-file-input" type="file" accept="*/*">
-              <button class="admin-btn secondary" type="button" data-file-trigger="aiStudentFile">활동지 파일</button>
-              <span class="admin-file-name" id="aiStudentFileName">선택된 파일 없음</span>
-            </div>
-          </div>
-          <div class="admin-actions">
-            <button id="aiParsePreviewBtn" class="admin-btn secondary" type="button">미리보기</button>
-            <button id="aiParseSaveBtn" class="admin-btn" type="button">학생 등록</button>
-          </div>
-          <pre id="aiParsePreview" class="admin-output" hidden></pre>
-        </div>
-        <div class="admin-card" style="margin-top:16px">
-          <h2>간단 양식</h2>
+          <h2>학생 등록</h2>
           <form id="simpleStudentForm">
-            <div class="admin-field-row">
-              <div class="admin-field"><label for="simpleName">이름</label><input id="simpleName" required></div>
-              <div class="admin-field"><label for="simpleGrade">학년</label><input id="simpleGrade" type="number" min="1" max="3" value="2" required></div>
-              <div class="admin-field"><label for="simpleClass">반</label><input id="simpleClass" type="number" min="1" value="1" required></div>
-              <div class="admin-field"><label for="simpleNumber">번호</label><input id="simpleNumber" type="number" min="1" value="1" required></div>
+            <div class="admin-field">
+              <label for="simpleName">이름</label>
+              <input id="simpleName" required>
+            </div>
+            <div class="admin-student-meta">
+              <div class="admin-field">
+                <span class="admin-field-label" id="simpleGradeLabel">학년</span>
+                <div class="admin-grade-pick" role="group" aria-labelledby="simpleGradeLabel">
+                  <button type="button" class="admin-grade-btn" data-grade="1">1</button>
+                  <button type="button" class="admin-grade-btn active" data-grade="2">2</button>
+                  <button type="button" class="admin-grade-btn" data-grade="3">3</button>
+                </div>
+                <input type="hidden" id="simpleGrade" value="2" required>
+              </div>
+              <div class="admin-field">
+                <label for="simpleClass">반</label>
+                <select id="simpleClass" required></select>
+              </div>
+              <div class="admin-field">
+                <label for="simpleNumber">번호</label>
+                <select id="simpleNumber" required></select>
+              </div>
             </div>
             <div class="admin-memo-panels" id="studentMemoPanels">
               <details class="admin-memo-panel" data-target="행발" open>
@@ -211,6 +208,26 @@
             <button class="admin-btn" type="submit">학생 추가</button>
           </form>
         </div>
+        <details class="admin-card admin-advanced" style="margin-top:16px">
+          <summary>고급: AI로 학생 등록</summary>
+          <p class="admin-muted" style="margin-top:12px">활동지·메모를 붙여넣거나 파일을 올리면 AI가 정리합니다.</p>
+          <div class="admin-field">
+            <label for="aiStudentInput">학생 활동 메모 (자연어)</label>
+            <textarea id="aiStudentInput" class="admin-textarea" rows="8" placeholder="예) 2학년 3반 12번 김민수. 현대사회와윤리 수업에서 AI 윤리 토론에 적극 참여. 행발: 리더십 있고 배려심 깊음..."></textarea>
+          </div>
+          <div class="admin-file-picker">
+            <div class="admin-file-picker-row">
+              <input id="aiStudentFile" class="admin-file-input" type="file" accept="*/*">
+              <button class="admin-btn secondary" type="button" data-file-trigger="aiStudentFile">활동지 파일</button>
+              <span class="admin-file-name" id="aiStudentFileName">선택된 파일 없음</span>
+            </div>
+          </div>
+          <div class="admin-actions">
+            <button id="aiParsePreviewBtn" class="admin-btn secondary" type="button">미리보기</button>
+            <button id="aiParseSaveBtn" class="admin-btn" type="button">학생 추가</button>
+          </div>
+          <pre id="aiParsePreview" class="admin-output" hidden></pre>
+        </details>
         <details class="admin-card admin-advanced" style="margin-top:16px">
           <summary>고급: TSV 파일 업로드</summary>
           <form id="importStudentsForm" style="margin-top:12px">
@@ -311,12 +328,14 @@
       <ol class="admin-guide-steps">
         <li><strong>① 스타일 학습</strong> — 예전 생기부 파일을 올리고 <em>분석 시작</em></li>
         <li><strong>② 스타일 설정</strong> — 분석된 문체를 확인·수정</li>
-        <li><strong>③ 학생 등록</strong> — 작성할 항목(행발·세특 등)을 고르고 메모 입력</li>
+        <li><strong>③ 학생 등록</strong> — 작성 항목 선택 → 이름·학년·반·번호 → 선택한 메모 입력 → <em>학생 추가</em></li>
         <li><strong>④ 작성·검토</strong> — 영역 하나씩 선택해 일괄 작성 → 검토·복사</li>
       </ol>
       <ul class="admin-guide-tips">
+        <li>학년은 <strong>1·2·3 버튼</strong>, 반·번호는 <strong>드롭다운</strong>에서 고릅니다.</li>
+        <li>행발·세특·창체 등 항목을 고르면, <strong>선택한 메모만</strong> 입력란이 열립니다.</li>
         <li>행발과 세특은 <strong>각각 따로</strong> ④에서 실행하세요.</li>
-        <li>학생 등록 시 항목을 고르면, 선택한 메모만 AI가 참고합니다.</li>
+        <li>AI 메모 정리·TSV 일괄 업로드는 ③ 하단 <strong>고급</strong> 메뉴에 있습니다.</li>
         <li>작성 중에는 팝업이 뜨며, 완료될 때까지 기다려 주세요.</li>
       </ul>
     </div>
@@ -337,6 +356,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260703f"></script>
+  <script src="/admin-static/js/admin.js?v=20260703g"></script>
 </body>
 </html>

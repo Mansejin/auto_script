@@ -15,6 +15,7 @@ globs:
 - URL: `https://mansejin.com/admin/saenggibu/` (공개 메뉴 없음)
 - API: `python server.py` 로 띄운 백엔드 (`ADMIN_PASSWORD` 로그인)
 - UI에서 샘플 업로드 → 분석 → 학생 등록 → 작성 실행
+- **UI·기능 변경 시** `web/admin/index.html` 의 `#guideModal` 사용법도 함께 갱신
 
 ## CLI (서버/로컬)
 1. `python sgb.py samples list` / `python sgb.py students list`로 현재 상태 확인

@@ -295,6 +295,42 @@
     }
   }
 
+  function initStudentFormControls() {
+    const classEl = document.getElementById("simpleClass");
+    const numberEl = document.getElementById("simpleNumber");
+    if (classEl && !classEl.options.length) {
+      for (let i = 1; i <= 20; i += 1) {
+        classEl.add(new Option(`${i}반`, String(i), false, i === 1));
+      }
+    }
+    if (numberEl && !numberEl.options.length) {
+      for (let i = 1; i <= 50; i += 1) {
+        numberEl.add(new Option(`${i}번`, String(i), false, i === 1));
+      }
+    }
+  }
+
+  function setStudentGrade(grade) {
+    const value = String(grade);
+    const hidden = document.getElementById("simpleGrade");
+    if (hidden) hidden.value = value;
+    document.querySelectorAll(".admin-grade-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.grade === value);
+    });
+  }
+
+  function resetStudentFormDefaults() {
+    setStudentGrade(2);
+    const classEl = document.getElementById("simpleClass");
+    const numberEl = document.getElementById("simpleNumber");
+    if (classEl) classEl.value = "1";
+    if (numberEl) numberEl.value = "1";
+    document.querySelectorAll(".write-target").forEach((box) => {
+      box.checked = box.value === "행발";
+    });
+    updateStudentMemoPanels();
+  }
+
   function formatWriteTargets(student) {
     const raw = student.notes?.write_targets;
     if (Array.isArray(raw) && raw.length) {
@@ -845,13 +881,7 @@
       });
       showToast("학생 추가됨");
       event.target.reset();
-      document.getElementById("simpleGrade").value = "2";
-      document.getElementById("simpleClass").value = "1";
-      document.getElementById("simpleNumber").value = "1";
-      document.querySelectorAll(".write-target").forEach((box) => {
-        box.checked = box.value === "행발";
-      });
-      updateStudentMemoPanels();
+      resetStudentFormDefaults();
       await loadStudents();
     } catch (error) {
       showToast(error.message);
@@ -906,7 +936,7 @@
         "완료될 때까지 창을 닫지 마세요.",
         () => aiParse(true)
       );
-      showToast("학생 등록됨");
+      showToast("학생 추가됨");
       document.getElementById("aiStudentInput").value = "";
       const fileInput = document.getElementById("aiStudentFile");
       if (fileInput) fileInput.value = "";
@@ -1060,6 +1090,12 @@
     switchTab("learn");
   }
 
+  document.querySelector(".admin-grade-pick")?.addEventListener("click", (event) => {
+    const btn = event.target.closest(".admin-grade-btn");
+    if (!btn) return;
+    setStudentGrade(btn.dataset.grade);
+  });
+
   document.getElementById("guideBtn")?.addEventListener("click", openGuideModal);
   document.getElementById("guideCloseBtn")?.addEventListener("click", closeGuideModal);
   document.getElementById("guideModal")?.addEventListener("click", (event) => {
@@ -1085,6 +1121,7 @@
 
   async function bootstrap() {
     setupFilePickers();
+    initStudentFormControls();
     restoreWriteSectionChoice();
     document.getElementById("writeSectionChoices")?.addEventListener("change", updateWriteSectionUi);
     updateWriteSectionUi();

@@ -397,6 +397,49 @@
   margin-bottom: 0;
 }
 
+.admin-field-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.admin-student-meta {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(100px, 1fr) minmax(100px, 1fr);
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.admin-grade-pick {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.admin-grade-btn {
+  padding: 12px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text-secondary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.admin-grade-btn:hover {
+  border-color: var(--blue);
+  color: var(--text);
+}
+
+.admin-grade-btn.active {
+  border-color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, var(--card));
+  color: var(--blue);
+}
+
 .admin-samples-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -829,5 +872,9 @@ body.admin-guide-open {
 
   .admin-field-row {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-student-meta {
+    grid-template-columns: 1fr;
   }
 }

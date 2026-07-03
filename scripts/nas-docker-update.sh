@@ -255,7 +255,8 @@ if command -v curl >/dev/null 2>&1; then
   if curl -sf "http://127.0.0.1:${SGB_PORT:-8787}/health" >/dev/null 2>&1; then
     log "==> health OK"
   else
-    log "WARN: health check failed (container may still be starting)"
+    log "WARN: health check failed — try: docker logs saenggibu-api --tail 50"
+    log "WARN: ensure .env has SGB_HOST=0.0.0.0 (or redeploy with latest docker-compose.yml)"
   fi
 fi
 

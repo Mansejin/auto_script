@@ -10,7 +10,7 @@
 #>
 param(
   [Parameter(Position = 0)]
-  [ValidateSet("setup", "connect", "update", "logs", "map", "unmap", "status")]
+  [ValidateSet("setup", "connect", "update", "logs", "map", "unmap", "status", "fix-ssh")]
   [string]$Command = "connect",
 
   [ValidateSet("remote", "local")]

@@ -667,6 +667,17 @@ body.admin-is-busy .admin-tab {
   white-space: nowrap;
 }
 
+.admin-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.admin-student-table .sample-select-cell {
+  width: 42px;
+}
+
 .admin-sample-list li {
   display: flex;
   flex-wrap: wrap;

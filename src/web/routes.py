@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from src.saenggibu.config import get_gemini_model
@@ -27,9 +28,16 @@ from src.saenggibu.usage import usage_summary
 from src.saenggibu.write_sections import normalize_write_sections, students_needing_section
 from src.saenggibu.student_store import (
     add_student,
+    delete_all_students,
+    delete_student,
+    delete_students,
+    export_students_xlsx,
     get_student,
     import_students_file,
     list_students,
+    reset_all_generated,
+    reset_generated_for_students,
+    reset_student_generated,
     save_student,
 )
 from src.web.auth import AdminSession, SESSION_COOKIE, admin_auth_configured, create_session_token, verify_password, verify_session_token
@@ -71,6 +79,10 @@ class StyleGuideUpdate(BaseModel):
 
 
 class BulkDeleteSamplesRequest(BaseModel):
+    ids: list[str] = Field(default_factory=list)
+
+
+class BulkStudentIdsRequest(BaseModel):
     ids: list[str] = Field(default_factory=list)
 
 
@@ -221,6 +233,25 @@ def api_students_list(status: str | None = None, _: AdminSession = Depends(requi
     return {"students": [s.to_dict() for s in students], "count": len(students)}
 
 
+@router.get("/students/export/xlsx")
+def api_students_export_xlsx(_: AdminSession = Depends(require_admin)) -> Response:
+    students = list_students()
+    if not students:
+        raise HTTPException(status_code=404, detail="보낼 학생이 없습니다.")
+    if not any(s.generated for s in students):
+        raise HTTPException(status_code=404, detail="작성된 생기부가 없습니다.")
+    from datetime import datetime, timezone
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    content = export_students_xlsx(students)
+    filename = f"saenggibu_{stamp}.xlsx"
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/students/{student_id}")
 def api_student_show(student_id: str, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
     student = get_student(student_id)
@@ -344,11 +375,47 @@ def api_student_reset(student_id: str, _: AdminSession = Depends(require_admin))
     student = get_student(student_id)
     if not student:
         raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
-    student.status = "pending"
-    student.generated = {}
-    student.error_message = ""
-    save_student(student)
+    reset_student_generated(student)
     return {"id": student.id, "status": student.status}
+
+
+@router.delete("/students/{student_id}")
+def api_student_delete(student_id: str, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    if not delete_student(student_id):
+        raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
+    return {"deleted": True, "id": student_id}
+
+
+@router.delete("/students")
+def api_students_delete_all(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    count = delete_all_students()
+    return {"deleted": True, "count": count}
+
+
+@router.post("/students/bulk-delete")
+def api_students_bulk_delete(
+    payload: BulkStudentIdsRequest,
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    if not payload.ids:
+        raise HTTPException(status_code=400, detail="삭제할 학생을 선택하세요.")
+    return delete_students(payload.ids)
+
+
+@router.post("/students/bulk-reset-generated")
+def api_students_bulk_reset_generated(
+    payload: BulkStudentIdsRequest,
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    if not payload.ids:
+        raise HTTPException(status_code=400, detail="초기화할 학생을 선택하세요.")
+    return reset_generated_for_students(payload.ids)
+
+
+@router.delete("/students/generated/all")
+def api_students_reset_all_generated(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    count = reset_all_generated()
+    return {"reset": True, "count": count}
 
 
 @router.post("/run")

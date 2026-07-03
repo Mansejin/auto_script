@@ -105,6 +105,8 @@
   let currentStudentData = null;
   let lastTabBeforeDetail = "review";
   let selectedSampleIds = new Set();
+  let selectedStudentIds = new Set();
+  let selectedReviewIds = new Set();
   let busyTimer = null;
   let busyStartedAt = 0;
   let systemInfo = { gemini_model: "—" };
@@ -417,51 +419,212 @@
 
   async function loadStudents() {
     const tbody = document.getElementById("studentsTableBody");
+    const toolbar = document.getElementById("studentsBulkActions");
     if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="4">불러오는 중…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5">불러오는 중…</td></tr>`;
+    if (toolbar) toolbar.hidden = true;
     const data = await api("/api/students");
     if (!data.students.length) {
-      tbody.innerHTML = `<tr><td colspan="4" class="admin-muted">등록된 학생이 없습니다.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="admin-muted">등록된 학생이 없습니다.</td></tr>`;
+      selectedStudentIds.clear();
+      updateStudentSelectionUi(0);
       return;
     }
     tbody.innerHTML = data.students
       .map((s) => {
         const targets = formatWriteTargets(s);
+        const checked = selectedStudentIds.has(s.id) ? "checked" : "";
         const actions =
           s.status === "done"
-            ? `<button class="admin-btn secondary" data-action="review" data-id="${s.id}">검토</button>`
-            : `<button class="admin-btn secondary" data-action="run-one" data-id="${s.id}">${
+            ? `<button class="admin-btn secondary admin-btn-sm" data-action="review" data-id="${s.id}">검토</button>`
+            : `<button class="admin-btn secondary admin-btn-sm" data-action="run-one" data-id="${s.id}">${
                 s.status === "partial" ? "추가 작성" : "작성"
               }</button>`;
         return `<tr>
+          <td class="sample-select-cell">
+            <label class="admin-check admin-check-row" title="선택">
+              <input class="student-select admin-check-input" type="checkbox" data-id="${s.id}" ${checked}>
+              <span class="admin-check-box" aria-hidden="true"></span>
+            </label>
+          </td>
           <td>${studentLabel(s)}</td>
           <td>${statusPill(s.status)}</td>
           <td>${targets}</td>
-          <td>${actions}</td>
+          <td class="admin-row-actions">
+            ${actions}
+            <button class="admin-btn danger admin-btn-sm" type="button" data-action="delete-student" data-id="${s.id}" data-label="${escapeAttr(studentLabel(s))}">삭제</button>
+          </td>
         </tr>`;
       })
       .join("");
+    updateStudentSelectionUi(data.count);
+  }
+
+  function updateStudentSelectionUi(totalCount = null) {
+    const toolbar = document.getElementById("studentsBulkActions");
+    const countBadge = document.getElementById("studentsCountBadge");
+    const countEl = document.getElementById("studentsSelectedCount");
+    const deleteSelectedBtn = document.getElementById("deleteSelectedStudentsBtn");
+    const selectAll = document.getElementById("studentsSelectAll");
+    const boxes = [...document.querySelectorAll(".student-select")];
+    const checkedCount = boxes.filter((box) => box.checked).length;
+    const total = totalCount ?? boxes.length;
+
+    if (countBadge) countBadge.textContent = `${total}명`;
+    if (countEl) countEl.textContent = checkedCount ? `${checkedCount}명 선택됨` : "";
+    if (deleteSelectedBtn) deleteSelectedBtn.disabled = checkedCount === 0;
+    if (selectAll && boxes.length) {
+      selectAll.checked = checkedCount > 0 && checkedCount === boxes.length;
+      selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+    }
+    if (toolbar) toolbar.hidden = total === 0;
+  }
+
+  function getSelectedStudentIds() {
+    return [...document.querySelectorAll(".student-select:checked")].map((box) => box.dataset.id);
+  }
+
+  async function deleteStudentsByIds(ids, confirmMessage) {
+    if (!ids.length) {
+      showToast("삭제할 학생을 선택하세요.");
+      return;
+    }
+    if (!confirm(confirmMessage)) return;
+
+    const stop = startBusy("학생 삭제", "선택한 학생을 정리하고 있습니다.", "잠시만 기다려 주세요.", { showModel: false });
+    try {
+      if (ids.length === 1) {
+        await api(`/api/students/${ids[0]}`, { method: "DELETE" });
+      } else {
+        await api("/api/students/bulk-delete", { method: "POST", body: { ids } });
+      }
+      ids.forEach((id) => {
+        selectedStudentIds.delete(id);
+        selectedReviewIds.delete(id);
+      });
+      showToast(`${ids.length}명 삭제됨`);
+      await Promise.all([loadStudents(), loadReviewList()]);
+    } catch (error) {
+      showToast(error.message || "삭제 실패");
+    } finally {
+      stop();
+    }
   }
 
   async function loadReviewList() {
     const tbody = document.getElementById("reviewTableBody");
+    const toolbar = document.getElementById("reviewBulkActions");
     if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="3">불러오는 중…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4">불러오는 중…</td></tr>`;
+    if (toolbar) toolbar.hidden = true;
     const data = await api("/api/students");
     const reviewable = data.students.filter((s) => s.status === "done" || Object.keys(s.generated || {}).length);
     if (!reviewable.length) {
-      tbody.innerHTML = `<tr><td colspan="3" class="admin-muted">아직 작성된 생기부가 없습니다. ④에서 일괄 작성을 실행하세요.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="admin-muted">아직 작성된 생기부가 없습니다. ④에서 일괄 작성을 실행하세요.</td></tr>`;
+      selectedReviewIds.clear();
+      updateReviewSelectionUi(0);
       return;
     }
     tbody.innerHTML = reviewable
-      .map(
-        (s) => `<tr>
+      .map((s) => {
+        const checked = selectedReviewIds.has(s.id) ? "checked" : "";
+        return `<tr>
+          <td class="sample-select-cell">
+            <label class="admin-check admin-check-row" title="선택">
+              <input class="review-select admin-check-input" type="checkbox" data-id="${s.id}" ${checked}>
+              <span class="admin-check-box" aria-hidden="true"></span>
+            </label>
+          </td>
           <td>${studentLabel(s)}</td>
           <td>${statusPill(s.status)}</td>
-          <td><button class="admin-btn secondary" data-action="review" data-id="${s.id}">열기</button></td>
-        </tr>`
-      )
+          <td class="admin-row-actions">
+            <button class="admin-btn secondary admin-btn-sm" data-action="review" data-id="${s.id}">열기</button>
+            <button class="admin-btn danger admin-btn-sm" type="button" data-action="reset-generated" data-id="${s.id}" data-label="${escapeAttr(studentLabel(s))}">작성 삭제</button>
+          </td>
+        </tr>`;
+      })
       .join("");
+    updateReviewSelectionUi(reviewable.length);
+  }
+
+  function updateReviewSelectionUi(totalCount = null) {
+    const toolbar = document.getElementById("reviewBulkActions");
+    const countBadge = document.getElementById("reviewCountBadge");
+    const countEl = document.getElementById("reviewSelectedCount");
+    const resetSelectedBtn = document.getElementById("resetSelectedReviewBtn");
+    const selectAll = document.getElementById("reviewSelectAll");
+    const boxes = [...document.querySelectorAll(".review-select")];
+    const checkedCount = boxes.filter((box) => box.checked).length;
+    const total = totalCount ?? boxes.length;
+
+    if (countBadge) countBadge.textContent = `${total}명`;
+    if (countEl) countEl.textContent = checkedCount ? `${checkedCount}명 선택됨` : "";
+    if (resetSelectedBtn) resetSelectedBtn.disabled = checkedCount === 0;
+    if (selectAll && boxes.length) {
+      selectAll.checked = checkedCount > 0 && checkedCount === boxes.length;
+      selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+    }
+    if (toolbar) toolbar.hidden = total === 0;
+  }
+
+  function getSelectedReviewIds() {
+    return [...document.querySelectorAll(".review-select:checked")].map((box) => box.dataset.id);
+  }
+
+  async function resetGeneratedByIds(ids, confirmMessage) {
+    if (!ids.length) {
+      showToast("초기화할 학생을 선택하세요.");
+      return;
+    }
+    if (!confirm(confirmMessage)) return;
+
+    const stop = startBusy("작성본 삭제", "선택한 작성 결과를 지우고 있습니다.", "잠시만 기다려 주세요.", { showModel: false });
+    try {
+      if (ids.length === 1) {
+        await api(`/api/students/${ids[0]}/reset`, { method: "POST" });
+      } else {
+        await api("/api/students/bulk-reset-generated", { method: "POST", body: { ids } });
+      }
+      ids.forEach((id) => selectedReviewIds.delete(id));
+      showToast(`${ids.length}명 작성본 삭제됨`);
+      await Promise.all([loadStudents(), loadReviewList()]);
+    } catch (error) {
+      showToast(error.message || "삭제 실패");
+    } finally {
+      stop();
+    }
+  }
+
+  async function downloadStudentsExcel() {
+    const token = getToken();
+    let response;
+    try {
+      response = await fetch(`${API_BASE}/api/students/export/xlsx`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch {
+      throw new Error("API 서버에 연결할 수 없습니다.");
+    }
+    if (!response.ok) {
+      const text = await response.text();
+      let detail = "다운로드 실패";
+      try {
+        detail = JSON.parse(text).detail || detail;
+      } catch {
+        detail = text || detail;
+      }
+      throw new Error(detail);
+    }
+    const blob = await response.blob();
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `saenggibu_${stamp}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   }
 
   function sampleDisplayLabel(s) {
@@ -759,7 +922,7 @@
       return;
     }
     if (target.dataset.action === "run-one") {
-      const studentName = target.closest("tr")?.querySelector("td")?.textContent?.trim() || "학생";
+      const studentName = target.closest("tr")?.children[1]?.textContent?.trim() || "학생";
       let section;
       try {
         section = getSelectedWriteSection();
@@ -785,13 +948,130 @@
       } catch (error) {
         showToast(error.message);
       }
+      return;
+    }
+    if (target.dataset.action === "delete-student") {
+      const label = target.dataset.label || id;
+      await deleteStudentsByIds([id], `「${label}」\n이 학생을 삭제할까요?\n메모·작성 결과가 모두 지워집니다.`);
+    }
+  });
+
+  document.getElementById("studentsTableBody")?.addEventListener("change", (event) => {
+    const box = event.target.closest(".student-select");
+    if (!box) return;
+    if (box.checked) selectedStudentIds.add(box.dataset.id);
+    else selectedStudentIds.delete(box.dataset.id);
+    updateStudentSelectionUi();
+  });
+
+  document.getElementById("studentsSelectAll")?.addEventListener("change", (event) => {
+    const checked = event.target.checked;
+    document.querySelectorAll(".student-select").forEach((box) => {
+      box.checked = checked;
+      if (checked) selectedStudentIds.add(box.dataset.id);
+      else selectedStudentIds.delete(box.dataset.id);
+    });
+    updateStudentSelectionUi();
+  });
+
+  document.getElementById("deleteSelectedStudentsBtn")?.addEventListener("click", async () => {
+    const ids = getSelectedStudentIds();
+    await deleteStudentsByIds(ids, `선택한 ${ids.length}명의 학생을 삭제할까요?\n메모·작성 결과가 모두 지워집니다.`);
+  });
+
+  document.getElementById("deleteAllStudentsBtn")?.addEventListener("click", async () => {
+    const data = await api("/api/students");
+    const count = data.count || 0;
+    if (!count) {
+      showToast("삭제할 학생이 없습니다.");
+      return;
+    }
+    if (!confirm(`등록된 학생 ${count}명을 전부 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
+
+    const stop = startBusy("학생 전체 초기화", "모든 학생 데이터를 지우고 있습니다.", "되돌릴 수 없습니다. 잠시만 기다려 주세요.", {
+      showModel: false,
+    });
+    try {
+      const result = await api("/api/students", { method: "DELETE" });
+      selectedStudentIds.clear();
+      selectedReviewIds.clear();
+      showToast(`${result.count || count}명 전체 삭제됨`);
+      await Promise.all([loadStudents(), loadReviewList()]);
+    } catch (error) {
+      showToast(error.message || "전체 삭제 실패");
+    } finally {
+      stop();
     }
   });
 
   document.getElementById("reviewTableBody")?.addEventListener("click", async (event) => {
-    const target = event.target.closest("button[data-action='review']");
+    const target = event.target.closest("button[data-action]");
     if (!target) return;
-    await showStudent(target.dataset.id, "review");
+    const id = target.dataset.id;
+    if (target.dataset.action === "review") {
+      await showStudent(id, "review");
+      return;
+    }
+    if (target.dataset.action === "reset-generated") {
+      const label = target.dataset.label || id;
+      await resetGeneratedByIds([id], `「${label}」\n작성된 생기부만 삭제할까요?\n학생 메모는 유지됩니다.`);
+    }
+  });
+
+  document.getElementById("reviewTableBody")?.addEventListener("change", (event) => {
+    const box = event.target.closest(".review-select");
+    if (!box) return;
+    if (box.checked) selectedReviewIds.add(box.dataset.id);
+    else selectedReviewIds.delete(box.dataset.id);
+    updateReviewSelectionUi();
+  });
+
+  document.getElementById("reviewSelectAll")?.addEventListener("change", (event) => {
+    const checked = event.target.checked;
+    document.querySelectorAll(".review-select").forEach((box) => {
+      box.checked = checked;
+      if (checked) selectedReviewIds.add(box.dataset.id);
+      else selectedReviewIds.delete(box.dataset.id);
+    });
+    updateReviewSelectionUi();
+  });
+
+  document.getElementById("resetSelectedReviewBtn")?.addEventListener("click", async () => {
+    const ids = getSelectedReviewIds();
+    await resetGeneratedByIds(ids, `선택한 ${ids.length}명의 작성본을 삭제할까요?\n학생 메모는 유지됩니다.`);
+  });
+
+  document.getElementById("resetAllReviewBtn")?.addEventListener("click", async () => {
+    const data = await api("/api/students");
+    const count = data.students.filter((s) => Object.keys(s.generated || {}).length).length;
+    if (!count) {
+      showToast("삭제할 작성본이 없습니다.");
+      return;
+    }
+    if (!confirm(`작성된 생기부 ${count}건을 전부 삭제할까요?\n학생 메모는 유지됩니다.`)) return;
+
+    const stop = startBusy("작성본 전체 초기화", "모든 작성 결과를 지우고 있습니다.", "잠시만 기다려 주세요.", {
+      showModel: false,
+    });
+    try {
+      const result = await api("/api/students/generated/all", { method: "DELETE" });
+      selectedReviewIds.clear();
+      showToast(`${result.count || count}건 작성본 삭제됨`);
+      await Promise.all([loadStudents(), loadReviewList()]);
+    } catch (error) {
+      showToast(error.message || "전체 초기화 실패");
+    } finally {
+      stop();
+    }
+  });
+
+  document.getElementById("exportReviewExcelBtn")?.addEventListener("click", async () => {
+    try {
+      await downloadStudentsExcel();
+      showToast("엑셀 파일을 저장했습니다.");
+    } catch (error) {
+      showToast(error.message);
+    }
   });
 
   document.getElementById("backToReview")?.addEventListener("click", () => switchTab(lastTabBeforeDetail));

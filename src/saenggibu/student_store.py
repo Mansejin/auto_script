@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import re
+import shutil
+from io import BytesIO
 from pathlib import Path
 
-from .config import STUDENTS_DIR, ensure_data_dirs
+from .config import OUTPUTS_DIR, STUDENTS_DIR, ensure_data_dirs
 from .io_utils import load_json, read_table_file, save_json
 from .models import StudentInput, new_id
 
@@ -40,6 +42,128 @@ def add_student(student: StudentInput) -> StudentInput:
     if not student.id:
         student.id = new_id()
     return save_student(student)
+
+
+def _student_output_dir(student_id: str) -> Path:
+    return OUTPUTS_DIR / student_id
+
+
+def delete_student(student_id: str) -> bool:
+    path = _student_path(student_id)
+    if not path.exists():
+        return False
+    path.unlink()
+    output_dir = _student_output_dir(student_id)
+    if output_dir.exists():
+        shutil.rmtree(output_dir, ignore_errors=True)
+    return True
+
+
+def delete_students(student_ids: list[str]) -> dict[str, list[str] | int]:
+    deleted: list[str] = []
+    not_found: list[str] = []
+    for student_id in student_ids:
+        if delete_student(student_id):
+            deleted.append(student_id)
+        else:
+            not_found.append(student_id)
+    return {"deleted": deleted, "not_found": not_found, "count": len(deleted)}
+
+
+def delete_all_students() -> int:
+    ensure_data_dirs()
+    students = list_students()
+    count = len(students)
+    for student in students:
+        delete_student(student.id)
+    return count
+
+
+def reset_student_generated(student: StudentInput) -> StudentInput:
+    student.status = "pending"
+    student.generated = {}
+    student.error_message = ""
+    return save_student(student)
+
+
+def reset_generated_for_student(student_id: str) -> bool:
+    student = get_student(student_id)
+    if not student:
+        return False
+    if not student.generated:
+        return False
+    reset_student_generated(student)
+    return True
+
+
+def reset_generated_for_students(student_ids: list[str]) -> dict[str, list[str] | int]:
+    reset: list[str] = []
+    not_found: list[str] = []
+    for student_id in student_ids:
+        student = get_student(student_id)
+        if not student:
+            not_found.append(student_id)
+            continue
+        if student.generated:
+            reset_student_generated(student)
+            reset.append(student_id)
+    return {"reset": reset, "not_found": not_found, "count": len(reset)}
+
+
+def reset_all_generated() -> int:
+    count = 0
+    for student in list_students():
+        if student.generated:
+            reset_student_generated(student)
+            count += 1
+    return count
+
+
+def export_students_xlsx(students: list[StudentInput] | None = None) -> bytes:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    rows = students if students is not None else list_students()
+    subjects: list[str] = []
+    seen_subjects: set[str] = set()
+    for student in rows:
+        for subject in (student.generated.get("세특") or {}).keys():
+            if subject not in seen_subjects:
+                seen_subjects.add(subject)
+                subjects.append(subject)
+
+    headers = ["학년", "반", "번호", "이름", "상태", "행발", *[
+        f"세특_{subject}" for subject in subjects
+    ], "자율", "동아리", "봉사", "진로"]
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "생기부"
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    for student in rows:
+        generated = student.generated or {}
+        setuk = generated.get("세특") or {}
+        changche = generated.get("창체") or {}
+        ws.append([
+            student.grade,
+            student.class_num,
+            student.number,
+            student.name,
+            student.status,
+            str(generated.get("행발") or ""),
+            *[str(setuk.get(subject) or "") for subject in subjects],
+            str(changche.get("자율") or ""),
+            str(changche.get("동아리") or ""),
+            str(changche.get("봉사") or ""),
+            str(changche.get("진로") or ""),
+        ])
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
 
 
 def _split_multi(value: str) -> list[str]:

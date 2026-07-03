@@ -91,15 +91,10 @@ jobs:
             export PATH="/usr/local/bin:/var/packages/ContainerManager/target/usr/bin:/var/packages/Docker/target/usr/bin:/var/packages/Git/target/usr/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
             export SGB_BRANCH
             export SGB_DOCKER_SUDO="${SGB_DOCKER_SUDO:-1}"
+            curl -fsSL "https://raw.githubusercontent.com/Mansejin/auto_script/${SGB_BRANCH}/scripts/nas-docker-update.sh" -o /tmp/sgb-deploy.sh
+            sed -i 's/\r$//' /tmp/sgb-deploy.sh 2>/dev/null || true
             cd "$REPO"
-            mkdir -p scripts logs
-            if command -v curl >/dev/null 2>&1; then
-              curl -fsSL "https://raw.githubusercontent.com/Mansejin/auto_script/${SGB_BRANCH}/scripts/nas-docker-update.sh" \
-                -o scripts/nas-docker-update.sh || true
-            fi
-            sed -i 's/\r$//' scripts/nas-docker-update.sh 2>/dev/null || true
-            chmod +x scripts/nas-docker-update.sh 2>/dev/null || true
-            sh scripts/nas-docker-update.sh
+            sh /tmp/sgb-deploy.sh
         env:
           SGB_BRANCH: ${{ github.event.inputs.branch || github.ref_name }}
           NAS_REPO_PATH: ${{ secrets.NAS_REPO_PATH }}

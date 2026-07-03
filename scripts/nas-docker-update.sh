@@ -115,15 +115,29 @@ resolve_git() {
 
 git_sync_deploy() {
   GIT=$(resolve_git)
-  if [ -z "$GIT" ]; then
-    log "ERROR: git not found. DSM Package Center -> install Git."
-    exit 1
+  if [ -n "$GIT" ]; then
+    log "==> git sync ($BRANCH) via $GIT"
+    "$GIT" fetch origin "$BRANCH" || "$GIT" fetch origin
+    "$GIT" clean -fd -e .env -e logs
+    "$GIT" reset --hard "origin/$BRANCH"
+    log "==> git at $("$GIT" rev-parse --short HEAD)"
+    return
   fi
-  log "==> git sync ($BRANCH) via $GIT"
-  "$GIT" fetch origin "$BRANCH" || "$GIT" fetch origin
-  "$GIT" clean -fd -e .env -e logs
-  "$GIT" reset --hard "origin/$BRANCH"
-  log "==> git at $("$GIT" rev-parse --short HEAD)"
+
+  log "==> git sync ($BRANCH) via docker (no native git on NAS)"
+  ensure_docker_access
+  short=$($DOCKER run --rm \
+    -v "$REPO_DIR:/git" \
+    -w /git \
+    "$GIT_IMAGE" \
+    sh -ec "
+      git config --global --add safe.directory /git
+      git fetch origin '$BRANCH'
+      git clean -fd -e .env -e logs
+      git reset --hard 'origin/$BRANCH'
+      git rev-parse --short HEAD
+    ")
+  log "==> git at $short"
 }
 
 docker_can_run() {
@@ -187,25 +201,6 @@ mkdir -p "$LOG_DIR"
 log "==> deploy start (branch=$BRANCH)"
 
 cd "$REPO_DIR" || exit 1
-
-# Download latest script from GitHub and re-exec once (fixes SMB / old script on NAS)
-if [ -z "$SGB_SCRIPT_BOOTSTRAPPED" ] && command -v curl >/dev/null 2>&1; then
-  if curl -fsSL "https://raw.githubusercontent.com/Mansejin/auto_script/${BRANCH}/scripts/nas-docker-update.sh" \
-    -o scripts/nas-docker-update.sh.tmp; then
-    sed -i 's/\r$//' scripts/nas-docker-update.sh.tmp 2>/dev/null || true
-    mv -f scripts/nas-docker-update.sh.tmp scripts/nas-docker-update.sh
-    chmod +x scripts/nas-docker-update.sh 2>/dev/null || true
-    export SGB_SCRIPT_BOOTSTRAPPED=1
-    exec env \
-      SGB_SCRIPT_BOOTSTRAPPED=1 \
-      SGB_BRANCH="${SGB_BRANCH:-}" \
-      SGB_DOCKER_SUDO="${SGB_DOCKER_SUDO:-}" \
-      NAS_SUDO_PASSWORD="${NAS_SUDO_PASSWORD:-}" \
-      SGB_DEPLOY_AS_ROOT="${SGB_DEPLOY_AS_ROOT:-}" \
-      sh scripts/nas-docker-update.sh "$@"
-  fi
-  rm -f scripts/nas-docker-update.sh.tmp
-fi
 
 compose_up() {
   if [ -f docker-compose.cloudflare.yml ] && grep -q '^CLOUDFLARE_TUNNEL_TOKEN=' .env 2>/dev/null; then

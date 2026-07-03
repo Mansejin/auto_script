@@ -400,7 +400,8 @@ function Build-NasRemoteExports([hashtable]$Cfg) {
 function Build-NasUpdateRemote([hashtable]$Cfg, [string]$Repo) {
   $pathPrefix = Get-NasRemotePathPrefix
   $remoteEnv = Build-NasRemoteExports $Cfg
-  $run = "cd '$Repo' && sh scripts/nas-docker-update.sh"
+  $branch = Escape-ShSingleQuoted (Get-DeployBranch $Cfg)
+  $run = "curl -fsSL ""https://raw.githubusercontent.com/Mansejin/auto_script/$branch/scripts/nas-docker-update.sh"" -o /tmp/sgb-deploy.sh && sed -i 's/\r$//' /tmp/sgb-deploy.sh && cd '$Repo' && sh /tmp/sgb-deploy.sh"
   return "${pathPrefix}; ${remoteEnv}; $run"
 }
 

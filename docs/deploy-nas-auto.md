@@ -106,7 +106,7 @@ Actions → **Deploy to NAS** → **Run workflow**
 | `i/o timeout` (port 22) | **A안 스케줄러** 쓰거나 **B안** `TAILSCALE_AUTHKEY` + Tailscale IP |
 | Actions Skip | Secrets 4개 모두 등록 |
 | `cannot access docker daemon` | **A)** PC `config/nas-pc.local.env`에 `NAS_SUDO_PASSWORD=ohola비밀번호` 추가 후 deploy 재실행. **B)** 나스에서 root로 1회: `sh scripts/nas-setup-docker-sudo.sh` (DSM 작업 스케줄러). **C)** 스케줄러 사용자 **root** |
-| `git merge` / `local changes would be overwritten` | SMB `sync-ui`가 git과 충돌. `git pull` 후 `deploy`만 사용 (sync-ui는 긴급 때만). 최신 스크립트는 `git clean` + `reset --hard`로 자동 해결 |
+| `git: command not found` (NAS SSH) | 정상. 나스에 Git 패키지 없음. deploy는 **docker로 git sync** (최신 스크립트 필요). `git pull` 수동 명령은 안 됨 |
 | 10분 지나도 안 바뀜 | `scheduled-pull.log`, `deploy.log` 확인 |
 
 ---

@@ -1,6 +1,7 @@
 param(
   [int]$Port = 8787,
-  [switch]$NoBrowser
+  [switch]$NoBrowser,
+  [switch]$Reload
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,7 +19,7 @@ function Test-PythonExe([string]$Exe, [string[]]$Prefix = @()) {
   if (-not $Exe) { return $false }
   if ($Exe -like "*\Microsoft\WindowsApps\*") { return $false }
   try {
-    & $Exe @Prefix -c "import sys; print(sys.executable)" 2>$null | Out-Null
+    & $Exe @Prefix -c "import sys" 2>$null | Out-Null
     return $LASTEXITCODE -eq 0
   } catch {
     return $false
@@ -29,7 +30,19 @@ function Invoke-ProjectPython {
   param([string[]]$PythonArgs)
   & $script:PythonExe @script:PythonPrefix @PythonArgs
   if ($LASTEXITCODE -ne 0) {
-    throw "Python failed (exit $LASTEXITCODE): $($script:PythonExe) $($script:PythonPrefix -join ' ') $($PythonArgs -join ' ')"
+    throw "Python failed (exit $LASTEXITCODE): $($script:PythonPrefix -join ' ') $($PythonArgs -join ' ')"
+  }
+}
+
+function Test-ProjectImports {
+  $code = @"
+import dotenv, fastapi, uvicorn, multipart, itsdangerous, openpyxl, docx
+"@
+  try {
+    Invoke-ProjectPython -PythonArgs @("-c", $code) | Out-Null
+    return $true
+  } catch {
+    return $false
   }
 }
 
@@ -76,28 +89,18 @@ Python not found (or only Windows Store stub).
 Fix:
   1) Install Python 3.10+ from https://www.python.org/downloads/
   2) Check "Add python.exe to PATH"
-  3) Windows Settings -> Apps -> Advanced app settings -> App execution aliases
+  3) Windows Settings -> Apps -> App execution aliases
      -> turn OFF "python.exe" and "python3.exe" store aliases
   4) Open a NEW terminal and run again
-
-Or test manually:
-  py -3 --version
 "@
 }
 
-try {
-  Invoke-ProjectPython -PythonArgs @("-m", "pip", "--version") | Out-Null
-} catch {
-  Write-Step "Installing packages (first run)..."
-  Invoke-ProjectPython -PythonArgs @("-m", "pip", "install", "-r", "requirements.txt")
-}
+Write-Step "Installing / updating packages (requirements.txt)..."
+Invoke-ProjectPython -PythonArgs @("-m", "pip", "install", "--upgrade", "pip")
+Invoke-ProjectPython -PythonArgs @("-m", "pip", "install", "-r", "requirements.txt")
 
-try {
-  Invoke-ProjectPython -PythonArgs @("-c", "import fastapi, uvicorn")
-} catch {
-  Write-Step "Installing packages (first run)..."
-  Invoke-ProjectPython -PythonArgs @("-m", "pip", "install", "-r", "requirements.txt")
-  Invoke-ProjectPython -PythonArgs @("-c", "import fastapi, uvicorn")
+if (-not (Test-ProjectImports)) {
+  throw "Package install incomplete. Run manually: python -m pip install -r requirements.txt"
 }
 
 $portInUse = $null
@@ -110,7 +113,8 @@ if ($portInUse) {
 
 $env:SGB_HOST = "127.0.0.1"
 $env:SGB_PORT = "$Port"
-$env:SGB_RELOAD = "1"
+# Windows reload subprocess often breaks; UI edits only need browser refresh anyway.
+$env:SGB_RELOAD = if ($Reload) { "1" } else { "0" }
 $env:SGB_PLAN = "admin"
 $env:SGB_ALLOWED_ORIGINS = "http://127.0.0.1:$Port,http://localhost:$Port"
 
@@ -121,6 +125,7 @@ Write-Host ""
 Write-Host "Server URLs"
 Write-Host "  Admin : $adminUrl"
 Write-Host "  Health: $healthUrl"
+Write-Host "  Reload: $($env:SGB_RELOAD) (API code change -> restart this window)"
 Write-Host ""
 Write-Host "Keep this window OPEN while testing. Closing it stops the server." -ForegroundColor Green
 Write-Host ""

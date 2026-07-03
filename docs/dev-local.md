@@ -15,10 +15,12 @@ git pull
 scripts\DEV-로컬테스트.bat
 ```
 
-3. 검은 창이 떠 있고 `Uvicorn running on http://127.0.0.1:8787` 가 보여야 합니다.  
-   **이 창을 닫으면 접속이 안 됩니다.**
+의존성 오류(`No module named 'dotenv'`) 시 먼저:
+```bat
+scripts\DEV-의존성설치.bat
+```
 
-4. 브라우저: **http://127.0.0.1:8787/admin/saenggibu**
+3. 검은 창에 `Application startup complete` 또는 `Uvicorn running` 이 보이고 **에러 traceback 이 없어야** 합니다.
 
 또는 PowerShell:
 
@@ -67,7 +69,7 @@ chmod +x scripts/dev-local.sh
 | 증상 | 확인 |
 |------|------|
 | 연결할 수 없음 / ERR_CONNECTION_REFUSED | **서버 창이 켜져 있는지** 확인. bat 실행 후 창이 바로 닫히면 Python 미설치·오류 |
-| `exit 9009` / Python command failed | Windows **가짜 python** (스토어 스텁). 아래 "Python 9009" 참고 |
+| `ModuleNotFoundError: dotenv` 등 | `scripts\DEV-의존성설치.bat` 실행 후 재시작 |
 | `DEV-로컬테스트.bat` 없음 | `git pull` 후 `scripts\` 폴더 확인 |
 | 포트 사용 중 | `dev-local.ps1 -Port 8788` 로 다른 포트 사용 |
 | 로그인 안 됨 | `.env` 의 `ADMIN_PASSWORD=` 값 설정 후 서버 재시작 |

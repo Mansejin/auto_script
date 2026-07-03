@@ -10,7 +10,7 @@
 #>
 param(
   [Parameter(Position = 0)]
-  [ValidateSet("setup", "connect", "update", "logs", "map", "unmap", "status", "fix-ssh")]
+  [ValidateSet("setup", "connect", "update", "logs", "map", "unmap", "status", "fix-ssh", "install-key")]
   [string]$Command = "connect",
 
   [ValidateSet("remote", "local")]
@@ -173,7 +173,17 @@ function Invoke-InstallKey {
 
   Write-Info "Copy public key to NAS [$($profile.Label)]..."
   Write-Warn "Enter NAS password ONE LAST TIME:"
-  Get-Content "$keyPath.pub" -Raw | ssh $profile.Alias "umask 077; mkdir -p .ssh; cat >> .ssh/authorized_keys; chmod 700 .ssh; chmod 600 .ssh/authorized_keys"
+  $user = $cfg["NAS_USER"]
+  $remoteCmd = "HOME_DIR=/var/services/homes/$user; if [ ! -d `"`$HOME_DIR`" ]; then echo SYNO_HOME_MISSING; exit 2; fi; umask 077; mkdir -p `"`$HOME_DIR/.ssh`"; cat >> `"`$HOME_DIR/.ssh/authorized_keys`"; chmod 700 `"`$HOME_DIR/.ssh`"; chmod 600 `"`$HOME_DIR/.ssh/authorized_keys`""
+  Get-Content "$keyPath.pub" -Raw | ssh $profile.Alias $remoteCmd
+
+  if ($LASTEXITCODE -eq 2) {
+    throw @"
+Synology user home folder missing: /var/services/homes/$user
+DSM: Control Panel - User and Group - Advanced - Enable user home service - Apply
+Then log in to DSM once as $user and retry install-key.
+"@
+  }
 
   if ($LASTEXITCODE -ne 0) {
     throw "Failed to copy key to NAS."
@@ -373,6 +383,7 @@ try {
     "unmap" { Invoke-NasUnmap }
     "status" { Invoke-NasStatus }
     "fix-ssh" { Invoke-FixSshPerms }
+    "install-key" { Invoke-InstallKey }
   }
 } catch {
   Write-Host ""

@@ -1,4 +1,4 @@
-# Remove example / duplicate samples from NAS data (run on PC with T: mapped)
+# Remove example samples from NAS data (ASCII-only for PowerShell 5.1)
 # Usage:
 #   .\scripts\nas-cleanup-example-samples.ps1
 #   .\scripts\nas-cleanup-example-samples.ps1 -SamplesDir "T:\saenggibu\data\saenggibu\samples"
@@ -20,22 +20,14 @@ if (-not (Test-Path $indexPath)) {
   throw "index.json not found in $SamplesDir"
 }
 
-$exampleLabelPatterns = @(
-  "2025_2학년_샘플",
-  "【예시】",
-  "샘플A",
-  "샘플B"
-)
-
 function Test-ExampleSample([object]$item) {
   if ($Id -and $item.id -eq $Id) { return $true }
   $label = [string]$item.label
   $source = [string]$item.source_file
-  foreach ($p in $exampleLabelPatterns) {
-    if ($label -like "*$p*") { return $true }
-  }
-  if ($source -match "examples[/\\]sample_[ab]\.") { return $true }
-  if ($source -match "saenggibu-samples\.example") { return $true }
+  # Built-in demo labels like 2025_2..._sampleB (any script)
+  if ($label -match '^2025_') { return $true }
+  if ($source -match 'examples[/\\]sample_[ab]\.') { return $true }
+  if ($source -match 'saenggibu-samples\.example') { return $true }
   return $false
 }
 
@@ -57,7 +49,7 @@ foreach ($r in $remove) {
 }
 
 $confirm = Read-Host "Delete? (y/N)"
-if ($confirm -notmatch "^[yY]") {
+if ($confirm -notmatch '^[yY]$') {
   Write-Host "Cancelled."
   exit 0
 }
@@ -67,5 +59,9 @@ foreach ($r in $remove) {
   if (Test-Path $file) { Remove-Item $file -Force }
 }
 
-$keep | ConvertTo-Json -Depth 20 | Set-Content $indexPath -Encoding UTF8
+$json = $keep | ConvertTo-Json -Depth 20
+if ($keep.Count -eq 1) {
+  $json = "[$json]"
+}
+Set-Content $indexPath -Value $json -Encoding UTF8
 Write-Host "Done. $($keep.Count) sample(s) left."

@@ -152,9 +152,13 @@ class InspectBatchRequest(BaseModel):
 
 def _extract_token(request: Request) -> str:
     auth = request.headers.get("authorization", "")
-    if auth.lower().startswith("bearer "):
-        return auth[7:].strip()
-    return request.cookies.get(SESSION_COOKIE, "")
+    bearer = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+    cookie = request.cookies.get(SESSION_COOKIE, "")
+    if bearer and verify_session_token(bearer):
+        return bearer
+    if cookie and verify_session_token(cookie):
+        return cookie
+    return bearer or cookie
 
 
 def require_admin(request: Request) -> AdminSession:
@@ -281,7 +285,14 @@ def api_writing_guides(
 
 @router.get("/samples")
 def api_samples_list(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
-    samples = list_samples()
+    try:
+        samples = list_samples()
+    except Exception as exc:
+        logger.exception("samples list failed")
+        raise HTTPException(
+            status_code=500,
+            detail=f"샘플 목록을 읽지 못했습니다. SGB_DATA_KEY 설정을 확인하세요. ({exc})",
+        ) from exc
     return {"samples": [s.to_dict() for s in samples], "count": len(samples)}
 
 
@@ -352,7 +363,7 @@ def api_analyze(use_gemini: bool = False, _: AdminSession = Depends(require_admi
 def api_patterns(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
     patterns = load_patterns()
     if not patterns:
-        raise HTTPException(status_code=404, detail="패턴이 없습니다. analyze를 먼저 실행하세요.")
+        return {"style_guide": "", "sections": {}, "sample_count": 0}
     return patterns
 
 

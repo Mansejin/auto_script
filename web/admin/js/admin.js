@@ -601,7 +601,7 @@
     return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
   }
 
-  async function api(path, options = {}) {
+  async function api(path, options = {}, allowRetry = true) {
     const headers = { ...(options.headers || {}) };
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -630,6 +630,10 @@
     }
 
     if (!response.ok) {
+      if (response.status === 401 && token && allowRetry) {
+        setToken("");
+        return api(path, options, false);
+      }
       const message = data?.detail || data?.message || `요청 실패 (${response.status})`;
       const error = new Error(typeof message === "string" ? message : JSON.stringify(message));
       error.status = response.status;
@@ -1046,15 +1050,16 @@
     if (!tbody) return;
     tbody.innerHTML = `<tr><td colspan="5">불러오는 중…</td></tr>`;
     if (toolbar) toolbar.hidden = true;
-    const data = await api("/api/students");
-    const students = mergeStudentsWithDrafts(data.students);
-    if (!students.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="admin-muted">등록된 학생이 없습니다.</td></tr>`;
-      selectedStudentIds.clear();
-      updateStudentSelectionUi(0);
-      return;
-    }
-    tbody.innerHTML = students
+    try {
+      const data = await api("/api/students");
+      const students = mergeStudentsWithDrafts(data.students);
+      if (!students.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="admin-muted">등록된 학생이 없습니다.</td></tr>`;
+        selectedStudentIds.clear();
+        updateStudentSelectionUi(0);
+        return;
+      }
+      tbody.innerHTML = students
       .map((s) => {
         const targets = formatWriteTargets(s);
         const checked = selectedStudentIds.has(s.id) ? "checked" : "";
@@ -1082,7 +1087,12 @@
         </tr>`;
       })
       .join("");
-    updateStudentSelectionUi(students.length);
+      updateStudentSelectionUi(students.length);
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan="5" class="admin-muted">학생 목록을 불러오지 못했습니다. ${escapeHtml(
+        error.message || "오류"
+      )}</td></tr>`;
+    }
   }
 
   function updateStudentSelectionUi(totalCount = null) {
@@ -1355,14 +1365,15 @@
     if (!list) return;
     list.textContent = "불러오는 중…";
     if (toolbar) toolbar.hidden = true;
-    const data = await api("/api/samples");
-    if (!data.samples.length) {
-      list.innerHTML = `<p class="admin-muted">아직 올린 샘플이 없습니다.</p>`;
-      selectedSampleIds.clear();
-      updateSampleSelectionUi(0);
-      return;
-    }
-    list.innerHTML = `
+    try {
+      const data = await api("/api/samples");
+      if (!data.samples.length) {
+        list.innerHTML = `<p class="admin-muted">아직 올린 샘플이 없습니다.</p>`;
+        selectedSampleIds.clear();
+        updateSampleSelectionUi(0);
+        return;
+      }
+      list.innerHTML = `
       <table class="admin-table admin-sample-table">
         <thead><tr>
           <th class="sample-select-cell" aria-label="선택"></th>
@@ -1388,7 +1399,14 @@
           })
           .join("")}</tbody>
       </table>`;
-    updateSampleSelectionUi(data.count);
+      updateSampleSelectionUi(data.count);
+    } catch (error) {
+      list.innerHTML = `<p class="admin-muted">샘플 목록을 불러오지 못했습니다.<br>${escapeHtml(
+        error.message || "오류"
+      )}</p>
+        <button type="button" class="admin-btn secondary admin-btn-sm" data-action="retry-samples">다시 시도</button>`;
+      list.querySelector("[data-action='retry-samples']")?.addEventListener("click", () => loadSamples());
+    }
   }
 
   document.getElementById("samplesList")?.addEventListener("change", (event) => {
@@ -2199,8 +2217,19 @@
   });
 
   async function refreshAll() {
-    await loadSystemInfo();
-    await Promise.all([loadStudents(), loadSamples(), loadReviewList(), loadStyleGuide(), loadUsage()]);
+    await loadSystemInfo().catch(() => null);
+    const results = await Promise.allSettled([
+      loadStudents(),
+      loadSamples(),
+      loadReviewList(),
+      loadStyleGuide(),
+      loadUsage(),
+    ]);
+    const failed = results.filter((result) => result.status === "rejected");
+    if (failed.length) {
+      const reason = failed[0].reason;
+      showToast(reason?.message || `일부 데이터를 불러오지 못했습니다 (${failed.length}건)`);
+    }
     await initWritingTips();
     switchTab("learn");
   }
@@ -2266,12 +2295,15 @@
         showGate();
         return;
       }
-      if (getToken()) {
-        showApp();
-        showToast("서버 연결에 실패했습니다. 잠시 후 다시 시도하세요.");
-        return;
+      showApp();
+      try {
+        await refreshAll();
+      } catch (refreshError) {
+        showToast(refreshError.message || "데이터를 불러오지 못했습니다.");
       }
-      showGate();
+      if (error?.message) {
+        showToast(error.message);
+      }
     }
   }
 

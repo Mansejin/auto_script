@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import json
 import re
 import statistics
 from typing import Any
 
 from .config import PATTERNS_PATH, PROMPT_PATH, ensure_data_dirs
-from .io_utils import save_json
 from .models import SampleRecord
 from .sample_store import list_samples
 
@@ -155,16 +155,24 @@ def save_patterns(patterns: dict[str, Any], *, style_guide: str = "") -> dict[st
         **patterns,
         "style_guide": style_guide or build_style_guide_text(patterns),
     }
-    save_json(PATTERNS_PATH, payload)
+    from .secure_io import save_secure_json
+
+    save_secure_json(PATTERNS_PATH, payload)
     return payload
 
 
 def load_patterns() -> dict[str, Any] | None:
     if not PATTERNS_PATH.exists():
         return None
-    from .io_utils import load_json
+    from .secure_io import load_secure_json
 
-    return load_json(PATTERNS_PATH)
+    try:
+        data = load_secure_json(PATTERNS_PATH)
+    except (OSError, ValueError, json.JSONDecodeError, RuntimeError):
+        return None
+    if not isinstance(data, dict) or data.get("__enc"):
+        return None
+    return data
 
 
 def analyze_and_save(*, use_gemini: bool = False) -> dict[str, Any]:

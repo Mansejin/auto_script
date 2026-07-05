@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.saenggibu.config import SAMPLES_DIR, STUDENTS_DIR, ensure_data_dirs
+from src.saenggibu.config import DATA_DIR, SAMPLES_DIR, STUDENTS_DIR, ensure_data_dirs
 from src.saenggibu.data_crypto import ENC_MARKER, encrypt_data_enabled
 from src.saenggibu.secure_io import load_secure_json, save_secure_json
 
@@ -48,6 +48,18 @@ def main() -> int:
         converted, skipped = _migrate_dir(directory, label)
         total += converted
         print(f"{label}: converted={converted}, skipped={skipped}")
+
+    patterns = DATA_DIR / "patterns.json"
+    if patterns.exists():
+        raw = patterns.read_text(encoding="utf-8")
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, dict) and not data.get(ENC_MARKER):
+            save_secure_json(patterns, data)
+            total += 1
+            print("  [patterns] patterns.json")
 
     if total == 0:
         print("변환할 평문 파일이 없습니다.")

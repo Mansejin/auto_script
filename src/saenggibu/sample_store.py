@@ -18,7 +18,13 @@ def _load_index() -> list[dict]:
     path = _index_path()
     if not path.exists():
         return []
-    return load_secure_json(path)
+    try:
+        data = load_secure_json(path)
+    except (OSError, ValueError, json.JSONDecodeError, RuntimeError):
+        return []
+    if not isinstance(data, list):
+        return []
+    return data
 
 
 def _save_index(items: list[dict]) -> None:
@@ -53,7 +59,7 @@ def _resolve_sample_dict(item: dict) -> dict | None:
     if json_path.exists():
         try:
             return load_secure_json(json_path)
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError, ValueError, RuntimeError):
             pass
     if _has_sections_content(item):
         return item

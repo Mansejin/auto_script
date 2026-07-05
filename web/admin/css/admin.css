@@ -664,6 +664,9 @@
   width: 35%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--blue), #6ea8ff);
+}
+
+.admin-busy-bar-fill.is-indeterminate {
   animation: admin-busy-indeterminate 1.4s ease-in-out infinite;
 }
 
@@ -792,8 +795,88 @@ body.admin-is-busy .admin-tab {
 }
 
 .admin-inspect-summary h3 {
-  font-size: 0.9375rem;
-  margin-bottom: 8px;
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.admin-inspect-checklist {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.admin-inspect-check-item,
+.admin-busy-check-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.admin-inspect-check-icon {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.admin-inspect-check-body {
+  display: grid;
+  gap: 2px;
+  font-size: 0.875rem;
+}
+
+.admin-inspect-check-item.status-pass .admin-inspect-check-icon,
+.admin-busy-check-item.status-pass .admin-inspect-check-icon {
+  background: #e8f7ee;
+  color: #1f7a3f;
+}
+
+.admin-inspect-check-item.status-warn .admin-inspect-check-icon,
+.admin-busy-check-item.status-active .admin-inspect-check-icon {
+  background: #fff6e8;
+  color: #a05a00;
+}
+
+.admin-inspect-check-item.status-fail .admin-inspect-check-icon {
+  background: #fdecec;
+  color: #b42318;
+}
+
+.admin-inspect-check-item.status-skip .admin-inspect-check-icon,
+.admin-inspect-check-item.status-pending .admin-inspect-check-icon,
+.admin-busy-check-item.status-pending .admin-inspect-check-icon {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.admin-busy-checklist {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+}
+
+.admin-busy-check-item {
+  font-size: 0.875rem;
+}
+
+.admin-busy-check-item.status-active {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15);
 }
 
 .admin-inspect-issues {

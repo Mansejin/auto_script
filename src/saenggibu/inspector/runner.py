@@ -47,9 +47,60 @@ def inspect_students(students: list[StudentInput]) -> list[InspectReport]:
     return [inspect_student(student) for student in students]
 
 
-def inspect_all_students() -> list[InspectReport]:
+def inspect_all_students(
+    *,
+    student_ids: list[str] | None = None,
+    skip_ok_ids: set[str] | None = None,
+) -> list[InspectReport]:
+    skip_ok = skip_ok_ids or set()
+    if student_ids:
+        reports, _ = inspect_students_by_ids([sid for sid in student_ids if sid not in skip_ok])
+        return reports
     students = [s for s in list_students() if iter_generated_fields(s.generated or {})]
-    return inspect_students(students)
+    return inspect_students([student for student in students if student.id not in skip_ok])
+
+
+def inspect_batch(
+    *,
+    student_ids: list[str] | None = None,
+    items: list[dict[str, Any]] | None = None,
+    skip_ok_ids: set[str] | None = None,
+) -> dict[str, Any]:
+    skip_ok = skip_ok_ids or set()
+    not_found: list[str] = []
+    skipped_ok = 0
+    skipped_empty = 0
+
+    if items:
+        skipped_ok = sum(1 for item in items if str(item.get("id") or "") in skip_ok)
+        to_inspect = [item for item in items if str(item.get("id") or "") not in skip_ok]
+        reports = inspect_generated_items(to_inspect)
+    elif student_ids:
+        skipped_ok = sum(1 for student_id in student_ids if student_id in skip_ok)
+        filtered_ids = [student_id for student_id in student_ids if student_id not in skip_ok]
+        reports, not_found = inspect_students_by_ids(filtered_ids)
+    else:
+        for student in list_students():
+            if not iter_generated_fields(student.generated or {}):
+                skipped_empty += 1
+                continue
+            if student.id in skip_ok:
+                skipped_ok += 1
+        reports = inspect_all_students(skip_ok_ids=skip_ok)
+
+    summary = {
+        "total": len(reports),
+        "fail": sum(1 for report in reports if report.status == "fail"),
+        "warn": sum(1 for report in reports if report.status == "warn"),
+        "ok": sum(1 for report in reports if report.status == "ok"),
+        "skipped_ok": skipped_ok,
+        "skipped_empty": skipped_empty,
+    }
+    return {
+        "summary": summary,
+        "not_found": not_found,
+        "reports": reports,
+    }
 
 
 def inspect_students_by_ids(ids: list[str]) -> tuple[list[InspectReport], list[str]]:
@@ -67,11 +118,61 @@ def inspect_students_by_ids(ids: list[str]) -> tuple[list[InspectReport], list[s
     return reports, not_found
 
 
-def inspect_student_by_id(student_id: str) -> InspectReport | None:
+def inspect_student_by_id(student_id: str, *, generated: dict | None = None) -> InspectReport | None:
     student = get_student(student_id)
     if not student:
         return None
+    if generated is not None:
+        student = StudentInput(
+            id=student.id,
+            name=student.name,
+            grade=student.grade,
+            class_num=student.class_num,
+            number=student.number,
+            gender=student.gender,
+            status=student.status,
+            notes=student.notes,
+            subjects=student.subjects,
+            changche=student.changche,
+            generated=generated,
+        )
     return inspect_student(student)
+
+
+def inspect_generated_items(items: list[dict[str, Any]]) -> list[InspectReport]:
+    reports: list[InspectReport] = []
+    for item in items:
+        student_id = str(item.get("id") or "").strip()
+        generated = item.get("generated") or {}
+        label = str(item.get("label") or "").strip()
+        name = str(item.get("name") or "").strip()
+        if not student_id:
+            continue
+        student = get_student(student_id)
+        if student:
+            report = inspect_student_by_id(student_id, generated=generated)
+            if report:
+                if label:
+                    report.student_label = label
+                reports.append(report)
+            continue
+        if not iter_generated_fields(generated):
+            reports.append(InspectReport(student_id=student_id, student_label=label or student_id))
+            continue
+        temp = StudentInput(
+            id=student_id,
+            name=name or "학생",
+            grade=1,
+            class_num=1,
+            number=1,
+            generated=generated,
+        )
+        report = inspect_student(temp)
+        report.student_id = student_id
+        if label:
+            report.student_label = label
+        reports.append(report)
+    return reports
 
 
 def _inspect_field(

@@ -49,6 +49,8 @@ def issue_to_dict(issue: InspectIssue) -> dict[str, Any]:
 
 
 def report_to_dict(report: InspectReport) -> dict[str, Any]:
+    from .checklist import build_inspect_checklist
+
     return {
         "student_id": report.student_id,
         "student_label": report.student_label,
@@ -58,4 +60,5 @@ def report_to_dict(report: InspectReport) -> dict[str, Any]:
         "warning_count": report.warning_count,
         "info_count": report.info_count,
         "issues": [issue_to_dict(issue) for issue in report.issues],
+        "checklist": build_inspect_checklist(report),
     }

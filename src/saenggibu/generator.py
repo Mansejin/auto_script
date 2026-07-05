@@ -43,6 +43,10 @@ def _system_prompt() -> str:
     )
 
 
+def _student_names(student: StudentInput) -> list[str]:
+    return [student.name] if student.name.strip() else []
+
+
 def _generate_haengbal(student: StudentInput, style_guide: str) -> str:
     keywords = student.notes.get("keywords") or []
     notes = student.notes.get("행발") or student.notes.get("행발_notes") or ""
@@ -55,7 +59,7 @@ def _generate_haengbal(student: StudentInput, style_guide: str) -> str:
         f"- 핵심 키워드: {', '.join(keywords) if keywords else '없음'}\n\n"
         "위 정보를 바탕으로 **행동특성 및 종합의견** 한 편을 작성하세요."
     )
-    return generate_text(system=_system_prompt(), user=user)
+    return generate_text(system=_system_prompt(), user=user, student_names=_student_names(student))
 
 
 def _generate_setuk(student: StudentInput, subject: str, info: dict[str, Any], style_guide: str) -> str:
@@ -72,7 +76,11 @@ def _generate_setuk(student: StudentInput, subject: str, info: dict[str, Any], s
         f"위 정보를 바탕으로 **{subject} 세부능력 및 특기사항**을 작성하세요. "
         "비어 있는 항목(진로·수행평가 형식·주제)은 언급하지 마세요."
     )
-    return generate_text(system=_system_prompt(), user=user)
+    return generate_text(system=_system_prompt(), user=user, student_names=_student_names(student))
+
+
+def _student_names(student: StudentInput) -> list[str]:
+    return [student.name] if student.name.strip() else []
 
 
 def _generate_changche(
@@ -89,7 +97,7 @@ def _generate_changche(
         f"- 활동 메모: {notes or '없음'}\n\n"
         f"위 정보를 바탕으로 **창의적 체험활동({subsection})** 기록을 작성하세요."
     )
-    return generate_text(system=_system_prompt(), user=user)
+    return generate_text(system=_system_prompt(), user=user, student_names=_student_names(student))
 
 
 def generate_for_student(

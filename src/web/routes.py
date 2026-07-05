@@ -12,6 +12,14 @@ from pydantic import BaseModel, Field
 
 from src.saenggibu.data_crypto import encrypt_data_enabled
 from src.saenggibu.storage_policy import store_generated_on_server
+from src.saenggibu.curriculum import (
+    curriculum_meta,
+    find_relevant_standards,
+    list_curriculum_subjects,
+    resolve_subject_entry,
+)
+from src.saenggibu.pii_mask import mask_pii_enabled, mask_student_names_enabled
+from src.saenggibu.writing_guides import get_writing_guide
 from src.saenggibu.generator import generate_for_student, run_batch
 from src.saenggibu.job_queue import create_run_job, execute_run_job, get_job, list_jobs
 from src.saenggibu.models import StudentInput
@@ -185,6 +193,8 @@ def auth_me(session: AdminSession = Depends(require_admin)) -> dict[str, Any]:
         "privacy": {
             "store_generated": store_generated_on_server(),
             "encrypt_data": encrypt_data_enabled(),
+            "mask_pii": mask_pii_enabled(),
+            "mask_student_names": mask_student_names_enabled(),
         },
     }
 
@@ -192,6 +202,59 @@ def auth_me(session: AdminSession = Depends(require_admin)) -> dict[str, Any]:
 @router.get("/usage")
 def api_usage(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
     return usage_summary()
+
+
+@router.get("/curriculum/subjects")
+def api_curriculum_subjects(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    return {
+        "meta": curriculum_meta(),
+        "subjects": list_curriculum_subjects(),
+        "count": len(list_curriculum_subjects()),
+    }
+
+
+@router.get("/curriculum/standards")
+def api_curriculum_standards(
+    subject: str,
+    career: str = "",
+    assessment_type: str = "",
+    topic: str = "",
+    content: str = "",
+    limit: int = 5,
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    name = subject.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="과목명을 입력하세요.")
+    entry = resolve_subject_entry(name)
+    if not entry:
+        return {
+            "subject": name,
+            "resolved": False,
+            "standards": [],
+            "message": "등록된 교육과정 데이터에 없는 과목입니다.",
+        }
+    info = {
+        "career": career,
+        "assessment_type": assessment_type,
+        "topic": topic,
+        "content": content,
+    }
+    standards = find_relevant_standards(name, info, limit=min(max(limit, 1), 10))
+    return {
+        "subject": name,
+        "resolved": True,
+        "standards": standards,
+        "count": len(standards),
+    }
+
+
+@router.get("/guides/writing")
+def api_writing_guides(
+    section: str | None = None,
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    return get_writing_guide(section)
 
 
 @router.get("/samples")

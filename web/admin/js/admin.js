@@ -111,8 +111,10 @@
   let busyTimer = null;
   let busyStartedAt = 0;
   let systemInfo = { gemini_model: "—" };
-  let privacySettings = { store_generated: false, encrypt_data: true };
+  let privacySettings = { store_generated: false, encrypt_data: true, mask_pii: true };
   let usageLine = "";
+  const writingTipsCache = new Map();
+  let curriculumTimer = null;
 
   const busyOverlay = document.getElementById("busyOverlay");
   const busyTitle = document.getElementById("busyTitle");
@@ -180,6 +182,7 @@
         privacySettings = {
           store_generated: Boolean(data.privacy.store_generated),
           encrypt_data: Boolean(data.privacy.encrypt_data),
+          mask_pii: data.privacy.mask_pii !== false,
         };
       }
       updatePrivacyHint();
@@ -262,11 +265,101 @@
   function updatePrivacyHint() {
     const badge = document.getElementById("usageBadge");
     if (!badge) return;
-    const privacyPrefix = !privacySettings.store_generated
-      ? `작성본은 이 브라우저에만 보관${privacySettings.encrypt_data ? " · 메모 암호화" : ""} · `
-      : "";
+    const parts = [];
+    if (!privacySettings.store_generated) {
+      parts.push("작성본은 이 브라우저에만 보관");
+      if (privacySettings.encrypt_data) parts.push("메모 암호화");
+    }
+    if (privacySettings.mask_pii) parts.push("PII 마스킹");
+    const privacyPrefix = parts.length ? `${parts.join(" · ")} · ` : "";
     const steps = "① 학습 → ② 설정 → ③ 학생 → ④ 작성·검토";
     badge.textContent = usageLine ? `${privacyPrefix}${usageLine} · ${steps}` : `${privacyPrefix}${steps}`;
+  }
+
+  function renderWritingTips(el, data) {
+    if (!el || !data) return;
+    const section = data.section;
+    const items = section?.checklist || data.common?.checklist || [];
+    if (!items.length) return;
+    const title = section?.title || "작성 체크리스트";
+    el.innerHTML = `<details>
+      <summary>${escapeHtml(title)} 체크리스트</summary>
+      <ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    </details>`;
+  }
+
+  async function loadWritingTipsPanel(section, el) {
+    if (!el) return;
+    if (writingTipsCache.has(section)) {
+      renderWritingTips(el, writingTipsCache.get(section));
+      return;
+    }
+    try {
+      const data = await api(`/api/guides/writing?section=${encodeURIComponent(section)}`);
+      writingTipsCache.set(section, data);
+      renderWritingTips(el, data);
+    } catch {
+      /* optional UI */
+    }
+  }
+
+  async function initWritingTips() {
+    const panels = document.querySelectorAll(".admin-writing-tips[data-tips-section]");
+    await Promise.all(
+      [...panels].map((el) => loadWritingTipsPanel(el.dataset.tipsSection, el))
+    );
+  }
+
+  function scheduleCurriculumLookup() {
+    if (curriculumTimer) clearTimeout(curriculumTimer);
+    curriculumTimer = setTimeout(() => {
+      refreshCurriculumStandards().catch(() => {});
+    }, 450);
+  }
+
+  async function refreshCurriculumStandards() {
+    const box = document.getElementById("curriculumStandards");
+    const list = document.getElementById("curriculumStandardsList");
+    const subject = document.getElementById("simpleSubject")?.value.trim();
+    if (!box || !list || !subject) {
+      if (box) box.hidden = true;
+      return;
+    }
+    const params = new URLSearchParams({
+      subject,
+      career: document.getElementById("simpleSetukCareer")?.value.trim() || "",
+      assessment_type: document.getElementById("simpleSetukAssessment")?.value.trim() || "",
+      topic: document.getElementById("simpleSetukTopic")?.value.trim() || "",
+      content: document.getElementById("simpleSetukContent")?.value.trim() || "",
+      limit: "4",
+    });
+    const data = await api(`/api/curriculum/standards?${params}`);
+    if (!data.resolved || !data.standards?.length) {
+      box.hidden = true;
+      list.innerHTML = "";
+      return;
+    }
+    list.innerHTML = data.standards
+      .map(
+        (item) =>
+          `<li><span class="std-code">${escapeHtml(item.code)}</span>${escapeHtml(item.text)}${
+            item.unit ? ` <span class="admin-muted">(${escapeHtml(item.unit)})</span>` : ""
+          }</li>`
+      )
+      .join("");
+    box.hidden = false;
+  }
+
+  function bindCurriculumInputs() {
+    for (const id of [
+      "simpleSubject",
+      "simpleSetukCareer",
+      "simpleSetukAssessment",
+      "simpleSetukTopic",
+      "simpleSetukContent",
+    ]) {
+      document.getElementById(id)?.addEventListener("input", scheduleCurriculumLookup);
+    }
   }
 
   function showUploadLog(elementId, lines) {
@@ -1040,6 +1133,11 @@
       : ' <span class="admin-muted">· 작성본은 이 브라우저에만 저장됩니다</span>';
     document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(student.status)}${privacyNote}`;
     buildDetailEditor(student.generated || {});
+    const detailTips = document.getElementById("detailWritingTips");
+    if (detailTips) {
+      detailTips.hidden = false;
+      await loadWritingTipsPanel("common", detailTips);
+    }
   }
 
   loginForm?.addEventListener("submit", async (event) => {
@@ -1564,6 +1662,7 @@
   async function refreshAll() {
     await loadSystemInfo();
     await Promise.all([loadStudents(), loadSamples(), loadReviewList(), loadStyleGuide(), loadUsage()]);
+    await initWritingTips();
     switchTab("learn");
   }
 
@@ -1612,6 +1711,7 @@
     document.getElementById("writeSectionChoices")?.addEventListener("change", updateWriteSectionUi);
     updateWriteSectionUi();
     updateStudentMemoPanels();
+    bindCurriculumInputs();
     const expectedPanels = ["panelLearn", "panelStyle", "panelStudents", "panelReview"];
     const missing = expectedPanels.filter((id) => !document.getElementById(id));
     if (missing.length) {

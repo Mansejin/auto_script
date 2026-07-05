@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260705p0">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260705c">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -175,6 +175,7 @@
                 <div class="admin-field" style="margin-top:12px">
                   <textarea id="simpleHaengbal" class="admin-textarea" rows="3" placeholder="태도·성품·대인관계 등"></textarea>
                 </div>
+                <div class="admin-writing-tips" data-tips-section="행발"></div>
               </details>
               <details class="admin-memo-panel" data-target="세특" hidden>
                 <summary>세특 메모</summary>
@@ -199,6 +200,12 @@
                   <textarea id="simpleSetukContent" class="admin-textarea" rows="5" placeholder="수업·탐구·발표 등 구체적 활동을 적어 주세요"></textarea>
                   <p class="admin-help">최소 20자 이상 작성을 권장합니다. 비워 두면 활동 내용 없음으로 처리됩니다.</p>
                 </div>
+                <div id="curriculumStandards" class="admin-curriculum-box" hidden>
+                  <h4 class="admin-subheading-sm">관련 성취기준 (참고)</h4>
+                  <ul id="curriculumStandardsList" class="admin-curriculum-list"></ul>
+                  <p class="admin-help">성취기준은 작성 맥락 참고용이며, 달성 여부를 단정하지 않습니다.</p>
+                </div>
+                <div class="admin-writing-tips" data-tips-section="세특"></div>
               </details>
               <details class="admin-memo-panel" data-target="자율" hidden>
                 <summary>자율 메모</summary>
@@ -360,6 +367,7 @@
           <button id="backToReview" class="admin-btn secondary" type="button">← 목록</button>
           <h2 id="detailTitle" style="margin-top:12px"></h2>
           <div id="detailMeta" style="margin-bottom:12px"></div>
+          <div id="detailWritingTips" class="admin-writing-tips" hidden></div>
           <div id="detailEditor"></div>
           <div class="admin-actions" style="margin-top:16px">
             <button id="saveDetailBtn" class="admin-btn" type="button">수정 저장</button>
@@ -414,7 +422,7 @@
         <ul class="admin-guide-tips">
           <li>학년도 종료·불필요 시 <strong>학생 데이터를 삭제</strong>하세요.</li>
           <li>생기부 데이터의 <strong>상업적 이용·재판매</strong>를 하지 마세요.</li>
-          <li>AI 생성 시 메모가 <strong>Google Gemini</strong>로 전송됩니다. 실명은 프롬프트에서 제외합니다.</li>
+          <li>AI 생성 시 메모가 <strong>Google Gemini</strong>로 전송됩니다. 전화·이메일·주소 등 PII는 전송 전 자동 마스킹됩니다.</li>
           <li>진로·민감 정보는 꼭 필요할 때만 입력하고, 학교 동의 절차를 따르세요.</li>
         </ul>
         <p class="admin-muted">전문: <a href="/docs/privacy-policy.md" target="_blank" rel="noopener">privacy-policy.md</a></p>
@@ -437,6 +445,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260705p0"></script>
+  <script src="/admin-static/js/admin.js?v=20260705c"></script>
 </body>
 </html>

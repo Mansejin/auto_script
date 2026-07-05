@@ -907,6 +907,72 @@ body.admin-guide-open {
   line-height: 1.5;
 }
 
+.admin-subheading-sm {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 12px 0 6px;
+  color: var(--text-secondary);
+}
+
+.admin-curriculum-box {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--blue) 4%, var(--bg));
+}
+
+.admin-curriculum-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-curriculum-list li {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.admin-curriculum-list li:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.admin-curriculum-list .std-code {
+  font-weight: 600;
+  color: var(--blue);
+  margin-right: 6px;
+}
+
+.admin-writing-tips {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.admin-writing-tips summary {
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.admin-writing-tips ul {
+  margin: 8px 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.admin-writing-tips li + li {
+  margin-top: 4px;
+}
+
 @media (max-width: 640px) {
   .admin-table {
     display: block;

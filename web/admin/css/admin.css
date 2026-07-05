@@ -406,15 +406,27 @@
 
 .admin-student-meta {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) minmax(100px, 1fr) minmax(100px, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
+  align-items: start;
   margin-bottom: 4px;
+}
+
+.admin-student-meta .admin-field {
+  margin-bottom: 0;
+}
+
+.admin-student-meta .admin-field-label,
+.admin-student-meta .admin-field > label {
+  margin-bottom: 0;
 }
 
 .admin-grade-pick {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(44px, 1fr));
   gap: 8px;
+  width: max-content;
+  max-width: 100%;
 }
 
 .admin-grade-btn {

@@ -6,6 +6,7 @@ from google import genai
 from google.genai import types
 
 from .config import get_gemini_api_key, get_gemini_model
+from .pii_mask import mask_for_ai
 
 
 def _client() -> genai.Client:
@@ -17,13 +18,16 @@ def generate_text(
     system: str,
     user: str,
     temperature: float = 0.4,
+    student_names: list[str] | None = None,
 ) -> str:
     client = _client()
+    safe_user = mask_for_ai(user, student_names=student_names)
+    safe_system = mask_for_ai(system, student_names=student_names)
     response = client.models.generate_content(
         model=get_gemini_model(),
-        contents=user,
+        contents=safe_user,
         config=types.GenerateContentConfig(
-            system_instruction=system,
+            system_instruction=safe_system,
             temperature=temperature,
         ),
     )

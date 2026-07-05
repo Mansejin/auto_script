@@ -5,7 +5,9 @@ from .models import StudentInput
 
 # 등록·일괄 작성에 쓰는 영역 (창체는 소분류별로 분리)
 WRITE_SECTIONS = ("행발", "세특", *CHANGCHE_SUBSECTIONS)
-REGISTRATION_TARGETS = ("행발", "세특", "자율", "동아리", "진로")
+REGISTRATION_TARGETS = ("행발", "세특", "자율", "동아리", "봉사", "진로")
+SECTION_ORDER = WRITE_SECTIONS
+ALL_TARGETS_SECTION = "전체"
 
 
 def normalize_write_sections(sections: list[str] | None) -> list[str]:
@@ -77,3 +79,14 @@ def student_sections_complete(student: StudentInput) -> bool:
 
 def students_needing_section(students: list[StudentInput], section: str) -> list[StudentInput]:
     return [student for student in students if student_needs_section(student, section)]
+
+
+def pending_sections_for_student(student: StudentInput) -> list[str]:
+    targets = student_write_targets(student)
+    if not targets:
+        return []
+    return [section for section in SECTION_ORDER if section in targets and student_needs_section(student, section)]
+
+
+def students_with_any_pending(students: list[StudentInput]) -> list[StudentInput]:
+    return [student for student in students if pending_sections_for_student(student)]

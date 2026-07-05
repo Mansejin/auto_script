@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260705p0">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260705c">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -140,6 +140,7 @@
             <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="세특"><span class="admin-check-box"></span><span>세특</span></label>
             <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="자율"><span class="admin-check-box"></span><span>자율</span></label>
             <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="동아리"><span class="admin-check-box"></span><span>동아리</span></label>
+            <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="봉사"><span class="admin-check-box"></span><span>봉사</span></label>
             <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="진로"><span class="admin-check-box"></span><span>진로</span></label>
           </div>
         </div>
@@ -175,6 +176,7 @@
                 <div class="admin-field" style="margin-top:12px">
                   <textarea id="simpleHaengbal" class="admin-textarea" rows="3" placeholder="태도·성품·대인관계 등"></textarea>
                 </div>
+                <div class="admin-writing-tips" data-tips-section="행발"></div>
               </details>
               <details class="admin-memo-panel" data-target="세특" hidden>
                 <summary>세특 메모</summary>
@@ -199,6 +201,12 @@
                   <textarea id="simpleSetukContent" class="admin-textarea" rows="5" placeholder="수업·탐구·발표 등 구체적 활동을 적어 주세요"></textarea>
                   <p class="admin-help">최소 20자 이상 작성을 권장합니다. 비워 두면 활동 내용 없음으로 처리됩니다.</p>
                 </div>
+                <div id="curriculumStandards" class="admin-curriculum-box" hidden>
+                  <h4 class="admin-subheading-sm">관련 성취기준 (참고)</h4>
+                  <ul id="curriculumStandardsList" class="admin-curriculum-list"></ul>
+                  <p class="admin-help">성취기준은 작성 맥락 참고용이며, 달성 여부를 단정하지 않습니다.</p>
+                </div>
+                <div class="admin-writing-tips" data-tips-section="세특"></div>
               </details>
               <details class="admin-memo-panel" data-target="자율" hidden>
                 <summary>자율 메모</summary>
@@ -210,6 +218,12 @@
                 <summary>동아리 메모</summary>
                 <div class="admin-field" style="margin-top:12px">
                   <textarea id="simpleDongari" class="admin-textarea" rows="3"></textarea>
+                </div>
+              </details>
+              <details class="admin-memo-panel" data-target="봉사" hidden>
+                <summary>봉사 메모</summary>
+                <div class="admin-field" style="margin-top:12px">
+                  <textarea id="simpleBongsa" class="admin-textarea" rows="3" placeholder="봉사 활동·시간·역할 등"></textarea>
                 </div>
               </details>
               <details class="admin-memo-panel" data-target="진로" hidden>
@@ -313,8 +327,16 @@
               <span class="admin-option-text"><strong>동아리</strong></span>
             </label>
             <label class="admin-option admin-option-radio">
+              <input type="radio" name="writeSection" value="봉사">
+              <span class="admin-option-text"><strong>봉사</strong></span>
+            </label>
+            <label class="admin-option admin-option-radio">
               <input type="radio" name="writeSection" value="진로">
               <span class="admin-option-text"><strong>진로</strong></span>
+            </label>
+            <label class="admin-option admin-option-radio">
+              <input type="radio" name="writeSection" value="전체">
+              <span class="admin-option-text"><strong>전체 항목</strong><span class="admin-muted"> · 등록된 영역 순서대로</span></span>
             </label>
           </div>
           <div class="admin-field" style="margin-top:16px">
@@ -333,6 +355,7 @@
               <span id="reviewSelectedCount" class="admin-samples-selected"></span>
             </div>
             <div class="admin-samples-toolbar-right">
+              <button id="inspectAllReviewBtn" class="admin-btn secondary admin-btn-sm" type="button">전체 검사</button>
               <button id="exportReviewExcelBtn" class="admin-btn secondary admin-btn-sm" type="button">엑셀 추출</button>
               <label class="admin-check">
                 <input id="reviewSelectAll" type="checkbox" class="admin-check-input">
@@ -347,7 +370,7 @@
             <thead>
               <tr>
                 <th class="sample-select-cell" aria-label="선택"></th>
-                <th>학생</th><th>상태</th><th></th>
+                <th>학생</th><th>상태</th><th>검사</th><th></th>
               </tr>
             </thead>
             <tbody id="reviewTableBody"></tbody>
@@ -360,10 +383,15 @@
           <button id="backToReview" class="admin-btn secondary" type="button">← 목록</button>
           <h2 id="detailTitle" style="margin-top:12px"></h2>
           <div id="detailMeta" style="margin-bottom:12px"></div>
+          <div id="detailWritingTips" class="admin-writing-tips" hidden></div>
+          <div id="detailIssues" class="admin-inspect-summary" hidden></div>
           <div id="detailEditor"></div>
           <div class="admin-actions" style="margin-top:16px">
+            <button id="inspectDetailBtn" class="admin-btn secondary" type="button">검사 실행</button>
             <button id="saveDetailBtn" class="admin-btn" type="button">수정 저장</button>
             <button id="copyDetailBtn" class="admin-btn secondary" type="button">전체 복사</button>
+            <button id="copyNeisBtn" class="admin-btn secondary" type="button">NEIS용 복사</button>
+            <button id="editMemoFromDetailBtn" class="admin-btn secondary" type="button">입력 메모 수정</button>
           </div>
         </div>
       </div>
@@ -414,10 +442,30 @@
         <ul class="admin-guide-tips">
           <li>학년도 종료·불필요 시 <strong>학생 데이터를 삭제</strong>하세요.</li>
           <li>생기부 데이터의 <strong>상업적 이용·재판매</strong>를 하지 마세요.</li>
-          <li>AI 생성 시 메모가 <strong>Google Gemini</strong>로 전송됩니다. 실명은 프롬프트에서 제외합니다.</li>
+          <li>AI 생성 시 메모가 <strong>Google Gemini</strong>로 전송됩니다. 전화·이메일·주소 등 PII는 전송 전 자동 마스킹됩니다.</li>
           <li>진로·민감 정보는 꼭 필요할 때만 입력하고, 학교 동의 절차를 따르세요.</li>
         </ul>
         <p class="admin-muted">전문: <a href="/docs/privacy-policy.md" target="_blank" rel="noopener">privacy-policy.md</a></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="memoEditModal" class="admin-modal-backdrop" hidden role="dialog" aria-labelledby="memoEditTitle" aria-modal="true">
+    <div class="admin-modal admin-modal-wide">
+      <h2 id="memoEditTitle" class="admin-modal-title">입력 메모 수정</h2>
+      <p class="admin-muted" id="memoEditSubtitle"></p>
+      <h3 class="admin-subheading">작성 항목</h3>
+      <div class="admin-target-grid" id="memoEditTargets"></div>
+      <div id="memoEditFields" class="admin-memo-panels" style="margin-top:16px"></div>
+      <details class="admin-advanced" style="margin-top:16px">
+        <summary>NEIS·엑셀 붙여넣기</summary>
+        <p class="admin-muted" style="margin-top:8px">엑셀·NEIS에서 복사한 탭 구분 행이나 【항목】 블록을 붙여넣으면 메모·작성본에 반영합니다.</p>
+        <textarea id="neisPasteInput" class="admin-textarea" rows="6" placeholder="학년	반	번호	이름	행발_notes	세특_과목	창체_봉사 …"></textarea>
+        <button id="neisPasteApplyBtn" class="admin-btn secondary" type="button" style="margin-top:8px">붙여넣기 반영</button>
+      </details>
+      <div class="admin-actions" style="margin-top:16px">
+        <button id="memoEditCancelBtn" class="admin-btn secondary" type="button">취소</button>
+        <button id="memoEditSaveBtn" class="admin-btn" type="button">메모 저장</button>
       </div>
     </div>
   </div>
@@ -437,6 +485,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260705p0"></script>
+  <script src="/admin-static/js/admin.js?v=20260705c"></script>
 </body>
 </html>

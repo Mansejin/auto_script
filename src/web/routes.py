@@ -12,9 +12,24 @@ from pydantic import BaseModel, Field
 
 from src.saenggibu.data_crypto import encrypt_data_enabled
 from src.saenggibu.storage_policy import store_generated_on_server
+from src.saenggibu.curriculum import (
+    curriculum_meta,
+    find_relevant_standards,
+    list_curriculum_subjects,
+    resolve_subject_entry,
+)
+from src.saenggibu.pii_mask import mask_pii_enabled, mask_student_names_enabled
+from src.saenggibu.writing_guides import get_writing_guide
 from src.saenggibu.generator import generate_for_student, run_batch
 from src.saenggibu.job_queue import create_run_job, execute_run_job, get_job, list_jobs
-from src.saenggibu.models import StudentInput
+from src.saenggibu.inspector import inspect_text as run_inspect_text
+from src.saenggibu.inspector.issues import report_to_dict
+from src.saenggibu.inspector.runner import (
+    inspect_all_students,
+    inspect_student_by_id,
+    inspect_students_by_ids,
+)
+from src.saenggibu.neis_format import format_neis_tsv, merge_parsed_into_student, parse_neis_paste
 from src.saenggibu.pattern_analyzer import analyze_and_save, load_patterns, update_style_guide
 from src.saenggibu.sample_store import (
     delete_all_samples,
@@ -79,10 +94,15 @@ class RunRequest(BaseModel):
     student_id: str | None = None
     status: str = "pending"
     sections: list[str] | None = None
+    all_targets: bool = False
     limit: int | None = None
 
 
 class ParseStudentRequest(BaseModel):
+    text: str
+
+
+class NeisPasteRequest(BaseModel):
     text: str
 
 
@@ -118,6 +138,16 @@ class StudentExportItem(BaseModel):
 
 class StudentExportRequest(BaseModel):
     students: list[StudentExportItem] = Field(default_factory=list)
+
+
+class InspectTextRequest(BaseModel):
+    text: str
+    section_key: str = "본문"
+    student_name: str = ""
+
+
+class InspectBatchRequest(BaseModel):
+    ids: list[str] = Field(default_factory=list)
 
 
 def _extract_token(request: Request) -> str:
@@ -185,6 +215,8 @@ def auth_me(session: AdminSession = Depends(require_admin)) -> dict[str, Any]:
         "privacy": {
             "store_generated": store_generated_on_server(),
             "encrypt_data": encrypt_data_enabled(),
+            "mask_pii": mask_pii_enabled(),
+            "mask_student_names": mask_student_names_enabled(),
         },
     }
 
@@ -192,6 +224,59 @@ def auth_me(session: AdminSession = Depends(require_admin)) -> dict[str, Any]:
 @router.get("/usage")
 def api_usage(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
     return usage_summary()
+
+
+@router.get("/curriculum/subjects")
+def api_curriculum_subjects(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    return {
+        "meta": curriculum_meta(),
+        "subjects": list_curriculum_subjects(),
+        "count": len(list_curriculum_subjects()),
+    }
+
+
+@router.get("/curriculum/standards")
+def api_curriculum_standards(
+    subject: str,
+    career: str = "",
+    assessment_type: str = "",
+    topic: str = "",
+    content: str = "",
+    limit: int = 5,
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    name = subject.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="과목명을 입력하세요.")
+    entry = resolve_subject_entry(name)
+    if not entry:
+        return {
+            "subject": name,
+            "resolved": False,
+            "standards": [],
+            "message": "등록된 교육과정 데이터에 없는 과목입니다.",
+        }
+    info = {
+        "career": career,
+        "assessment_type": assessment_type,
+        "topic": topic,
+        "content": content,
+    }
+    standards = find_relevant_standards(name, info, limit=min(max(limit, 1), 10))
+    return {
+        "subject": name,
+        "resolved": True,
+        "standards": standards,
+        "count": len(standards),
+    }
+
+
+@router.get("/guides/writing")
+def api_writing_guides(
+    section: str | None = None,
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    return get_writing_guide(section)
 
 
 @router.get("/samples")
@@ -345,6 +430,50 @@ def _build_xlsx_response(students: list[StudentInput]) -> Response:
     )
 
 
+@router.get("/students/{student_id}/inspect")
+def api_student_inspect(student_id: str, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    report = inspect_student_by_id(student_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
+    return report_to_dict(report)
+
+
+@router.post("/inspect/text")
+def api_inspect_text(payload: InspectTextRequest, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    text = payload.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="검사할 본문을 입력하세요.")
+    report = run_inspect_text(
+        text,
+        section_key=payload.section_key.strip() or "본문",
+        student_name=payload.student_name.strip(),
+    )
+    return report_to_dict(report)
+
+
+@router.post("/inspect/batch")
+def api_inspect_batch(
+    payload: InspectBatchRequest,
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    if payload.ids:
+        reports, not_found = inspect_students_by_ids(payload.ids)
+    else:
+        reports = inspect_all_students()
+        not_found = []
+    summary = {
+        "total": len(reports),
+        "fail": sum(1 for report in reports if report.status == "fail"),
+        "warn": sum(1 for report in reports if report.status == "warn"),
+        "ok": sum(1 for report in reports if report.status == "ok"),
+    }
+    return {
+        "summary": summary,
+        "not_found": not_found,
+        "reports": [report_to_dict(report) for report in reports],
+    }
+
+
 @router.get("/students/{student_id}")
 def api_student_show(student_id: str, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
     student = get_student(student_id)
@@ -442,6 +571,40 @@ def api_student_update(
         if response_generated:
             data["status"] = payload.status or ("done" if response_generated else saved.status)
     return data
+
+
+@router.post("/neis/parse")
+def api_neis_parse(payload: NeisPasteRequest, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    try:
+        return parse_neis_paste(payload.text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/students/{student_id}/neis-export")
+def api_student_neis_export(student_id: str, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    student = get_student(student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
+    return {"tsv": format_neis_tsv(student), "student_id": student.id}
+
+
+@router.post("/students/{student_id}/neis-import")
+def api_student_neis_import(
+    student_id: str,
+    payload: NeisPasteRequest,
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    student = get_student(student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
+    try:
+        parsed = parse_neis_paste(payload.text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    merged = merge_parsed_into_student(student, parsed)
+    saved = save_student(merged)
+    return saved.to_dict()
 
 
 @router.post("/students/import")
@@ -558,18 +721,29 @@ def api_run_async(
     background_tasks: BackgroundTasks,
     _: AdminSession = Depends(require_admin),
 ) -> dict[str, Any]:
-    try:
-        normalize_write_sections(payload.sections)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    job = create_run_job(
-        sections=payload.sections or ["행발"],
-        student_id=payload.student_id,
-        limit=payload.limit,
-    )
+    if payload.all_targets:
+        job = create_run_job(
+            all_targets=True,
+            student_id=payload.student_id,
+            limit=payload.limit,
+        )
+    else:
+        try:
+            normalize_write_sections(payload.sections)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        job = create_run_job(
+            sections=payload.sections or ["행발"],
+            student_id=payload.student_id,
+            limit=payload.limit,
+        )
     background_tasks.add_task(execute_run_job, job.id)
-    return {"job_id": job.id, "status": job.status, "section": job.section}
+    return {
+        "job_id": job.id,
+        "status": job.status,
+        "section": job.section,
+        "all_targets": job.all_targets,
+    }
 
 
 @router.get("/jobs")

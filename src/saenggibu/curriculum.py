@@ -139,3 +139,26 @@ def format_curriculum_context(standards: list[dict[str, str]]) -> str:
         lines.append(f"- {item['code']}: {prefix}{item['text']}")
     lines.append("위 성취기준은 수업·활동 맥락 참고용이며, 학생이 달성했다고 단정하지 마세요.")
     return "\n".join(lines)
+
+
+def list_curriculum_subjects(curriculum: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    data = curriculum or load_curriculum()
+    subjects = data.get("subjects") or {}
+    items: list[dict[str, Any]] = []
+    for name, entry in subjects.items():
+        if not isinstance(entry, dict):
+            continue
+        items.append(
+            {
+                "name": name,
+                "aliases": list(entry.get("aliases") or []),
+                "unit_count": len(entry.get("units") or []),
+            }
+        )
+    items.sort(key=lambda item: item["name"])
+    return items
+
+
+def curriculum_meta(curriculum: dict[str, Any] | None = None) -> dict[str, Any]:
+    data = curriculum or load_curriculum()
+    return dict(data.get("meta") or {})

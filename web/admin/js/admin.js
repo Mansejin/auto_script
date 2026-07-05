@@ -108,11 +108,151 @@
   let selectedSampleIds = new Set();
   let selectedStudentIds = new Set();
   let selectedReviewIds = new Set();
+  let inspectReportCache = new Map();
+  let currentInspectReport = null;
+  function inspectBadgeHtml(studentId, report = null) {
+    const cached = report || inspectReportCache.get(studentId);
+    if (!cached) {
+      return `<span class="admin-inspect-badge pending">미검사</span>`;
+    }
+    if (cached.status === "fail") {
+      return `<span class="admin-inspect-badge fail">오류 ${cached.error_count}</span>`;
+    }
+    if (cached.status === "warn") {
+      return `<span class="admin-inspect-badge warn">주의 ${cached.warning_count}</span>`;
+    }
+    return `<span class="admin-inspect-badge ok">통과</span>`;
+  }
+
+  function inspectIssueClass(severity) {
+    if (severity === "error") return "issue-error";
+    if (severity === "warning") return "issue-warning";
+    return "issue-info";
+  }
+
+  function renderInspectSummary(report, containerId = "detailIssues") {
+    const box = document.getElementById(containerId);
+    if (!box) return;
+    if (!report || !report.issues?.length) {
+      box.hidden = true;
+      box.innerHTML = "";
+      return;
+    }
+    box.hidden = false;
+    const items = report.issues
+      .map((issue) => {
+        const detail = issue.detail ? ` <span class="admin-muted">(${escapeHtml(issue.detail)})</span>` : "";
+        return `<li class="${inspectIssueClass(issue.severity)}">
+          <span class="issue-section">${escapeHtml(issue.section)}</span>${escapeHtml(issue.message)}${detail}
+        </li>`;
+      })
+      .join("");
+    box.innerHTML = `
+      <h3>검사 결과 ${inspectBadgeHtml(report.student_id, report)}</h3>
+      <ul class="admin-inspect-issues">${items}</ul>`;
+  }
+
+  function renderFieldIssues(report) {
+    const bySection = new Map();
+    for (const issue of report?.issues || []) {
+      if (!bySection.has(issue.section)) bySection.set(issue.section, []);
+      bySection.get(issue.section).push(issue);
+    }
+    document.querySelectorAll(".inspect-field-issues").forEach((list) => {
+      const section = list.dataset.for;
+      const issues = bySection.get(section) || [];
+      if (!issues.length) {
+        list.innerHTML = "";
+        return;
+      }
+      list.innerHTML = issues
+        .map(
+          (issue) =>
+            `<li class="${inspectIssueClass(issue.severity)}">${escapeHtml(issue.message)}</li>`
+        )
+        .join("");
+    });
+  }
+
+  function updateDetailCharCounts(report = currentInspectReport) {
+    document.querySelectorAll("#detailEditor .detail-field").forEach((textarea) => {
+      const section = textarea.dataset.key;
+      if (!section) return;
+      const counter = document.querySelector(`.inspect-char-count[data-for="${CSS.escape(section)}"]`);
+      if (!counter) return;
+      const length = textarea.value.trim().length;
+      counter.textContent = `${length}자`;
+      counter.classList.remove("is-warn", "is-error");
+      const sectionIssues = (report?.issues || []).filter((issue) => issue.section === section);
+      if (sectionIssues.some((issue) => issue.severity === "error")) {
+        counter.classList.add("is-error");
+      } else if (sectionIssues.some((issue) => issue.severity === "warning")) {
+        counter.classList.add("is-warn");
+      }
+    });
+  }
+
+  function bindDetailEditorInspectEvents() {
+    document.querySelectorAll("#detailEditor .detail-field").forEach((textarea) => {
+      textarea.addEventListener("input", () => updateDetailCharCounts());
+    });
+  }
+
+  async function inspectStudents(ids = null) {
+    const body = ids && ids.length ? { ids } : { ids: [] };
+    const data = await api("/api/inspect/batch", { method: "POST", body });
+    for (const report of data.reports || []) {
+      if (report.student_id) inspectReportCache.set(report.student_id, report);
+    }
+    return data;
+  }
+
+  async function inspectCurrentStudent() {
+    if (!currentStudentId) return null;
+    const report = await api(`/api/students/${currentStudentId}/inspect`);
+    inspectReportCache.set(currentStudentId, report);
+    currentInspectReport = report;
+    return report;
+  }
+
+  async function runInspectBatch(ids = null) {
+    const stop = startBusy("생기부 검사", "작성본을 기재요령 기준으로 점검합니다.", "잠시만 기다려 주세요.", {
+      showModel: false,
+    });
+    try {
+      const data = await inspectStudents(ids);
+      const { summary } = data;
+      showToast(`검사 완료 · 통과 ${summary.ok} · 주의 ${summary.warn} · 오류 ${summary.fail}`);
+      await loadReviewList();
+      if (currentStudentId && inspectReportCache.has(currentStudentId)) {
+        currentInspectReport = inspectReportCache.get(currentStudentId);
+        renderInspectSummary(currentInspectReport);
+        renderFieldIssues(currentInspectReport);
+        updateDetailCharCounts(currentInspectReport);
+      }
+      return data;
+    } catch (error) {
+      showToast(error.message || "검사 실패");
+      return null;
+    } finally {
+      stop();
+    }
+  }
+
+  function sectionLabelFromKey(key) {
+    if (key === "행발") return "행동특성 및 종합의견";
+    if (key.startsWith("세특:")) return `세특 · ${key.slice(4)}`;
+    if (key.startsWith("창체:")) return `창체 · ${key.slice(4)}`;
+    return key;
+  }
+
   let busyTimer = null;
   let busyStartedAt = 0;
   let systemInfo = { gemini_model: "—" };
-  let privacySettings = { store_generated: false, encrypt_data: true };
+  let privacySettings = { store_generated: false, encrypt_data: true, mask_pii: true };
   let usageLine = "";
+  const writingTipsCache = new Map();
+  let curriculumTimer = null;
 
   const busyOverlay = document.getElementById("busyOverlay");
   const busyTitle = document.getElementById("busyTitle");
@@ -120,6 +260,7 @@
   const busyModel = document.getElementById("busyModel");
   const busyHint = document.getElementById("busyHint");
   const busyElapsed = document.getElementById("busyElapsed");
+  const busyBarFill = document.querySelector(".admin-busy-bar-fill");
 
   function showToast(message) {
     if (!toast) return;
@@ -140,8 +281,12 @@
         busyModel.hidden = !showModel;
         busyModel.textContent = `사용 모델 · ${systemInfo.gemini_model}`;
       }
-      if (busyElapsed) busyElapsed.textContent = "0초 경과";
-      return;
+    if (busyElapsed) busyElapsed.textContent = "0초 경과";
+    if (busyBarFill) {
+      busyBarFill.style.width = "35%";
+      busyBarFill.style.animation = "";
+    }
+    return;
     }
     if (busyTimer) {
       clearInterval(busyTimer);
@@ -172,6 +317,70 @@
     }
   }
 
+  function buildRunPayload({ studentId = null, limit = null } = {}) {
+    const section = getSelectedWriteSection();
+    const payload = {};
+    if (studentId) payload.student_id = studentId;
+    if (limit) payload.limit = limit;
+    if (section === "전체") {
+      payload.all_targets = true;
+      return payload;
+    }
+    payload.all_targets = false;
+    payload.sections = [section];
+    return payload;
+  }
+
+  function formatJobProgress(job) {
+    const parts = [];
+    if (job.total) parts.push(`${job.processed || 0}/${job.total}`);
+    if (job.current_section) parts.push(job.current_section);
+    if (job.current_label) parts.push(job.current_label);
+    if (job.message) parts.push(job.message);
+    return parts.join(" · ") || "작성 중...";
+  }
+
+  function updateBusyFromJob(job) {
+    const message = formatJobProgress(job);
+    if (busyMessage) busyMessage.textContent = message;
+    if (busyBarFill) {
+      if (job.total) {
+        busyBarFill.style.animation = "none";
+        const pct = Math.min(100, Math.round(((job.processed || 0) / job.total) * 100));
+        busyBarFill.style.width = `${pct}%`;
+      } else {
+        busyBarFill.style.animation = "";
+        busyBarFill.style.width = "35%";
+      }
+    }
+  }
+
+  async function pollRunJob(jobId) {
+    const intervalMs = 1200;
+    while (true) {
+      const job = await api(`/api/jobs/${jobId}`);
+      updateBusyFromJob(job);
+      if (job.status === "done" || job.status === "error") return job;
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+
+  async function withAsyncRun(title, message, hint, payload) {
+    const stop = startBusy(title, message, hint);
+    try {
+      const started = await api("/api/run/async", { method: "POST", body: payload });
+      const job = await pollRunJob(started.job_id);
+      if (job.status === "error") {
+        throw new Error(job.message || "작성 중 오류가 발생했습니다.");
+      }
+      const result = job.result || {};
+      persistRunResponse(result);
+      return { ...result, message: job.message };
+    } finally {
+      stop();
+    }
+  }
+
   async function loadSystemInfo() {
     try {
       const data = await api("/api/auth/me");
@@ -180,6 +389,7 @@
         privacySettings = {
           store_generated: Boolean(data.privacy.store_generated),
           encrypt_data: Boolean(data.privacy.encrypt_data),
+          mask_pii: data.privacy.mask_pii !== false,
         };
       }
       updatePrivacyHint();
@@ -262,11 +472,101 @@
   function updatePrivacyHint() {
     const badge = document.getElementById("usageBadge");
     if (!badge) return;
-    const privacyPrefix = !privacySettings.store_generated
-      ? `작성본은 이 브라우저에만 보관${privacySettings.encrypt_data ? " · 메모 암호화" : ""} · `
-      : "";
+    const parts = [];
+    if (!privacySettings.store_generated) {
+      parts.push("작성본은 이 브라우저에만 보관");
+      if (privacySettings.encrypt_data) parts.push("메모 암호화");
+    }
+    if (privacySettings.mask_pii) parts.push("PII 마스킹");
+    const privacyPrefix = parts.length ? `${parts.join(" · ")} · ` : "";
     const steps = "① 학습 → ② 설정 → ③ 학생 → ④ 작성·검토";
     badge.textContent = usageLine ? `${privacyPrefix}${usageLine} · ${steps}` : `${privacyPrefix}${steps}`;
+  }
+
+  function renderWritingTips(el, data) {
+    if (!el || !data) return;
+    const section = data.section;
+    const items = section?.checklist || data.common?.checklist || [];
+    if (!items.length) return;
+    const title = section?.title || "작성 체크리스트";
+    el.innerHTML = `<details>
+      <summary>${escapeHtml(title)} 체크리스트</summary>
+      <ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    </details>`;
+  }
+
+  async function loadWritingTipsPanel(section, el) {
+    if (!el) return;
+    if (writingTipsCache.has(section)) {
+      renderWritingTips(el, writingTipsCache.get(section));
+      return;
+    }
+    try {
+      const data = await api(`/api/guides/writing?section=${encodeURIComponent(section)}`);
+      writingTipsCache.set(section, data);
+      renderWritingTips(el, data);
+    } catch {
+      /* optional UI */
+    }
+  }
+
+  async function initWritingTips() {
+    const panels = document.querySelectorAll(".admin-writing-tips[data-tips-section]");
+    await Promise.all(
+      [...panels].map((el) => loadWritingTipsPanel(el.dataset.tipsSection, el))
+    );
+  }
+
+  function scheduleCurriculumLookup() {
+    if (curriculumTimer) clearTimeout(curriculumTimer);
+    curriculumTimer = setTimeout(() => {
+      refreshCurriculumStandards().catch(() => {});
+    }, 450);
+  }
+
+  async function refreshCurriculumStandards() {
+    const box = document.getElementById("curriculumStandards");
+    const list = document.getElementById("curriculumStandardsList");
+    const subject = document.getElementById("simpleSubject")?.value.trim();
+    if (!box || !list || !subject) {
+      if (box) box.hidden = true;
+      return;
+    }
+    const params = new URLSearchParams({
+      subject,
+      career: document.getElementById("simpleSetukCareer")?.value.trim() || "",
+      assessment_type: document.getElementById("simpleSetukAssessment")?.value.trim() || "",
+      topic: document.getElementById("simpleSetukTopic")?.value.trim() || "",
+      content: document.getElementById("simpleSetukContent")?.value.trim() || "",
+      limit: "4",
+    });
+    const data = await api(`/api/curriculum/standards?${params}`);
+    if (!data.resolved || !data.standards?.length) {
+      box.hidden = true;
+      list.innerHTML = "";
+      return;
+    }
+    list.innerHTML = data.standards
+      .map(
+        (item) =>
+          `<li><span class="std-code">${escapeHtml(item.code)}</span>${escapeHtml(item.text)}${
+            item.unit ? ` <span class="admin-muted">(${escapeHtml(item.unit)})</span>` : ""
+          }</li>`
+      )
+      .join("");
+    box.hidden = false;
+  }
+
+  function bindCurriculumInputs() {
+    for (const id of [
+      "simpleSubject",
+      "simpleSetukCareer",
+      "simpleSetukAssessment",
+      "simpleSetukTopic",
+      "simpleSetukContent",
+    ]) {
+      document.getElementById(id)?.addEventListener("input", scheduleCurriculumLookup);
+    }
   }
 
   function showUploadLog(elementId, lines) {
@@ -378,9 +678,15 @@
     세특: "세부능력 및 특기사항",
     자율: "자율활동",
     동아리: "동아리활동",
+    봉사: "봉사활동",
     진로: "진로활동",
     창체: "창의적 체험활동",
+    전체: "등록된 전체 항목",
   };
+
+  const MEMO_TARGET_OPTIONS = ["행발", "세특", "자율", "동아리", "봉사", "진로"];
+  let memoEditStudentId = null;
+  let memoEditStudentData = null;
 
   function getSelectedWriteTargets() {
     return [...document.querySelectorAll(".write-target:checked")].map((el) => el.value);
@@ -451,6 +757,203 @@
     return inferred.length ? inferred.join(", ") : "-";
   }
 
+  function getMemoEditTargets() {
+    return [...document.querySelectorAll(".memo-edit-target:checked")].map((el) => el.value);
+  }
+
+  function updateMemoEditPanels() {
+    const selected = new Set(getMemoEditTargets());
+    document.querySelectorAll(".memo-edit-panel").forEach((panel) => {
+      panel.hidden = !selected.has(panel.dataset.target);
+    });
+  }
+
+  function buildMemoEditSubjectBlock(subject, info = {}) {
+    const safeSubject = escapeAttr(subject || "");
+    return `
+      <div class="admin-field memo-edit-subject" data-subject="${safeSubject}">
+        <div class="admin-field-head">
+          <label>세특 · ${escapeHtml(subject || "과목")}</label>
+          <button type="button" class="admin-btn danger admin-btn-sm memo-remove-subject">삭제</button>
+        </div>
+        <input class="memo-subject-name" value="${escapeHtml(subject || "")}" placeholder="과목명">
+        <input class="memo-subject-career" value="${escapeHtml(info.career || "")}" placeholder="진로">
+        <input class="memo-subject-assessment" value="${escapeHtml(info.assessment_type || "")}" placeholder="수행평가 형식">
+        <input class="memo-subject-topic" value="${escapeHtml(info.topic || "")}" placeholder="주제">
+        <textarea class="admin-textarea memo-subject-content" rows="4" placeholder="활동 내용">${escapeHtml(info.content || info.notes || (info.activities || [])[0] || "")}</textarea>
+      </div>`;
+  }
+
+  function buildMemoEditForm(student) {
+    const targetsEl = document.getElementById("memoEditTargets");
+    const fieldsEl = document.getElementById("memoEditFields");
+    if (!targetsEl || !fieldsEl) return;
+
+    const selected = new Set(
+      Array.isArray(student.notes?.write_targets) && student.notes.write_targets.length
+        ? student.notes.write_targets
+        : formatWriteTargets(student).split(", ").filter((item) => item !== "-")
+    );
+
+    targetsEl.innerHTML = MEMO_TARGET_OPTIONS.map(
+      (target) => `
+        <label class="admin-check admin-target-chip">
+          <input type="checkbox" class="admin-check-input memo-edit-target" value="${target}" ${
+            selected.has(target) ? "checked" : ""
+          }>
+          <span class="admin-check-box"></span><span>${target}</span>
+        </label>`
+    ).join("");
+
+    const subjects = student.subjects || {};
+    const subjectBlocks = Object.keys(subjects).length
+      ? Object.entries(subjects).map(([subject, info]) => buildMemoEditSubjectBlock(subject, info)).join("")
+      : buildMemoEditSubjectBlock("", {});
+
+    fieldsEl.innerHTML = `
+      <details class="admin-memo-panel memo-edit-panel" data-target="행발" ${selected.has("행발") ? "open" : ""}>
+        <summary>행발 메모</summary>
+        <textarea id="memoEditHaengbal" class="admin-textarea" rows="4">${escapeHtml(
+          student.notes?.행발 || student.notes?.행발_notes || ""
+        )}</textarea>
+      </details>
+      <details class="admin-memo-panel memo-edit-panel" data-target="세특" ${selected.has("세특") ? "open" : ""}>
+        <summary>세특 메모</summary>
+        <div id="memoEditSubjects">${subjectBlocks}</div>
+        <button type="button" id="memoAddSubjectBtn" class="admin-btn secondary admin-btn-sm" style="margin-top:8px">과목 추가</button>
+      </details>
+      ${["자율", "동아리", "봉사", "진로"]
+        .map(
+          (key) => `
+        <details class="admin-memo-panel memo-edit-panel" data-target="${key}" ${selected.has(key) ? "open" : ""}>
+          <summary>${WRITE_SECTION_LABELS[key] || key} 메모</summary>
+          <textarea class="admin-textarea memo-edit-changche" data-key="${key}" rows="3">${escapeHtml(
+            (student.changche || {})[key] || ""
+          )}</textarea>
+        </details>`
+        )
+        .join("")}`;
+
+    updateMemoEditPanels();
+    targetsEl.querySelectorAll(".memo-edit-target").forEach((box) => {
+      box.addEventListener("change", updateMemoEditPanels);
+    });
+    document.getElementById("memoAddSubjectBtn")?.addEventListener("click", () => {
+      document.getElementById("memoEditSubjects")?.insertAdjacentHTML("beforeend", buildMemoEditSubjectBlock("", {}));
+    });
+    fieldsEl.querySelectorAll(".memo-remove-subject").forEach((btn) => {
+      btn.addEventListener("click", () => btn.closest(".memo-edit-subject")?.remove());
+    });
+  }
+
+  function collectMemoEditPayload() {
+    const writeTargets = getMemoEditTargets();
+    const notes = {
+      ...(memoEditStudentData?.notes || {}),
+      행발: document.getElementById("memoEditHaengbal")?.value.trim() || "",
+      write_targets: writeTargets,
+    };
+    delete notes.행발_notes;
+
+    const subjects = {};
+    document.querySelectorAll(".memo-edit-subject").forEach((block) => {
+      const subject = block.querySelector(".memo-subject-name")?.value.trim() || "";
+      const content = block.querySelector(".memo-subject-content")?.value.trim() || "";
+      if (!subject) return;
+      subjects[subject] = {
+        career: block.querySelector(".memo-subject-career")?.value.trim() || "",
+        assessment_type: block.querySelector(".memo-subject-assessment")?.value.trim() || "",
+        topic: block.querySelector(".memo-subject-topic")?.value.trim() || "",
+        content,
+        activities: content ? [content] : [],
+        notes: content,
+      };
+    });
+
+    const changche = { ...(memoEditStudentData?.changche || {}) };
+    document.querySelectorAll(".memo-edit-changche").forEach((el) => {
+      changche[el.dataset.key] = el.value.trim();
+    });
+
+    return { notes, subjects, changche };
+  }
+
+  function applyParsedToMemoForm(parsed) {
+    if (parsed.notes) {
+      if (parsed.notes.행발) {
+        const el = document.getElementById("memoEditHaengbal");
+        if (el) el.value = parsed.notes.행발;
+      }
+      if (Array.isArray(parsed.notes.write_targets)) {
+        document.querySelectorAll(".memo-edit-target").forEach((box) => {
+          box.checked = parsed.notes.write_targets.includes(box.value);
+        });
+        updateMemoEditPanels();
+      }
+    }
+    if (parsed.subjects && Object.keys(parsed.subjects).length) {
+      const container = document.getElementById("memoEditSubjects");
+      if (container) {
+        container.innerHTML = Object.entries(parsed.subjects)
+          .map(([subject, info]) => buildMemoEditSubjectBlock(subject, info))
+          .join("");
+        container.querySelectorAll(".memo-remove-subject").forEach((btn) => {
+          btn.addEventListener("click", () => btn.closest(".memo-edit-subject")?.remove());
+        });
+      }
+    }
+    if (parsed.changche) {
+      Object.entries(parsed.changche).forEach(([key, value]) => {
+        const el = document.querySelector(`.memo-edit-changche[data-key="${key}"]`);
+        if (el) el.value = value;
+      });
+    }
+  }
+
+  async function openMemoEditModal(studentId) {
+    const modal = document.getElementById("memoEditModal");
+    if (!modal) return;
+    const student = await api(`/api/students/${studentId}`);
+    memoEditStudentId = studentId;
+    memoEditStudentData = student;
+    document.getElementById("memoEditTitle").textContent = "입력 메모 수정";
+    document.getElementById("memoEditSubtitle").textContent = studentLabel(student);
+    document.getElementById("neisPasteInput").value = "";
+    buildMemoEditForm(student);
+    modal.hidden = false;
+    document.body.classList.add("admin-guide-open");
+  }
+
+  function closeMemoEditModal() {
+    const modal = document.getElementById("memoEditModal");
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.classList.remove("admin-guide-open");
+    memoEditStudentId = null;
+    memoEditStudentData = null;
+  }
+
+  async function saveMemoEdit() {
+    if (!memoEditStudentId) return;
+    const payload = collectMemoEditPayload();
+    if (!payload.notes.write_targets.length) {
+      showToast("작성 항목을 하나 이상 선택하세요.");
+      return;
+    }
+    const updated = await api(`/api/students/${memoEditStudentId}`, {
+      method: "PATCH",
+      body: payload,
+    });
+    const savedId = memoEditStudentId;
+    memoEditStudentData = updated;
+    showToast("메모 저장됨");
+    closeMemoEditModal();
+    await loadStudents();
+    if (currentStudentId === savedId) {
+      currentStudentData = mergeStudentWithDraft(updated);
+    }
+  }
+
   function openGuideModal() {
     const modal = document.getElementById("guideModal");
     if (!modal) return;
@@ -495,7 +998,8 @@
     const section = document.querySelector('input[name="writeSection"]:checked')?.value || "행발";
     const btn = document.getElementById("runBatchBtn");
     if (btn) {
-      btn.textContent = `${section} 미작성 학생 작성`;
+      btn.textContent =
+        section === "전체" ? "미완료 항목 일괄 작성" : `${section} 미작성 학생 작성`;
     }
     sessionStorage.setItem("sgb_write_section", section);
   }
@@ -571,6 +1075,7 @@
           <td>${statusPill(s.status)}</td>
           <td>${targets}</td>
           <td class="admin-row-actions">
+            <button class="admin-btn secondary admin-btn-sm" type="button" data-action="edit-memo" data-id="${s.id}">메모</button>
             ${actions}
             <button class="admin-btn danger admin-btn-sm" type="button" data-action="delete-student" data-id="${s.id}" data-label="${escapeAttr(studentLabel(s))}">삭제</button>
           </td>
@@ -636,14 +1141,14 @@
     const tbody = document.getElementById("reviewTableBody");
     const toolbar = document.getElementById("reviewBulkActions");
     if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="4">불러오는 중…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5">불러오는 중…</td></tr>`;
     if (toolbar) toolbar.hidden = true;
     const data = await api("/api/students");
     const reviewable = mergeStudentsWithDrafts(data.students).filter(
       (s) => s.status === "done" || s.status === "partial" || Object.keys(s.generated || {}).length
     );
     if (!reviewable.length) {
-      tbody.innerHTML = `<tr><td colspan="4" class="admin-muted">아직 작성된 생기부가 없습니다. ④에서 일괄 작성을 실행하세요.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="admin-muted">아직 작성된 생기부가 없습니다. ④에서 일괄 작성을 실행하세요.</td></tr>`;
       selectedReviewIds.clear();
       updateReviewSelectionUi(0);
       return;
@@ -660,6 +1165,7 @@
           </td>
           <td>${studentLabel(s)}</td>
           <td>${statusPill(s.status)}</td>
+          <td>${inspectBadgeHtml(s.id)}</td>
           <td class="admin-row-actions">
             <button class="admin-btn secondary admin-btn-sm" data-action="review" data-id="${s.id}">열기</button>
             <button class="admin-btn danger admin-btn-sm" type="button" data-action="reset-generated" data-id="${s.id}" data-label="${escapeAttr(studentLabel(s))}">작성 삭제</button>
@@ -958,27 +1464,41 @@
 
     if (generated.행발) {
       parts.push(`
-        <div class="admin-field">
-          <label>행동특성 및 종합의견</label>
+        <div class="admin-field inspect-field">
+          <div class="admin-field-head">
+            <label>행동특성 및 종합의견</label>
+            <span class="inspect-char-count" data-for="행발">0자</span>
+          </div>
           <textarea class="admin-textarea detail-field" data-key="행발" rows="6">${escapeHtml(generated.행발)}</textarea>
+          <ul class="inspect-field-issues" data-for="행발"></ul>
         </div>`);
     }
 
     const setuk = generated.세특 || {};
     for (const [subject, text] of Object.entries(setuk)) {
+      const key = `세특:${subject}`;
       parts.push(`
-        <div class="admin-field">
-          <label>세특 · ${escapeHtml(subject)}</label>
-          <textarea class="admin-textarea detail-field" data-key="세특:${escapeAttr(subject)}" rows="5">${escapeHtml(text)}</textarea>
+        <div class="admin-field inspect-field">
+          <div class="admin-field-head">
+            <label>세특 · ${escapeHtml(subject)}</label>
+            <span class="inspect-char-count" data-for="${escapeAttr(key)}">0자</span>
+          </div>
+          <textarea class="admin-textarea detail-field" data-key="${escapeAttr(key)}" rows="5">${escapeHtml(text)}</textarea>
+          <ul class="inspect-field-issues" data-for="${escapeAttr(key)}"></ul>
         </div>`);
     }
 
     const changche = generated.창체 || {};
-    for (const [key, text] of Object.entries(changche)) {
+    for (const [keyName, text] of Object.entries(changche)) {
+      const key = `창체:${keyName}`;
       parts.push(`
-        <div class="admin-field">
-          <label>창체 · ${escapeHtml(key)}</label>
-          <textarea class="admin-textarea detail-field" data-key="창체:${escapeAttr(key)}" rows="4">${escapeHtml(text)}</textarea>
+        <div class="admin-field inspect-field">
+          <div class="admin-field-head">
+            <label>창체 · ${escapeHtml(keyName)}</label>
+            <span class="inspect-char-count" data-for="${escapeAttr(key)}">0자</span>
+          </div>
+          <textarea class="admin-textarea detail-field" data-key="${escapeAttr(key)}" rows="4">${escapeHtml(text)}</textarea>
+          <ul class="inspect-field-issues" data-for="${escapeAttr(key)}"></ul>
         </div>`);
     }
 
@@ -987,6 +1507,9 @@
       return;
     }
     editor.innerHTML = parts.join("");
+    bindDetailEditorInspectEvents();
+    updateDetailCharCounts(currentInspectReport);
+    renderFieldIssues(currentInspectReport);
   }
 
   function escapeHtml(text) {
@@ -1038,8 +1561,26 @@
     const privacyNote = privacySettings.store_generated
       ? ""
       : ' <span class="admin-muted">· 작성본은 이 브라우저에만 저장됩니다</span>';
-    document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(student.status)}${privacyNote}`;
     buildDetailEditor(student.generated || {});
+    const detailTips = document.getElementById("detailWritingTips");
+    if (detailTips) {
+      detailTips.hidden = false;
+      await loadWritingTipsPanel("common", detailTips);
+    }
+    try {
+      currentInspectReport = await inspectCurrentStudent();
+      document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(student.status)}${privacyNote} ${inspectBadgeHtml(
+        id,
+        currentInspectReport
+      )}`;
+      renderInspectSummary(currentInspectReport);
+      renderFieldIssues(currentInspectReport);
+      updateDetailCharCounts(currentInspectReport);
+    } catch {
+      currentInspectReport = null;
+      document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(student.status)}${privacyNote}`;
+      renderInspectSummary(null);
+    }
   }
 
   loginForm?.addEventListener("submit", async (event) => {
@@ -1082,6 +1623,14 @@
       await showStudent(id, "students");
       return;
     }
+    if (target.dataset.action === "edit-memo") {
+      try {
+        await openMemoEditModal(id);
+      } catch (error) {
+        showToast(error.message);
+      }
+      return;
+    }
     if (target.dataset.action === "run-one") {
       const studentName = target.closest("tr")?.children[1]?.textContent?.trim() || "학생";
       let section;
@@ -1093,19 +1642,13 @@
         return;
       }
       const sectionLabel = WRITE_SECTION_LABELS[section] || section;
+      const runTitle = section === "전체" ? "전체 항목 작성" : `${section} 작성`;
       try {
-        await withBusy(
-          `${section} 작성`,
+        await withAsyncRun(
+          runTitle,
           `${studentName} · ${sectionLabel}`,
-          "완료될 때까지 기다려 주세요.",
-          async () => {
-            const result = await api("/api/run", {
-              method: "POST",
-              body: { student_id: id, sections: [section] },
-            });
-            persistRunResponse(result);
-            return result;
-          }
+          "진행 상황을 표시합니다. 창을 닫지 마세요.",
+          buildRunPayload({ studentId: id })
         );
         showToast("작성 완료");
         await Promise.all([loadStudents(), loadReviewList(), loadUsage()]);
@@ -1206,6 +1749,11 @@
     await resetGeneratedByIds(ids, `선택한 ${ids.length}명의 작성본을 삭제할까요?\n학생 메모는 유지됩니다.`);
   });
 
+  document.getElementById("inspectAllReviewBtn")?.addEventListener("click", async () => {
+    const ids = getSelectedReviewIds();
+    await runInspectBatch(ids.length ? ids : null);
+  });
+
   document.getElementById("resetAllReviewBtn")?.addEventListener("click", async () => {
     const data = await api("/api/students");
     const count = mergeStudentsWithDrafts(data.students).filter((s) => Object.keys(s.generated || {}).length).length;
@@ -1257,8 +1805,45 @@
         currentStudentData = updated;
       }
       showToast(privacySettings.store_generated ? "저장됨" : "이 브라우저에 저장됨");
+      try {
+        currentInspectReport = await inspectCurrentStudent();
+        const privacyNote = privacySettings.store_generated
+          ? ""
+          : ' <span class="admin-muted">· 작성본은 이 브라우저에만 저장됩니다</span>';
+        document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(currentStudentData.status)}${privacyNote} ${inspectBadgeHtml(
+          currentStudentId,
+          currentInspectReport
+        )}`;
+        renderInspectSummary(currentInspectReport);
+        renderFieldIssues(currentInspectReport);
+        updateDetailCharCounts(currentInspectReport);
+        await loadReviewList();
+      } catch {
+        /* inspect optional after save */
+      }
     } catch (error) {
       showToast(error.message);
+    }
+  });
+
+  document.getElementById("inspectDetailBtn")?.addEventListener("click", async () => {
+    if (!currentStudentId) return;
+    const stop = startBusy("생기부 검사", "수정한 본문을 점검합니다.", "잠시만 기다려 주세요.", { showModel: false });
+    try {
+      currentInspectReport = await inspectCurrentStudent();
+      document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(currentStudentData?.status || "pending")} ${inspectBadgeHtml(
+        currentStudentId,
+        currentInspectReport
+      )}`;
+      renderInspectSummary(currentInspectReport);
+      renderFieldIssues(currentInspectReport);
+      updateDetailCharCounts(currentInspectReport);
+      await loadReviewList();
+      showToast("검사 완료");
+    } catch (error) {
+      showToast(error.message || "검사 실패");
+    } finally {
+      stop();
     }
   });
 
@@ -1273,6 +1858,52 @@
       showToast("클립보드에 복사됨");
     } catch {
       showToast("복사에 실패했습니다.");
+    }
+  });
+
+  document.getElementById("copyNeisBtn")?.addEventListener("click", async () => {
+    if (!currentStudentId) return;
+    try {
+      const data = await api(`/api/students/${currentStudentId}/neis-export`);
+      await navigator.clipboard.writeText(data.tsv);
+      showToast("NEIS용 탭 구분 형식으로 복사됨");
+    } catch (error) {
+      showToast(error.message || "복사에 실패했습니다.");
+    }
+  });
+
+  document.getElementById("editMemoFromDetailBtn")?.addEventListener("click", async () => {
+    if (!currentStudentId) return;
+    try {
+      await openMemoEditModal(currentStudentId);
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+
+  document.getElementById("memoEditCancelBtn")?.addEventListener("click", closeMemoEditModal);
+  document.getElementById("memoEditModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "memoEditModal") closeMemoEditModal();
+  });
+  document.getElementById("memoEditSaveBtn")?.addEventListener("click", async () => {
+    try {
+      await saveMemoEdit();
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+  document.getElementById("neisPasteApplyBtn")?.addEventListener("click", async () => {
+    const text = document.getElementById("neisPasteInput")?.value.trim();
+    if (!text) {
+      showToast("붙여넣을 내용을 입력하세요.");
+      return;
+    }
+    try {
+      const parsed = await api("/api/neis/parse", { method: "POST", body: { text } });
+      applyParsedToMemoForm(parsed);
+      showToast("붙여넣기 내용을 반영했습니다. 저장을 눌러 주세요.");
+    } catch (error) {
+      showToast(error.message);
     }
   });
 
@@ -1334,6 +1965,9 @@
     }
     if (writeTargets.includes("동아리")) {
       changche.동아리 = document.getElementById("simpleDongari").value.trim();
+    }
+    if (writeTargets.includes("봉사")) {
+      changche.봉사 = document.getElementById("simpleBongsa").value.trim();
     }
     if (writeTargets.includes("진로")) {
       changche.진로 = document.getElementById("simpleJillo").value.trim();
@@ -1538,19 +2172,22 @@
       return;
     }
     const sectionLabel = WRITE_SECTION_LABELS[section] || section;
-    const limitText = limit ? `${limit}명` : `${section} 미작성 전원`;
+    const limitText =
+      section === "전체"
+        ? limit
+          ? `${limit}명 · 미완료 항목`
+          : "미완료 항목 전원"
+        : limit
+          ? `${limit}명`
+          : `${section} 미작성 전원`;
+    const runTitle = section === "전체" ? "전체 항목 일괄 작성" : `${section} 일괄 작성`;
     try {
-      const data = await withBusy(
-        `${section} 일괄 작성`,
+      const data = await withAsyncRun(
+        runTitle,
         `${limitText} · ${sectionLabel}`,
-        "완료될 때까지 기다려 주세요.",
-        () =>
-          api("/api/run", {
-            method: "POST",
-            body: { sections: [section], limit },
-          })
+        "진행 상황을 표시합니다. 창을 닫지 마세요.",
+        buildRunPayload({ limit })
       );
-      persistRunResponse(data);
       const errCount = (data.errors || []).length;
       const msg = data.message || `완료 ${data.processed || 0}명${errCount ? `, 오류 ${errCount}건` : ""}`;
       showToast(msg);
@@ -1564,6 +2201,7 @@
   async function refreshAll() {
     await loadSystemInfo();
     await Promise.all([loadStudents(), loadSamples(), loadReviewList(), loadStyleGuide(), loadUsage()]);
+    await initWritingTips();
     switchTab("learn");
   }
 
@@ -1612,6 +2250,7 @@
     document.getElementById("writeSectionChoices")?.addEventListener("change", updateWriteSectionUi);
     updateWriteSectionUi();
     updateStudentMemoPanels();
+    bindCurriculumInputs();
     const expectedPanels = ["panelLearn", "panelStyle", "panelStudents", "panelReview"];
     const missing = expectedPanels.filter((id) => !document.getElementById(id));
     if (missing.length) {

@@ -9,6 +9,13 @@ def new_id(prefix: str = "s") -> str:
     return f"{prefix}{uuid4().hex[:8]}"
 
 
+def _safe_int(value: object, default: int = 1) -> int:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+
+
 @dataclass
 class SampleRecord:
     """과거 작성 완료 생기부 샘플 (패턴 학습용)."""
@@ -59,10 +66,10 @@ class StudentInput:
     def from_dict(cls, data: dict[str, Any]) -> StudentInput:
         return cls(
             id=data.get("id") or new_id(),
-            name=data.get("name", ""),
-            grade=int(data.get("grade", 1)),
-            class_num=int(data.get("class_num", 1)),
-            number=int(data.get("number", 1)),
+            name=str(data.get("name", "")),
+            grade=_safe_int(data.get("grade"), 1),
+            class_num=_safe_int(data.get("class_num"), 1),
+            number=_safe_int(data.get("number"), 1),
             gender=data.get("gender", ""),
             status=data.get("status", "pending"),
             notes=data.get("notes", {}),

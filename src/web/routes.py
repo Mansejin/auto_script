@@ -211,10 +211,22 @@ def logout() -> JSONResponse:
 
 @router.get("/auth/me")
 def auth_me(session: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    try:
+        usage = usage_summary()
+    except Exception as exc:
+        logger.exception("usage summary failed")
+        usage = {
+            "plan": "free",
+            "month": "",
+            "generations_used": 0,
+            "generations_limit": 10,
+            "generations_remaining": 10,
+            "unlimited": False,
+        }
     return {
         "ok": True,
         "admin": True,
-        "usage": usage_summary(),
+        "usage": usage,
         "gemini_model": get_gemini_model(),
         "privacy": {
             "store_generated": store_generated_on_server(),
@@ -377,7 +389,14 @@ def api_patterns_update(payload: StyleGuideUpdate, _: AdminSession = Depends(req
 
 @router.get("/students")
 def api_students_list(status: str | None = None, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
-    students = list_students(status=status)
+    try:
+        students = list_students(status=status)
+    except Exception as exc:
+        logger.exception("students list failed")
+        raise HTTPException(
+            status_code=500,
+            detail=f"학생 목록을 읽지 못했습니다. ({exc})",
+        ) from exc
     return {"students": [s.to_dict() for s in students], "count": len(students)}
 
 

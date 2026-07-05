@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime, timezone
 
 from .config import DATA_DIR, ensure_data_dirs
-from .io_utils import load_json, save_json
 
 USAGE_PATH = DATA_DIR / "usage.json"
 
@@ -14,7 +14,20 @@ def _month_key() -> str:
 
 
 def _free_limit() -> int:
-    return int(os.getenv("SGB_FREE_GENERATIONS", "10"))
+    raw = os.getenv("SGB_FREE_GENERATIONS", "10").strip()
+    if not raw:
+        return 10
+    try:
+        return int(raw)
+    except ValueError:
+        return 10
+
+
+def _safe_generations(value: object) -> int:
+    try:
+        return max(0, int(value))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0
 
 
 def _plan() -> str:
@@ -25,10 +38,17 @@ def load_usage() -> dict:
     ensure_data_dirs()
     if not USAGE_PATH.exists():
         return {"month": _month_key(), "generations": 0}
-    data = load_json(USAGE_PATH)
+    try:
+        from .secure_io import load_secure_json
+
+        data = load_secure_json(USAGE_PATH)
+    except (OSError, ValueError, TypeError, RuntimeError, json.JSONDecodeError):
+        return {"month": _month_key(), "generations": 0}
+    if not isinstance(data, dict) or data.get("__enc"):
+        return {"month": _month_key(), "generations": 0}
     if data.get("month") != _month_key():
         return {"month": _month_key(), "generations": 0}
-    return data
+    return {"month": _month_key(), "generations": _safe_generations(data.get("generations", 0))}
 
 
 def usage_summary() -> dict:
@@ -60,6 +80,8 @@ def check_generation_allowed() -> None:
 
 def record_generation(count: int = 1) -> dict:
     data = load_usage()
-    data["generations"] = int(data.get("generations", 0)) + count
-    save_json(USAGE_PATH, data)
+    data["generations"] = _safe_generations(data.get("generations", 0)) + count
+    from .secure_io import save_secure_json
+
+    save_secure_json(USAGE_PATH, data)
     return usage_summary()

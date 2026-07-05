@@ -1153,17 +1153,18 @@
     if (!tbody) return;
     tbody.innerHTML = `<tr><td colspan="5">불러오는 중…</td></tr>`;
     if (toolbar) toolbar.hidden = true;
-    const data = await api("/api/students");
-    const reviewable = mergeStudentsWithDrafts(data.students).filter(
-      (s) => s.status === "done" || s.status === "partial" || Object.keys(s.generated || {}).length
-    );
-    if (!reviewable.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="admin-muted">아직 작성된 생기부가 없습니다. ④에서 일괄 작성을 실행하세요.</td></tr>`;
-      selectedReviewIds.clear();
-      updateReviewSelectionUi(0);
-      return;
-    }
-    tbody.innerHTML = reviewable
+    try {
+      const data = await api("/api/students");
+      const reviewable = mergeStudentsWithDrafts(data.students).filter(
+        (s) => s.status === "done" || s.status === "partial" || Object.keys(s.generated || {}).length
+      );
+      if (!reviewable.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="admin-muted">아직 작성된 생기부가 없습니다. ④에서 일괄 작성을 실행하세요.</td></tr>`;
+        selectedReviewIds.clear();
+        updateReviewSelectionUi(0);
+        return;
+      }
+      tbody.innerHTML = reviewable
       .map((s) => {
         const checked = selectedReviewIds.has(s.id) ? "checked" : "";
         return `<tr>
@@ -1183,7 +1184,12 @@
         </tr>`;
       })
       .join("");
-    updateReviewSelectionUi(reviewable.length);
+      updateReviewSelectionUi(reviewable.length);
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan="5" class="admin-muted">검토 목록을 불러오지 못했습니다. ${escapeHtml(
+        error.message || "오류"
+      )}</td></tr>`;
+    }
   }
 
   function updateReviewSelectionUi(totalCount = null) {
@@ -2228,7 +2234,12 @@
     const failed = results.filter((result) => result.status === "rejected");
     if (failed.length) {
       const reason = failed[0].reason;
-      showToast(reason?.message || `일부 데이터를 불러오지 못했습니다 (${failed.length}건)`);
+      const message = reason?.message || "";
+      if (message && message !== "Internal Server Error") {
+        showToast(message);
+      } else if (failed.length) {
+        showToast(`일부 데이터를 불러오지 못했습니다 (${failed.length}건)`);
+      }
     }
     await initWritingTips();
     switchTab("learn");
@@ -2287,24 +2298,15 @@
     }
     try {
       await api("/api/auth/me");
-      showApp();
-      await refreshAll();
     } catch (error) {
       if (error?.status === 401) {
         setToken("");
         showGate();
         return;
       }
-      showApp();
-      try {
-        await refreshAll();
-      } catch (refreshError) {
-        showToast(refreshError.message || "데이터를 불러오지 못했습니다.");
-      }
-      if (error?.message) {
-        showToast(error.message);
-      }
     }
+    showApp();
+    await refreshAll();
   }
 
   bootstrap();

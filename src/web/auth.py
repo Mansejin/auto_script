@@ -57,7 +57,7 @@ def verify_session_token(token: str) -> bool:
         return False
     try:
         data = _serializer().loads(token, max_age=SESSION_MAX_AGE)
-    except (BadSignature, SignatureExpired):
+    except (BadSignature, SignatureExpired, RuntimeError):
         return False
     return isinstance(data, dict) and data.get("sub") == "admin"
 

@@ -79,10 +79,10 @@ def reconcile_sample_index() -> list[str]:
             continue
         resolved = _resolve_sample_dict(item)
         if resolved:
-            kept.append(resolved)
+            kept.append(item)
         else:
             removed.append(sample_id)
-    if removed or kept != items:
+    if removed:
         _save_index(kept)
     return removed
 

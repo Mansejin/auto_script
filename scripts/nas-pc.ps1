@@ -10,7 +10,7 @@
 #>
 param(
   [Parameter(Position = 0)]
-  [ValidateSet("setup", "connect", "update", "deploy", "logs", "map", "unmap", "status", "fix-ssh", "install-key", "sync-ui")]
+  [ValidateSet("setup", "connect", "update", "deploy", "logs", "map", "unmap", "status", "fix-ssh", "install-key", "sync-ui", "sync-data")]
   [string]$Command = "connect",
 
   [ValidateSet("remote", "local")]
@@ -166,7 +166,14 @@ function Invoke-InstallKey {
     Write-Info "Creating SSH key: $keyPath"
     $dir = Split-Path $keyPath
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
-    ssh-keygen -t ed25519 -f $keyPath -N "" -C "saenggibu-nas"
+    & ssh-keygen @("-t", "ed25519", "-f", $keyPath, "-N", "", "-C", "saenggibu-nas")
+    if ($LASTEXITCODE -ne 0) {
+      throw "ssh-keygen failed. Try manually: ssh-keygen -t ed25519 -f `"$keyPath`""
+    }
+  }
+
+  if (-not (Test-Path "$keyPath.pub")) {
+    throw "Public key missing: $keyPath.pub (ssh-keygen may have failed)"
   }
 
   Fix-SshKeyPerms $keyPath
@@ -405,6 +412,45 @@ function Build-NasUpdateRemote([hashtable]$Cfg, [string]$Repo) {
   return "${pathPrefix}; ${remoteEnv}; $run"
 }
 
+function Invoke-SyncData {
+  $cfg = Get-NasConfig
+  Ensure-OpenSsh
+  $profile = Resolve-NasProfile $cfg $script:NasProfile
+  $repo = $cfg["NAS_REPO_PATH"]
+  $remoteBase = "$($profile.Alias):$repo/data/saenggibu"
+  $localBase = Join-Path $Root "data\saenggibu"
+  if (-not (Test-Path $localBase)) {
+    throw "Missing local data: $localBase"
+  }
+
+  $extractFlags = "--no-same-permissions --no-same-owner"
+  $remoteExtract = "cd '$repo/data/saenggibu' && tar -xf - $extractFlags 2>/dev/null || tar -xf -"
+
+  Write-Info "Sync local data -> NAS [$($profile.Label)] (tar over SSH, not scp)"
+  foreach ($name in @("students", "samples", "outputs")) {
+    $localPath = Join-Path $localBase $name
+    if (-not (Test-Path $localPath)) {
+      Write-Warn "Skip (missing): $name"
+      continue
+    }
+    Write-Info "  -> $name"
+    & tar -cf - -C $localBase $name | & ssh $profile.Alias $remoteExtract
+    if ($LASTEXITCODE -ne 0) {
+      Write-Warn "tar reported errors for $name (files may still have copied — check NAS)"
+    }
+  }
+
+  $patterns = Join-Path $localBase "patterns.json"
+  if (Test-Path $patterns) {
+    Write-Info "  -> patterns.json"
+    & tar -cf - -C $localBase patterns.json | & ssh $profile.Alias $remoteExtract
+  } else {
+    Write-Warn "Skip (missing): patterns.json"
+  }
+
+  Write-Ok "Data sync finished. Verify: ssh $($profile.Alias) ls $repo/data/saenggibu/students"
+}
+
 function Invoke-NasDeploy {
   $cfg = Get-NasConfig
   Write-Info "Deploy: NAS git pull + docker rebuild (SSH)..."
@@ -587,6 +633,7 @@ try {
       $cfg = Get-NasConfig
       Sync-NasAdminUi $cfg | Out-Null
     }
+    "sync-data" { Invoke-SyncData }
   }
 } catch {
   Write-Host ""

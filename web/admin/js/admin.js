@@ -260,6 +260,7 @@
   const busyModel = document.getElementById("busyModel");
   const busyHint = document.getElementById("busyHint");
   const busyElapsed = document.getElementById("busyElapsed");
+  const busyBarFill = document.querySelector(".admin-busy-bar-fill");
 
   function showToast(message) {
     if (!toast) return;
@@ -280,8 +281,12 @@
         busyModel.hidden = !showModel;
         busyModel.textContent = `사용 모델 · ${systemInfo.gemini_model}`;
       }
-      if (busyElapsed) busyElapsed.textContent = "0초 경과";
-      return;
+    if (busyElapsed) busyElapsed.textContent = "0초 경과";
+    if (busyBarFill) {
+      busyBarFill.style.width = "35%";
+      busyBarFill.style.animation = "";
+    }
+    return;
     }
     if (busyTimer) {
       clearInterval(busyTimer);
@@ -307,6 +312,70 @@
     const stop = startBusy(title, message, hint, options);
     try {
       return await fn();
+    } finally {
+      stop();
+    }
+  }
+
+  function buildRunPayload({ studentId = null, limit = null } = {}) {
+    const section = getSelectedWriteSection();
+    const payload = {};
+    if (studentId) payload.student_id = studentId;
+    if (limit) payload.limit = limit;
+    if (section === "전체") {
+      payload.all_targets = true;
+      return payload;
+    }
+    payload.all_targets = false;
+    payload.sections = [section];
+    return payload;
+  }
+
+  function formatJobProgress(job) {
+    const parts = [];
+    if (job.total) parts.push(`${job.processed || 0}/${job.total}`);
+    if (job.current_section) parts.push(job.current_section);
+    if (job.current_label) parts.push(job.current_label);
+    if (job.message) parts.push(job.message);
+    return parts.join(" · ") || "작성 중...";
+  }
+
+  function updateBusyFromJob(job) {
+    const message = formatJobProgress(job);
+    if (busyMessage) busyMessage.textContent = message;
+    if (busyBarFill) {
+      if (job.total) {
+        busyBarFill.style.animation = "none";
+        const pct = Math.min(100, Math.round(((job.processed || 0) / job.total) * 100));
+        busyBarFill.style.width = `${pct}%`;
+      } else {
+        busyBarFill.style.animation = "";
+        busyBarFill.style.width = "35%";
+      }
+    }
+  }
+
+  async function pollRunJob(jobId) {
+    const intervalMs = 1200;
+    while (true) {
+      const job = await api(`/api/jobs/${jobId}`);
+      updateBusyFromJob(job);
+      if (job.status === "done" || job.status === "error") return job;
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+
+  async function withAsyncRun(title, message, hint, payload) {
+    const stop = startBusy(title, message, hint);
+    try {
+      const started = await api("/api/run/async", { method: "POST", body: payload });
+      const job = await pollRunJob(started.job_id);
+      if (job.status === "error") {
+        throw new Error(job.message || "작성 중 오류가 발생했습니다.");
+      }
+      const result = job.result || {};
+      persistRunResponse(result);
+      return { ...result, message: job.message };
     } finally {
       stop();
     }
@@ -611,6 +680,7 @@
     동아리: "동아리활동",
     진로: "진로활동",
     창체: "창의적 체험활동",
+    전체: "등록된 전체 항목",
   };
 
   function getSelectedWriteTargets() {
@@ -726,7 +796,8 @@
     const section = document.querySelector('input[name="writeSection"]:checked')?.value || "행발";
     const btn = document.getElementById("runBatchBtn");
     if (btn) {
-      btn.textContent = `${section} 미작성 학생 작성`;
+      btn.textContent =
+        section === "전체" ? "미완료 항목 일괄 작성" : `${section} 미작성 학생 작성`;
     }
     sessionStorage.setItem("sgb_write_section", section);
   }
@@ -1360,19 +1431,13 @@
         return;
       }
       const sectionLabel = WRITE_SECTION_LABELS[section] || section;
+      const runTitle = section === "전체" ? "전체 항목 작성" : `${section} 작성`;
       try {
-        await withBusy(
-          `${section} 작성`,
+        await withAsyncRun(
+          runTitle,
           `${studentName} · ${sectionLabel}`,
-          "완료될 때까지 기다려 주세요.",
-          async () => {
-            const result = await api("/api/run", {
-              method: "POST",
-              body: { student_id: id, sections: [section] },
-            });
-            persistRunResponse(result);
-            return result;
-          }
+          "진행 상황을 표시합니다. 창을 닫지 마세요.",
+          buildRunPayload({ studentId: id })
         );
         showToast("작성 완료");
         await Promise.all([loadStudents(), loadReviewList(), loadUsage()]);
@@ -1847,19 +1912,22 @@
       return;
     }
     const sectionLabel = WRITE_SECTION_LABELS[section] || section;
-    const limitText = limit ? `${limit}명` : `${section} 미작성 전원`;
+    const limitText =
+      section === "전체"
+        ? limit
+          ? `${limit}명 · 미완료 항목`
+          : "미완료 항목 전원"
+        : limit
+          ? `${limit}명`
+          : `${section} 미작성 전원`;
+    const runTitle = section === "전체" ? "전체 항목 일괄 작성" : `${section} 일괄 작성`;
     try {
-      const data = await withBusy(
-        `${section} 일괄 작성`,
+      const data = await withAsyncRun(
+        runTitle,
         `${limitText} · ${sectionLabel}`,
-        "완료될 때까지 기다려 주세요.",
-        () =>
-          api("/api/run", {
-            method: "POST",
-            body: { sections: [section], limit },
-          })
+        "진행 상황을 표시합니다. 창을 닫지 마세요.",
+        buildRunPayload({ limit })
       );
-      persistRunResponse(data);
       const errCount = (data.errors || []).length;
       const msg = data.message || `완료 ${data.processed || 0}명${errCount ? `, 오류 ${errCount}건` : ""}`;
       showToast(msg);

@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260705all">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260705b">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -323,6 +323,10 @@
               <input type="radio" name="writeSection" value="진로">
               <span class="admin-option-text"><strong>진로</strong></span>
             </label>
+            <label class="admin-option admin-option-radio">
+              <input type="radio" name="writeSection" value="전체">
+              <span class="admin-option-text"><strong>전체 항목</strong><span class="admin-muted"> · 등록된 영역 순서대로</span></span>
+            </label>
           </div>
           <div class="admin-field" style="margin-top:16px">
             <label for="runLimit">인원 제한 (비우면 전원)</label>
@@ -448,6 +452,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260705all"></script>
+  <script src="/admin-static/js/admin.js?v=20260705b"></script>
 </body>
 </html>

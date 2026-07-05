@@ -94,6 +94,7 @@ class RunRequest(BaseModel):
     student_id: str | None = None
     status: str = "pending"
     sections: list[str] | None = None
+    all_targets: bool = False
     limit: int | None = None
 
 
@@ -682,18 +683,29 @@ def api_run_async(
     background_tasks: BackgroundTasks,
     _: AdminSession = Depends(require_admin),
 ) -> dict[str, Any]:
-    try:
-        normalize_write_sections(payload.sections)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    job = create_run_job(
-        sections=payload.sections or ["행발"],
-        student_id=payload.student_id,
-        limit=payload.limit,
-    )
+    if payload.all_targets:
+        job = create_run_job(
+            all_targets=True,
+            student_id=payload.student_id,
+            limit=payload.limit,
+        )
+    else:
+        try:
+            normalize_write_sections(payload.sections)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        job = create_run_job(
+            sections=payload.sections or ["행발"],
+            student_id=payload.student_id,
+            limit=payload.limit,
+        )
     background_tasks.add_task(execute_run_job, job.id)
-    return {"job_id": job.id, "status": job.status, "section": job.section}
+    return {
+        "job_id": job.id,
+        "status": job.status,
+        "section": job.section,
+        "all_targets": job.all_targets,
+    }
 
 
 @router.get("/jobs")

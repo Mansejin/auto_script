@@ -36,6 +36,7 @@ from src.saenggibu.student_store import (
     get_student,
     import_students_file,
     list_students,
+    reconcile_students,
     reset_all_generated,
     reset_generated_for_students,
     reset_student_generated,
@@ -250,6 +251,13 @@ def api_patterns_update(payload: StyleGuideUpdate, _: AdminSession = Depends(req
 def api_students_list(status: str | None = None, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
     students = list_students(status=status)
     return {"students": [s.to_dict() for s in students], "count": len(students)}
+
+
+@router.post("/students/reconcile")
+def api_students_reconcile(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    result = reconcile_students()
+    students = list_students()
+    return {**result, "count": len(students), "students": [s.to_dict() for s in students]}
 
 
 @router.get("/students/export/xlsx")

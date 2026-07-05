@@ -282,12 +282,23 @@
   }
 
   function getToken() {
-    return sessionStorage.getItem(TOKEN_KEY) || "";
+    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || "";
   }
 
   function setToken(token) {
-    if (token) sessionStorage.setItem(TOKEN_KEY, token);
-    else sessionStorage.removeItem(TOKEN_KEY);
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+      sessionStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
+    }
+  }
+
+  function isEditableTarget(target) {
+    if (!target) return false;
+    const tag = target.tagName?.toLowerCase();
+    return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
   }
 
   async function api(path, options = {}) {
@@ -303,7 +314,7 @@
 
     let response;
     try {
-      response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      response = await fetch(`${API_BASE}${path}`, { ...options, headers, credentials: "include" });
     } catch {
       const hint = configuredBase
         ? `API 서버(${configuredBase})에 연결할 수 없습니다. NAS·터널이 실행 중인지 확인하세요.`
@@ -320,7 +331,9 @@
 
     if (!response.ok) {
       const message = data?.detail || data?.message || `요청 실패 (${response.status})`;
-      throw new Error(typeof message === "string" ? message : JSON.stringify(message));
+      const error = new Error(typeof message === "string" ? message : JSON.stringify(message));
+      error.status = response.status;
+      throw error;
     }
     return data;
   }
@@ -713,6 +726,7 @@
       if (privacySettings.store_generated) {
         response = await fetch(`${API_BASE}/api/students/export/xlsx`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: "include",
         });
       } else {
         const data = await api("/api/students");
@@ -736,6 +750,7 @@
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
             "Content-Type": "application/json",
           },
+          credentials: "include",
           body: JSON.stringify({ students }),
         });
       }
@@ -1041,7 +1056,12 @@
     }
   });
 
-  logoutBtn?.addEventListener("click", () => {
+  logoutBtn?.addEventListener("click", async () => {
+    try {
+      await api("/api/auth/logout", { method: "POST" });
+    } catch {
+      /* ignore */
+    }
     setToken("");
     showGate();
   });
@@ -1564,9 +1584,13 @@
     if (event.target.id === "privacyModal") closePrivacyModal();
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    if (!document.getElementById("guideModal")?.hidden) closeGuideModal();
-    if (!document.getElementById("privacyModal")?.hidden) closePrivacyModal();
+    if (event.key === "Backspace" && !isEditableTarget(event.target)) {
+      event.preventDefault();
+    }
+    if (event.key === "Escape") {
+      if (!document.getElementById("guideModal")?.hidden) closeGuideModal();
+      if (!document.getElementById("privacyModal")?.hidden) closePrivacyModal();
+    }
   });
 
   document.getElementById("studentWriteTargets")?.addEventListener("change", (event) => {
@@ -1593,18 +1617,21 @@
     if (missing.length) {
       showToast("관리자 UI가 오래됐습니다. NAS-UI-동기화.bat 실행 후 Ctrl+F5");
     }
-    const token = getToken();
-    if (!token) {
-      showGate();
-      return;
-    }
-
     try {
       await api("/api/auth/me");
       showApp();
       await refreshAll();
-    } catch {
-      setToken("");
+    } catch (error) {
+      if (error?.status === 401) {
+        setToken("");
+        showGate();
+        return;
+      }
+      if (getToken()) {
+        showApp();
+        showToast("서버 연결에 실패했습니다. 잠시 후 다시 시도하세요.");
+        return;
+      }
       showGate();
     }
   }

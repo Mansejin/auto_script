@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from src.saenggibu.data_crypto import encrypt_data_enabled
@@ -42,7 +42,16 @@ from src.saenggibu.student_store import (
     reset_student_generated,
     save_student,
 )
-from src.web.auth import AdminSession, SESSION_COOKIE, admin_auth_configured, create_session_token, verify_password, verify_session_token
+from src.web.auth import (
+    AdminSession,
+    SESSION_COOKIE,
+    SESSION_MAX_AGE,
+    admin_auth_configured,
+    create_session_token,
+    session_cookie_secure,
+    verify_password,
+    verify_session_token,
+)
 
 router = APIRouter(prefix="/api")
 logger = logging.getLogger("sgb.web")
@@ -125,7 +134,7 @@ def require_admin(request: Request) -> AdminSession:
 
 
 @router.post("/auth/login")
-def login(payload: LoginRequest) -> dict[str, str]:
+def login(payload: LoginRequest) -> JSONResponse:
     if not admin_auth_configured():
         raise HTTPException(
             status_code=503,
@@ -140,7 +149,29 @@ def login(payload: LoginRequest) -> dict[str, str]:
         token = create_session_token()
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return {"token": token}
+    response = JSONResponse({"token": token})
+    response.set_cookie(
+        key=SESSION_COOKIE,
+        value=token,
+        max_age=SESSION_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        secure=session_cookie_secure(),
+        path="/",
+    )
+    return response
+
+
+@router.post("/auth/logout")
+def logout() -> JSONResponse:
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(
+        key=SESSION_COOKIE,
+        path="/",
+        secure=session_cookie_secure(),
+        samesite="lax",
+    )
+    return response
 
 
 @router.get("/auth/me")

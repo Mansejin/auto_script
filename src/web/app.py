@@ -18,7 +18,7 @@ ADMIN_STATIC = ROOT / "web" / "admin"
 def _allowed_origins() -> list[str]:
     raw = os.getenv(
         "SGB_ALLOWED_ORIGINS",
-        "https://mansejin.com,https://www.mansejin.com,http://localhost:8080,http://127.0.0.1:8080",
+        "https://mansejin.com,https://www.mansejin.com,https://sgb.mansejin.com,http://localhost:8080,http://127.0.0.1:8080",
     )
     return [item.strip() for item in raw.split(",") if item.strip()]
 

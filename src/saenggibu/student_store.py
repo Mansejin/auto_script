@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import shutil
 from io import BytesIO
@@ -14,11 +15,99 @@ def _student_path(student_id: str) -> Path:
     return STUDENTS_DIR / f"{student_id}.json"
 
 
+def _load_student_from_path(path: Path) -> StudentInput | None:
+    try:
+        data = load_json(path)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        data = {}
+    return StudentInput.from_dict({**data, "id": path.stem})
+
+
+def _resolve_student_path(student_id: str) -> Path | None:
+    direct = _student_path(student_id)
+    if direct.exists():
+        return direct
+    ensure_data_dirs()
+    for path in STUDENTS_DIR.glob("*.json"):
+        if path.stem == student_id:
+            return path
+        try:
+            data = load_json(path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+        if isinstance(data, dict) and str(data.get("id", "")).strip() == student_id:
+            return path
+    return None
+
+
+def _student_has_content(student: StudentInput) -> bool:
+    if student.name.strip():
+        return True
+    if student.generated:
+        return True
+    notes = student.notes or {}
+    if str(notes.get("행발") or notes.get("행발_notes") or "").strip():
+        return True
+    if notes.get("keywords"):
+        return True
+    if notes.get("write_targets"):
+        return True
+    if student.subjects:
+        return True
+    if any(str(value or "").strip() for value in (student.changche or {}).values()):
+        return True
+    return False
+
+
+def _is_ghost_student(student: StudentInput) -> bool:
+    return not _student_has_content(student)
+
+
+def _ensure_student_id_matches_file(student: StudentInput, path: Path) -> None:
+    if student.id == path.stem:
+        return
+    old_id = student.id
+    student.id = path.stem
+    save_student(student)
+    stale = _student_path(old_id)
+    if stale.exists() and stale.resolve() != path.resolve():
+        stale.unlink(missing_ok=True)
+
+
+def reconcile_students(*, remove_ghosts: bool = True) -> dict[str, list[str]]:
+    ensure_data_dirs()
+    removed: list[str] = []
+    fixed: list[str] = []
+    for path in sorted(STUDENTS_DIR.glob("*.json")):
+        student = _load_student_from_path(path)
+        if student is None:
+            path.unlink(missing_ok=True)
+            removed.append(path.name)
+            continue
+        if remove_ghosts and _is_ghost_student(student):
+            path.unlink(missing_ok=True)
+            removed.append(path.name)
+            continue
+        try:
+            data = load_json(path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            data = {}
+        if isinstance(data, dict) and data.get("id") != path.stem:
+            _ensure_student_id_matches_file(student, path)
+            fixed.append(path.stem)
+    return {"removed": removed, "fixed": fixed}
+
+
 def list_students(*, status: str | None = None) -> list[StudentInput]:
+    reconcile_students()
     ensure_data_dirs()
     students: list[StudentInput] = []
     for path in sorted(STUDENTS_DIR.glob("*.json")):
-        student = StudentInput.from_dict(load_json(path))
+        student = _load_student_from_path(path)
+        if student is None:
+            continue
         if status is None or student.status == status:
             students.append(student)
     students.sort(key=lambda s: (s.grade, s.class_num, s.number, s.name))
@@ -26,10 +115,14 @@ def list_students(*, status: str | None = None) -> list[StudentInput]:
 
 
 def get_student(student_id: str) -> StudentInput | None:
-    path = _student_path(student_id)
-    if not path.exists():
+    path = _resolve_student_path(student_id)
+    if not path:
         return None
-    return StudentInput.from_dict(load_json(path))
+    student = _load_student_from_path(path)
+    if student is None:
+        return None
+    _ensure_student_id_matches_file(student, path)
+    return student
 
 
 def save_student(student: StudentInput) -> StudentInput:
@@ -49,13 +142,17 @@ def _student_output_dir(student_id: str) -> Path:
 
 
 def delete_student(student_id: str) -> bool:
-    path = _student_path(student_id)
-    if not path.exists():
+    path = _resolve_student_path(student_id)
+    if not path:
         return False
+    file_id = path.stem
     path.unlink()
-    output_dir = _student_output_dir(student_id)
+    output_dir = _student_output_dir(file_id)
     if output_dir.exists():
         shutil.rmtree(output_dir, ignore_errors=True)
+    stale = _student_path(student_id)
+    if stale.exists() and stale.resolve() != path.resolve():
+        stale.unlink(missing_ok=True)
     return True
 
 
@@ -72,11 +169,14 @@ def delete_students(student_ids: list[str]) -> dict[str, list[str] | int]:
 
 def delete_all_students() -> int:
     ensure_data_dirs()
-    students = list_students()
-    count = len(students)
-    for student in students:
-        delete_student(student.id)
-    return count
+    paths = list(STUDENTS_DIR.glob("*.json"))
+    for path in paths:
+        file_id = path.stem
+        path.unlink(missing_ok=True)
+        output_dir = _student_output_dir(file_id)
+        if output_dir.exists():
+            shutil.rmtree(output_dir, ignore_errors=True)
+    return len(paths)
 
 
 def reset_student_generated(student: StudentInput) -> StudentInput:

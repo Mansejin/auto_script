@@ -361,10 +361,15 @@
     }
   }
 
+  function sectionSubjectFromKey(key) {
+    const colon = key.indexOf(":");
+    return colon >= 0 ? key.slice(colon + 1) : key;
+  }
+
   function sectionLabelFromKey(key) {
     if (key === "행발") return "행동특성 및 종합의견";
-    if (key.startsWith("세특:")) return `세특 · ${key.slice(4)}`;
-    if (key.startsWith("창체:")) return `창체 · ${key.slice(4)}`;
+    if (key.startsWith("세특:")) return `세특 · ${sectionSubjectFromKey(key)}`;
+    if (key.startsWith("창체:")) return `창체 · ${sectionSubjectFromKey(key)}`;
     return key;
   }
 
@@ -468,8 +473,20 @@
     const parts = [];
     if (job.total) parts.push(`${job.processed || 0}/${job.total}`);
     if (job.current_section) parts.push(job.current_section);
-    if (job.current_label) parts.push(job.current_label);
-    if (job.message) parts.push(job.message);
+    const label = job.current_label || "";
+    const message = job.message || "";
+    if (message && message !== "완료" && message !== "작성을 시작합니다.") {
+      if (label && message.includes(label)) {
+        parts.push(message);
+      } else {
+        if (label) parts.push(label);
+        parts.push(message);
+      }
+    } else if (label) {
+      parts.push(label);
+    } else if (message) {
+      parts.push(message);
+    }
     return parts.join(" · ") || "작성 중...";
   }
 
@@ -1687,18 +1704,22 @@
   }
 
   function collectGeneratedFromEditor() {
-    const generated = JSON.parse(JSON.stringify(currentStudentData?.generated || {}));
+    const generated = {};
     document.querySelectorAll("#detailEditor .detail-field").forEach((el) => {
       const key = el.dataset.key;
       const value = el.value;
       if (key === "행발") {
         generated.행발 = value;
-      } else if (key.startsWith("세특:")) {
+        return;
+      }
+      if (key.startsWith("세특:")) {
         generated.세특 = generated.세특 || {};
-        generated.세특[key.slice(4)] = value;
-      } else if (key.startsWith("창체:")) {
+        generated.세특[sectionSubjectFromKey(key)] = value;
+        return;
+      }
+      if (key.startsWith("창체:")) {
         generated.창체 = generated.창체 || {};
-        generated.창체[key.slice(4)] = value;
+        generated.창체[sectionSubjectFromKey(key)] = value;
       }
     });
     return generated;

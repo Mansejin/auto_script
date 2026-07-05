@@ -10,6 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Re
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
+from src.saenggibu.config import get_gemini_model
 from src.saenggibu.data_crypto import encrypt_data_enabled
 from src.saenggibu.storage_policy import store_generated_on_server
 from src.saenggibu.curriculum import (

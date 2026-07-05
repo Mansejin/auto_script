@@ -11,6 +11,16 @@ SESSION_COOKIE = "sgb_admin_session"
 SESSION_MAX_AGE = 60 * 60 * 24  # 24h
 
 
+def session_cookie_secure() -> bool:
+    raw = os.getenv("SGB_COOKIE_SECURE", "").strip().lower()
+    if raw in ("1", "true", "yes"):
+        return True
+    if raw in ("0", "false", "no"):
+        return False
+    host = os.getenv("SGB_HOST", "127.0.0.1").strip()
+    return host not in ("127.0.0.1", "localhost", "0.0.0.0")
+
+
 def _serializer() -> URLSafeTimedSerializer:
     secret = os.getenv("ADMIN_SESSION_SECRET", "").strip()
     if not secret:

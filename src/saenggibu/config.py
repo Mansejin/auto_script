@@ -12,6 +12,7 @@ DATA_DIR = ROOT / "data" / "saenggibu"
 SAMPLES_DIR = DATA_DIR / "samples"
 STUDENTS_DIR = DATA_DIR / "students"
 OUTPUTS_DIR = DATA_DIR / "outputs"
+JOBS_DIR = DATA_DIR / "jobs"
 PATTERNS_PATH = DATA_DIR / "patterns.json"
 PROMPT_PATH = ROOT / "prompts" / "saenggibu.md"
 
@@ -34,5 +35,5 @@ def get_gemini_model() -> str:
 
 
 def ensure_data_dirs() -> None:
-    for path in (SAMPLES_DIR, STUDENTS_DIR, OUTPUTS_DIR):
+    for path in (SAMPLES_DIR, STUDENTS_DIR, OUTPUTS_DIR, JOBS_DIR):
         path.mkdir(parents=True, exist_ok=True)

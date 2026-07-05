@@ -6,13 +6,14 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from src.saenggibu.data_crypto import encrypt_data_enabled
 from src.saenggibu.storage_policy import store_generated_on_server
 from src.saenggibu.generator import generate_for_student, run_batch
+from src.saenggibu.job_queue import create_run_job, execute_run_job, get_job, list_jobs
 from src.saenggibu.models import StudentInput
 from src.saenggibu.pattern_analyzer import analyze_and_save, load_patterns, update_style_guide
 from src.saenggibu.sample_store import (
@@ -549,3 +550,37 @@ def api_run(payload: RunRequest, _: AdminSession = Depends(require_admin)) -> di
 
     result = run_batch(students, sections=sections, continue_on_error=True)
     return {"mode": "batch", "section": section, **result}
+
+
+@router.post("/run/async")
+def api_run_async(
+    payload: RunRequest,
+    background_tasks: BackgroundTasks,
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    try:
+        normalize_write_sections(payload.sections)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    job = create_run_job(
+        sections=payload.sections or ["행발"],
+        student_id=payload.student_id,
+        limit=payload.limit,
+    )
+    background_tasks.add_task(execute_run_job, job.id)
+    return {"job_id": job.id, "status": job.status, "section": job.section}
+
+
+@router.get("/jobs")
+def api_jobs_list(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    jobs = list_jobs()
+    return {"jobs": [job.to_dict() for job in jobs], "count": len(jobs)}
+
+
+@router.get("/jobs/{job_id}")
+def api_job_show(job_id: str, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다.")
+    return job.to_dict()

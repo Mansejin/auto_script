@@ -64,6 +64,6 @@ docker compose up -d --build
 ## 이후 과제
 
 - 교사별 계정·Stripe 구독
-- 일괄 작성 진행률(비동기 작업)
+- 일괄 작성 UI 진행률 (비동기 API `POST /api/run/async` · `GET /api/jobs/{id}` 스캐폴드 완료)
 - NEIS 붙여넣기용보내기
 - xlsx 활동지 AI 파싱 확장

@@ -67,8 +67,30 @@ nano .env   # 또는 File Station에서 메모장으로 편집
 GEMINI_API_KEY=제미나이_키
 ADMIN_PASSWORD=관리자비밀번호
 ADMIN_SESSION_SECRET=랜덤긴문자열32자이상
-SGB_ALLOWED_ORIGINS=https://mansejin.com,https://www.mansejin.com
+SGB_ALLOWED_ORIGINS=https://mansejin.com,https://www.mansejin.com,https://sgb.mansejin.com
 ```
+
+### 암호화 키 동기화 (`SGB_DATA_KEY`)
+
+학생 JSON을 암호화(`SGB_ENCRYPT_DATA=1`)하면 **PC와 NAS의 `SGB_DATA_KEY`가 같아야** 합니다. 키가 다르면 복호화 실패 → `1-1 1번` 유령 학생처럼 보일 수 있습니다.
+
+1. **PC** `.env`에서 키 확인:
+   ```bash
+   grep SGB_DATA_KEY .env
+   ```
+2. **NAS** `/volume1/docker/saenggibu/.env`에 동일 값 붙여넣기:
+   ```env
+   SGB_ENCRYPT_DATA=1
+   SGB_DATA_KEY=PC와_동일한_base64url_키
+   ```
+3. 키가 없으면 PC에서 생성 후 **양쪽 모두**에 저장:
+   ```bash
+   python3 -c "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
+   ```
+4. 컨테이너 재시작: `docker compose restart`
+5. 관리자 페이지 **Ctrl+F5**
+
+로컬 데이터를 NAS로 옮길 때는 `scripts/nas-pc.ps1 sync-data` 또는 SSH로 `data/saenggibu/students/` 동기화 후 위 키를 맞춥니다.
 
 ---
 

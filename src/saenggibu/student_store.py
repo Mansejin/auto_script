@@ -135,11 +135,7 @@ def get_student(student_id: str) -> StudentInput | None:
 
 def save_student(student: StudentInput) -> StudentInput:
     ensure_data_dirs()
-<<<<<<< HEAD
     save_secure_json(_student_path(student.id), student_dict_for_disk(student))
-=======
-    save_secure_json(_student_path(student.id), student.to_dict())
->>>>>>> origin/cursor/fix-encrypted-student-load-5821
     return student
 
 

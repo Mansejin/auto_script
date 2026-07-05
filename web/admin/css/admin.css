@@ -718,6 +718,127 @@ body.admin-is-busy .admin-tab {
   color: var(--text);
 }
 
+.admin-field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-field-head label {
+  margin: 0;
+}
+
+.inspect-char-count {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.inspect-char-count.is-warn {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.inspect-char-count.is-error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.admin-inspect-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.admin-inspect-badge.ok {
+  background: color-mix(in srgb, #16a34a 14%, var(--card));
+  color: #15803d;
+}
+
+.admin-inspect-badge.warn {
+  background: color-mix(in srgb, #d97706 16%, var(--card));
+  color: #b45309;
+}
+
+.admin-inspect-badge.fail {
+  background: color-mix(in srgb, #dc2626 14%, var(--card));
+  color: #b91c1c;
+}
+
+.admin-inspect-badge.pending {
+  background: var(--bg);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.admin-inspect-summary {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.admin-inspect-summary h3 {
+  font-size: 0.9375rem;
+  margin-bottom: 8px;
+}
+
+.admin-inspect-issues {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-inspect-issues li {
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.admin-inspect-issues li:first-child {
+  border-top: none;
+}
+
+.admin-inspect-issues .issue-section {
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.admin-inspect-issues .issue-error {
+  color: #b91c1c;
+}
+
+.admin-inspect-issues .issue-warning {
+  color: #b45309;
+}
+
+.admin-inspect-issues .issue-info {
+  color: var(--text-secondary);
+}
+
+.inspect-field-issues {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  font-size: 0.8125rem;
+}
+
+.inspect-field-issues li {
+  color: #b45309;
+  margin-top: 4px;
+}
+
+.inspect-field-issues li.issue-error {
+  color: #b91c1c;
+}
+
 .admin-header-btn {
   padding: 6px 12px;
   font-size: 0.8125rem;

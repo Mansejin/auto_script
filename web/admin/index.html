@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260705c">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260705all">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -340,6 +340,7 @@
               <span id="reviewSelectedCount" class="admin-samples-selected"></span>
             </div>
             <div class="admin-samples-toolbar-right">
+              <button id="inspectAllReviewBtn" class="admin-btn secondary admin-btn-sm" type="button">전체 검사</button>
               <button id="exportReviewExcelBtn" class="admin-btn secondary admin-btn-sm" type="button">엑셀 추출</button>
               <label class="admin-check">
                 <input id="reviewSelectAll" type="checkbox" class="admin-check-input">
@@ -354,7 +355,7 @@
             <thead>
               <tr>
                 <th class="sample-select-cell" aria-label="선택"></th>
-                <th>학생</th><th>상태</th><th></th>
+                <th>학생</th><th>상태</th><th>검사</th><th></th>
               </tr>
             </thead>
             <tbody id="reviewTableBody"></tbody>
@@ -368,8 +369,10 @@
           <h2 id="detailTitle" style="margin-top:12px"></h2>
           <div id="detailMeta" style="margin-bottom:12px"></div>
           <div id="detailWritingTips" class="admin-writing-tips" hidden></div>
+          <div id="detailIssues" class="admin-inspect-summary" hidden></div>
           <div id="detailEditor"></div>
           <div class="admin-actions" style="margin-top:16px">
+            <button id="inspectDetailBtn" class="admin-btn secondary" type="button">검사 실행</button>
             <button id="saveDetailBtn" class="admin-btn" type="button">수정 저장</button>
             <button id="copyDetailBtn" class="admin-btn secondary" type="button">전체 복사</button>
           </div>
@@ -445,6 +448,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260705c"></script>
+  <script src="/admin-static/js/admin.js?v=20260705all"></script>
 </body>
 </html>

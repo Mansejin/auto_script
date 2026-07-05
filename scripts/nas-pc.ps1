@@ -412,21 +412,48 @@ function Build-NasUpdateRemote([hashtable]$Cfg, [string]$Repo) {
   return "${pathPrefix}; ${remoteEnv}; $run"
 }
 
+function Copy-FileToNas([string]$Alias, [string]$LocalFile, [string]$RemoteFile) {
+  $remoteParent = $RemoteFile -replace "/[^/]+$", ""
+  if ($remoteParent) {
+    & ssh $Alias "mkdir -p '$remoteParent'" | Out-Null
+  }
+  $exit = & cmd.exe /c "ssh $Alias `"cat > '$RemoteFile'`" < `"$LocalFile`""
+  if ($exit -ne 0) {
+    throw "Upload failed: $LocalFile -> $RemoteFile"
+  }
+}
+
+function Copy-TreeToNas([string]$Alias, [string]$LocalDir, [string]$RemoteDir) {
+  $files = Get-ChildItem -Path $LocalDir -Recurse -File
+  if (-not $files.Count) {
+    Write-Warn "  (empty) $LocalDir"
+    return 0
+  }
+  $base = (Resolve-Path $LocalDir).Path.TrimEnd('\')
+  $count = 0
+  foreach ($file in $files) {
+    $rel = $file.FullName.Substring($base.Length).TrimStart('\') -replace '\\', '/'
+    $remotePath = "$RemoteDir/$rel"
+    Copy-FileToNas $Alias $file.FullName $remotePath
+    Write-Host "    $rel" -ForegroundColor DarkGray
+    $count++
+  }
+  return $count
+}
+
 function Invoke-SyncData {
   $cfg = Get-NasConfig
   Ensure-OpenSsh
   $profile = Resolve-NasProfile $cfg $script:NasProfile
   $repo = $cfg["NAS_REPO_PATH"]
-  $remoteBase = "$($profile.Alias):$repo/data/saenggibu"
+  $remoteData = "$repo/data/saenggibu"
   $localBase = Join-Path $Root "data\saenggibu"
   if (-not (Test-Path $localBase)) {
     throw "Missing local data: $localBase"
   }
 
-  $extractFlags = "--no-same-permissions --no-same-owner"
-  $remoteExtract = "cd '$repo/data/saenggibu' && tar -xf - $extractFlags 2>/dev/null || tar -xf -"
-
-  Write-Info "Sync local data -> NAS [$($profile.Label)] (tar over SSH, not scp)"
+  Write-Info "Sync local data -> NAS [$($profile.Label)] (file-by-file over SSH)"
+  $total = 0
   foreach ($name in @("students", "samples", "outputs")) {
     $localPath = Join-Path $localBase $name
     if (-not (Test-Path $localPath)) {
@@ -434,21 +461,19 @@ function Invoke-SyncData {
       continue
     }
     Write-Info "  -> $name"
-    & tar -cf - -C $localBase $name | & ssh $profile.Alias $remoteExtract
-    if ($LASTEXITCODE -ne 0) {
-      Write-Warn "tar reported errors for $name (files may still have copied — check NAS)"
-    }
+    $total += Copy-TreeToNas $profile.Alias $localPath "$remoteData/$name"
   }
 
   $patterns = Join-Path $localBase "patterns.json"
   if (Test-Path $patterns) {
     Write-Info "  -> patterns.json"
-    & tar -cf - -C $localBase patterns.json | & ssh $profile.Alias $remoteExtract
+    Copy-FileToNas $profile.Alias $patterns "$remoteData/patterns.json"
+    $total++
   } else {
     Write-Warn "Skip (missing): patterns.json"
   }
 
-  Write-Ok "Data sync finished. Verify: ssh $($profile.Alias) ls $repo/data/saenggibu/students"
+  Write-Ok "Data sync finished ($total files). Verify: ssh $($profile.Alias) ls $remoteData/students"
 }
 
 function Invoke-NasDeploy {

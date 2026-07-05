@@ -7,6 +7,28 @@
   margin: 48px auto 0;
 }
 
+.admin-login-note {
+  margin: 20px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  display: grid;
+  gap: 6px;
+}
+
+.admin-login-note-main {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.admin-login-note-ps {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 .admin-card {
   background: var(--card);
   border: 1px solid var(--border);

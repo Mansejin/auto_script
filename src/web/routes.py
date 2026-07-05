@@ -30,6 +30,7 @@ from src.saenggibu.inspector.runner import (
     inspect_students_by_ids,
 )
 from src.saenggibu.neis_format import format_neis_tsv, merge_parsed_into_student, parse_neis_paste
+from src.saenggibu.models import StudentInput
 from src.saenggibu.pattern_analyzer import analyze_and_save, load_patterns, update_style_guide
 from src.saenggibu.sample_store import (
     delete_all_samples,
@@ -514,22 +515,29 @@ def api_student_show(student_id: str, _: AdminSession = Depends(require_admin)) 
 
 @router.post("/students")
 def api_student_create(payload: StudentCreateRequest, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
-    student = StudentInput(
-        id="",
-        name=payload.name,
-        grade=payload.grade,
-        class_num=payload.class_num,
-        number=payload.number,
-        gender=payload.gender,
-        notes={
-            "행발": payload.haengbal_notes,
-            "keywords": payload.keywords,
-            "write_targets": payload.write_targets,
-        },
-        subjects=payload.subjects,
-        changche=payload.changche,
-    )
-    return add_student(student).to_dict()
+    try:
+        student = StudentInput(
+            id="",
+            name=payload.name,
+            grade=payload.grade,
+            class_num=payload.class_num,
+            number=payload.number,
+            gender=payload.gender,
+            notes={
+                "행발": payload.haengbal_notes,
+                "keywords": payload.keywords,
+                "write_targets": payload.write_targets,
+            },
+            subjects=payload.subjects,
+            changche=payload.changche,
+        )
+        return add_student(student).to_dict()
+    except OSError as exc:
+        logger.exception("student create failed: disk")
+        raise HTTPException(status_code=500, detail=f"학생 파일을 저장하지 못했습니다. ({exc})") from exc
+    except RuntimeError as exc:
+        logger.exception("student create failed: runtime")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.post("/students/parse")

@@ -1949,7 +1949,7 @@
     const content = document.getElementById("simpleSetukContent")?.value.trim() || "";
     if (!subject) return { error: "세특을 선택했다면 과목명을 입력하세요." };
     if (content && content.length < 20) {
-      showToast("활동 내용은 20자 이상 작성을 권장합니다.");
+      showToast("활동 내용은 20자 이상 권장합니다. 짧아도 등록은 가능합니다.");
     }
     return {
       subjects: {

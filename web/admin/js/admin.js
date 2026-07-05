@@ -678,10 +678,15 @@
     세특: "세부능력 및 특기사항",
     자율: "자율활동",
     동아리: "동아리활동",
+    봉사: "봉사활동",
     진로: "진로활동",
     창체: "창의적 체험활동",
     전체: "등록된 전체 항목",
   };
+
+  const MEMO_TARGET_OPTIONS = ["행발", "세특", "자율", "동아리", "봉사", "진로"];
+  let memoEditStudentId = null;
+  let memoEditStudentData = null;
 
   function getSelectedWriteTargets() {
     return [...document.querySelectorAll(".write-target:checked")].map((el) => el.value);
@@ -750,6 +755,203 @@
       if (changche[key]) inferred.push(key);
     }
     return inferred.length ? inferred.join(", ") : "-";
+  }
+
+  function getMemoEditTargets() {
+    return [...document.querySelectorAll(".memo-edit-target:checked")].map((el) => el.value);
+  }
+
+  function updateMemoEditPanels() {
+    const selected = new Set(getMemoEditTargets());
+    document.querySelectorAll(".memo-edit-panel").forEach((panel) => {
+      panel.hidden = !selected.has(panel.dataset.target);
+    });
+  }
+
+  function buildMemoEditSubjectBlock(subject, info = {}) {
+    const safeSubject = escapeAttr(subject || "");
+    return `
+      <div class="admin-field memo-edit-subject" data-subject="${safeSubject}">
+        <div class="admin-field-head">
+          <label>세특 · ${escapeHtml(subject || "과목")}</label>
+          <button type="button" class="admin-btn danger admin-btn-sm memo-remove-subject">삭제</button>
+        </div>
+        <input class="memo-subject-name" value="${escapeHtml(subject || "")}" placeholder="과목명">
+        <input class="memo-subject-career" value="${escapeHtml(info.career || "")}" placeholder="진로">
+        <input class="memo-subject-assessment" value="${escapeHtml(info.assessment_type || "")}" placeholder="수행평가 형식">
+        <input class="memo-subject-topic" value="${escapeHtml(info.topic || "")}" placeholder="주제">
+        <textarea class="admin-textarea memo-subject-content" rows="4" placeholder="활동 내용">${escapeHtml(info.content || info.notes || (info.activities || [])[0] || "")}</textarea>
+      </div>`;
+  }
+
+  function buildMemoEditForm(student) {
+    const targetsEl = document.getElementById("memoEditTargets");
+    const fieldsEl = document.getElementById("memoEditFields");
+    if (!targetsEl || !fieldsEl) return;
+
+    const selected = new Set(
+      Array.isArray(student.notes?.write_targets) && student.notes.write_targets.length
+        ? student.notes.write_targets
+        : formatWriteTargets(student).split(", ").filter((item) => item !== "-")
+    );
+
+    targetsEl.innerHTML = MEMO_TARGET_OPTIONS.map(
+      (target) => `
+        <label class="admin-check admin-target-chip">
+          <input type="checkbox" class="admin-check-input memo-edit-target" value="${target}" ${
+            selected.has(target) ? "checked" : ""
+          }>
+          <span class="admin-check-box"></span><span>${target}</span>
+        </label>`
+    ).join("");
+
+    const subjects = student.subjects || {};
+    const subjectBlocks = Object.keys(subjects).length
+      ? Object.entries(subjects).map(([subject, info]) => buildMemoEditSubjectBlock(subject, info)).join("")
+      : buildMemoEditSubjectBlock("", {});
+
+    fieldsEl.innerHTML = `
+      <details class="admin-memo-panel memo-edit-panel" data-target="행발" ${selected.has("행발") ? "open" : ""}>
+        <summary>행발 메모</summary>
+        <textarea id="memoEditHaengbal" class="admin-textarea" rows="4">${escapeHtml(
+          student.notes?.행발 || student.notes?.행발_notes || ""
+        )}</textarea>
+      </details>
+      <details class="admin-memo-panel memo-edit-panel" data-target="세특" ${selected.has("세특") ? "open" : ""}>
+        <summary>세특 메모</summary>
+        <div id="memoEditSubjects">${subjectBlocks}</div>
+        <button type="button" id="memoAddSubjectBtn" class="admin-btn secondary admin-btn-sm" style="margin-top:8px">과목 추가</button>
+      </details>
+      ${["자율", "동아리", "봉사", "진로"]
+        .map(
+          (key) => `
+        <details class="admin-memo-panel memo-edit-panel" data-target="${key}" ${selected.has(key) ? "open" : ""}>
+          <summary>${WRITE_SECTION_LABELS[key] || key} 메모</summary>
+          <textarea class="admin-textarea memo-edit-changche" data-key="${key}" rows="3">${escapeHtml(
+            (student.changche || {})[key] || ""
+          )}</textarea>
+        </details>`
+        )
+        .join("")}`;
+
+    updateMemoEditPanels();
+    targetsEl.querySelectorAll(".memo-edit-target").forEach((box) => {
+      box.addEventListener("change", updateMemoEditPanels);
+    });
+    document.getElementById("memoAddSubjectBtn")?.addEventListener("click", () => {
+      document.getElementById("memoEditSubjects")?.insertAdjacentHTML("beforeend", buildMemoEditSubjectBlock("", {}));
+    });
+    fieldsEl.querySelectorAll(".memo-remove-subject").forEach((btn) => {
+      btn.addEventListener("click", () => btn.closest(".memo-edit-subject")?.remove());
+    });
+  }
+
+  function collectMemoEditPayload() {
+    const writeTargets = getMemoEditTargets();
+    const notes = {
+      ...(memoEditStudentData?.notes || {}),
+      행발: document.getElementById("memoEditHaengbal")?.value.trim() || "",
+      write_targets: writeTargets,
+    };
+    delete notes.행발_notes;
+
+    const subjects = {};
+    document.querySelectorAll(".memo-edit-subject").forEach((block) => {
+      const subject = block.querySelector(".memo-subject-name")?.value.trim() || "";
+      const content = block.querySelector(".memo-subject-content")?.value.trim() || "";
+      if (!subject) return;
+      subjects[subject] = {
+        career: block.querySelector(".memo-subject-career")?.value.trim() || "",
+        assessment_type: block.querySelector(".memo-subject-assessment")?.value.trim() || "",
+        topic: block.querySelector(".memo-subject-topic")?.value.trim() || "",
+        content,
+        activities: content ? [content] : [],
+        notes: content,
+      };
+    });
+
+    const changche = { ...(memoEditStudentData?.changche || {}) };
+    document.querySelectorAll(".memo-edit-changche").forEach((el) => {
+      changche[el.dataset.key] = el.value.trim();
+    });
+
+    return { notes, subjects, changche };
+  }
+
+  function applyParsedToMemoForm(parsed) {
+    if (parsed.notes) {
+      if (parsed.notes.행발) {
+        const el = document.getElementById("memoEditHaengbal");
+        if (el) el.value = parsed.notes.행발;
+      }
+      if (Array.isArray(parsed.notes.write_targets)) {
+        document.querySelectorAll(".memo-edit-target").forEach((box) => {
+          box.checked = parsed.notes.write_targets.includes(box.value);
+        });
+        updateMemoEditPanels();
+      }
+    }
+    if (parsed.subjects && Object.keys(parsed.subjects).length) {
+      const container = document.getElementById("memoEditSubjects");
+      if (container) {
+        container.innerHTML = Object.entries(parsed.subjects)
+          .map(([subject, info]) => buildMemoEditSubjectBlock(subject, info))
+          .join("");
+        container.querySelectorAll(".memo-remove-subject").forEach((btn) => {
+          btn.addEventListener("click", () => btn.closest(".memo-edit-subject")?.remove());
+        });
+      }
+    }
+    if (parsed.changche) {
+      Object.entries(parsed.changche).forEach(([key, value]) => {
+        const el = document.querySelector(`.memo-edit-changche[data-key="${key}"]`);
+        if (el) el.value = value;
+      });
+    }
+  }
+
+  async function openMemoEditModal(studentId) {
+    const modal = document.getElementById("memoEditModal");
+    if (!modal) return;
+    const student = await api(`/api/students/${studentId}`);
+    memoEditStudentId = studentId;
+    memoEditStudentData = student;
+    document.getElementById("memoEditTitle").textContent = "입력 메모 수정";
+    document.getElementById("memoEditSubtitle").textContent = studentLabel(student);
+    document.getElementById("neisPasteInput").value = "";
+    buildMemoEditForm(student);
+    modal.hidden = false;
+    document.body.classList.add("admin-guide-open");
+  }
+
+  function closeMemoEditModal() {
+    const modal = document.getElementById("memoEditModal");
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.classList.remove("admin-guide-open");
+    memoEditStudentId = null;
+    memoEditStudentData = null;
+  }
+
+  async function saveMemoEdit() {
+    if (!memoEditStudentId) return;
+    const payload = collectMemoEditPayload();
+    if (!payload.notes.write_targets.length) {
+      showToast("작성 항목을 하나 이상 선택하세요.");
+      return;
+    }
+    const updated = await api(`/api/students/${memoEditStudentId}`, {
+      method: "PATCH",
+      body: payload,
+    });
+    const savedId = memoEditStudentId;
+    memoEditStudentData = updated;
+    showToast("메모 저장됨");
+    closeMemoEditModal();
+    await loadStudents();
+    if (currentStudentId === savedId) {
+      currentStudentData = mergeStudentWithDraft(updated);
+    }
   }
 
   function openGuideModal() {
@@ -873,6 +1075,7 @@
           <td>${statusPill(s.status)}</td>
           <td>${targets}</td>
           <td class="admin-row-actions">
+            <button class="admin-btn secondary admin-btn-sm" type="button" data-action="edit-memo" data-id="${s.id}">메모</button>
             ${actions}
             <button class="admin-btn danger admin-btn-sm" type="button" data-action="delete-student" data-id="${s.id}" data-label="${escapeAttr(studentLabel(s))}">삭제</button>
           </td>
@@ -1420,6 +1623,14 @@
       await showStudent(id, "students");
       return;
     }
+    if (target.dataset.action === "edit-memo") {
+      try {
+        await openMemoEditModal(id);
+      } catch (error) {
+        showToast(error.message);
+      }
+      return;
+    }
     if (target.dataset.action === "run-one") {
       const studentName = target.closest("tr")?.children[1]?.textContent?.trim() || "학생";
       let section;
@@ -1650,6 +1861,52 @@
     }
   });
 
+  document.getElementById("copyNeisBtn")?.addEventListener("click", async () => {
+    if (!currentStudentId) return;
+    try {
+      const data = await api(`/api/students/${currentStudentId}/neis-export`);
+      await navigator.clipboard.writeText(data.tsv);
+      showToast("NEIS용 탭 구분 형식으로 복사됨");
+    } catch (error) {
+      showToast(error.message || "복사에 실패했습니다.");
+    }
+  });
+
+  document.getElementById("editMemoFromDetailBtn")?.addEventListener("click", async () => {
+    if (!currentStudentId) return;
+    try {
+      await openMemoEditModal(currentStudentId);
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+
+  document.getElementById("memoEditCancelBtn")?.addEventListener("click", closeMemoEditModal);
+  document.getElementById("memoEditModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "memoEditModal") closeMemoEditModal();
+  });
+  document.getElementById("memoEditSaveBtn")?.addEventListener("click", async () => {
+    try {
+      await saveMemoEdit();
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+  document.getElementById("neisPasteApplyBtn")?.addEventListener("click", async () => {
+    const text = document.getElementById("neisPasteInput")?.value.trim();
+    if (!text) {
+      showToast("붙여넣을 내용을 입력하세요.");
+      return;
+    }
+    try {
+      const parsed = await api("/api/neis/parse", { method: "POST", body: { text } });
+      applyParsedToMemoForm(parsed);
+      showToast("붙여넣기 내용을 반영했습니다. 저장을 눌러 주세요.");
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+
   document.getElementById("saveStyleBtn")?.addEventListener("click", async () => {
     const style_guide = document.getElementById("styleGuideEditor").value;
     try {
@@ -1708,6 +1965,9 @@
     }
     if (writeTargets.includes("동아리")) {
       changche.동아리 = document.getElementById("simpleDongari").value.trim();
+    }
+    if (writeTargets.includes("봉사")) {
+      changche.봉사 = document.getElementById("simpleBongsa").value.trim();
     }
     if (writeTargets.includes("진로")) {
       changche.진로 = document.getElementById("simpleJillo").value.trim();

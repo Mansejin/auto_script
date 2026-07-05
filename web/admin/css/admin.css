@@ -580,6 +580,13 @@
   text-align: center;
 }
 
+.admin-modal-wide {
+  width: min(100%, 720px);
+  max-height: min(88vh, 820px);
+  overflow: auto;
+  text-align: left;
+}
+
 .admin-modal-icon {
   margin-bottom: 12px;
 }

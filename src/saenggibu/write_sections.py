@@ -5,7 +5,7 @@ from .models import StudentInput
 
 # 등록·일괄 작성에 쓰는 영역 (창체는 소분류별로 분리)
 WRITE_SECTIONS = ("행발", "세특", *CHANGCHE_SUBSECTIONS)
-REGISTRATION_TARGETS = ("행발", "세특", "자율", "동아리", "진로")
+REGISTRATION_TARGETS = ("행발", "세특", "자율", "동아리", "봉사", "진로")
 SECTION_ORDER = WRITE_SECTIONS
 ALL_TARGETS_SECTION = "전체"
 

@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260705b">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260705c">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -140,6 +140,7 @@
             <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="세특"><span class="admin-check-box"></span><span>세특</span></label>
             <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="자율"><span class="admin-check-box"></span><span>자율</span></label>
             <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="동아리"><span class="admin-check-box"></span><span>동아리</span></label>
+            <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="봉사"><span class="admin-check-box"></span><span>봉사</span></label>
             <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="진로"><span class="admin-check-box"></span><span>진로</span></label>
           </div>
         </div>
@@ -217,6 +218,12 @@
                 <summary>동아리 메모</summary>
                 <div class="admin-field" style="margin-top:12px">
                   <textarea id="simpleDongari" class="admin-textarea" rows="3"></textarea>
+                </div>
+              </details>
+              <details class="admin-memo-panel" data-target="봉사" hidden>
+                <summary>봉사 메모</summary>
+                <div class="admin-field" style="margin-top:12px">
+                  <textarea id="simpleBongsa" class="admin-textarea" rows="3" placeholder="봉사 활동·시간·역할 등"></textarea>
                 </div>
               </details>
               <details class="admin-memo-panel" data-target="진로" hidden>
@@ -320,6 +327,10 @@
               <span class="admin-option-text"><strong>동아리</strong></span>
             </label>
             <label class="admin-option admin-option-radio">
+              <input type="radio" name="writeSection" value="봉사">
+              <span class="admin-option-text"><strong>봉사</strong></span>
+            </label>
+            <label class="admin-option admin-option-radio">
               <input type="radio" name="writeSection" value="진로">
               <span class="admin-option-text"><strong>진로</strong></span>
             </label>
@@ -379,6 +390,8 @@
             <button id="inspectDetailBtn" class="admin-btn secondary" type="button">검사 실행</button>
             <button id="saveDetailBtn" class="admin-btn" type="button">수정 저장</button>
             <button id="copyDetailBtn" class="admin-btn secondary" type="button">전체 복사</button>
+            <button id="copyNeisBtn" class="admin-btn secondary" type="button">NEIS용 복사</button>
+            <button id="editMemoFromDetailBtn" class="admin-btn secondary" type="button">입력 메모 수정</button>
           </div>
         </div>
       </div>
@@ -437,6 +450,26 @@
     </div>
   </div>
 
+  <div id="memoEditModal" class="admin-modal-backdrop" hidden role="dialog" aria-labelledby="memoEditTitle" aria-modal="true">
+    <div class="admin-modal admin-modal-wide">
+      <h2 id="memoEditTitle" class="admin-modal-title">입력 메모 수정</h2>
+      <p class="admin-muted" id="memoEditSubtitle"></p>
+      <h3 class="admin-subheading">작성 항목</h3>
+      <div class="admin-target-grid" id="memoEditTargets"></div>
+      <div id="memoEditFields" class="admin-memo-panels" style="margin-top:16px"></div>
+      <details class="admin-advanced" style="margin-top:16px">
+        <summary>NEIS·엑셀 붙여넣기</summary>
+        <p class="admin-muted" style="margin-top:8px">엑셀·NEIS에서 복사한 탭 구분 행이나 【항목】 블록을 붙여넣으면 메모·작성본에 반영합니다.</p>
+        <textarea id="neisPasteInput" class="admin-textarea" rows="6" placeholder="학년	반	번호	이름	행발_notes	세특_과목	창체_봉사 …"></textarea>
+        <button id="neisPasteApplyBtn" class="admin-btn secondary" type="button" style="margin-top:8px">붙여넣기 반영</button>
+      </details>
+      <div class="admin-actions" style="margin-top:16px">
+        <button id="memoEditCancelBtn" class="admin-btn secondary" type="button">취소</button>
+        <button id="memoEditSaveBtn" class="admin-btn" type="button">메모 저장</button>
+      </div>
+    </div>
+  </div>
+
   <div id="busyOverlay" class="admin-modal-backdrop" hidden aria-live="polite" aria-busy="true">
     <div class="admin-modal" role="dialog" aria-labelledby="busyTitle">
       <div class="admin-modal-icon" aria-hidden="true">
@@ -452,6 +485,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260705b"></script>
+  <script src="/admin-static/js/admin.js?v=20260705c"></script>
 </body>
 </html>

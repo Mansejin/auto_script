@@ -25,7 +25,7 @@ from src.saenggibu.job_queue import create_run_job, execute_run_job, get_job, li
 from src.saenggibu.inspector import inspect_text as run_inspect_text
 from src.saenggibu.inspector.issues import report_to_dict
 from src.saenggibu.inspector.runner import (
-    inspect_all_students,
+    inspect_batch,
     inspect_student_by_id,
     inspect_students_by_ids,
 )
@@ -147,8 +147,21 @@ class InspectTextRequest(BaseModel):
     student_name: str = ""
 
 
+class InspectBatchItem(BaseModel):
+    id: str
+    generated: dict[str, Any] = Field(default_factory=dict)
+    name: str = ""
+    label: str = ""
+
+
 class InspectBatchRequest(BaseModel):
     ids: list[str] = Field(default_factory=list)
+    items: list[InspectBatchItem] = Field(default_factory=list)
+    skip_ok_ids: list[str] = Field(default_factory=list)
+
+
+class StudentInspectRequest(BaseModel):
+    generated: dict[str, Any] | None = None
 
 
 def _extract_token(request: Request) -> str:
@@ -462,8 +475,24 @@ def _build_xlsx_response(students: list[StudentInput]) -> Response:
 
 
 @router.get("/students/{student_id}/inspect")
-def api_student_inspect(student_id: str, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+def api_student_inspect_get(student_id: str, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
     report = inspect_student_by_id(student_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
+    return report_to_dict(report)
+
+
+@router.post("/students/{student_id}/inspect")
+def api_student_inspect_post(
+    student_id: str,
+    payload: StudentInspectRequest,
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    generated = payload.generated
+    if generated is not None:
+        report = inspect_student_by_id(student_id, generated=generated)
+    else:
+        report = inspect_student_by_id(student_id)
     if report is None:
         raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
     return report_to_dict(report)
@@ -487,21 +516,26 @@ def api_inspect_batch(
     payload: InspectBatchRequest,
     _: AdminSession = Depends(require_admin),
 ) -> dict[str, Any]:
-    if payload.ids:
-        reports, not_found = inspect_students_by_ids(payload.ids)
-    else:
-        reports = inspect_all_students()
-        not_found = []
-    summary = {
-        "total": len(reports),
-        "fail": sum(1 for report in reports if report.status == "fail"),
-        "warn": sum(1 for report in reports if report.status == "warn"),
-        "ok": sum(1 for report in reports if report.status == "ok"),
-    }
+    items = None
+    if payload.items:
+        items = [
+            {
+                "id": item.id,
+                "generated": item.generated,
+                "name": item.name,
+                "label": item.label,
+            }
+            for item in payload.items
+        ]
+    result = inspect_batch(
+        student_ids=payload.ids or None,
+        items=items,
+        skip_ok_ids=set(payload.skip_ok_ids),
+    )
     return {
-        "summary": summary,
-        "not_found": not_found,
-        "reports": [report_to_dict(report) for report in reports],
+        "summary": result["summary"],
+        "not_found": result["not_found"],
+        "reports": [report_to_dict(report) for report in result["reports"]],
     }
 
 

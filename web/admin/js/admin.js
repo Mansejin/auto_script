@@ -130,26 +130,120 @@
     return "issue-info";
   }
 
+  function inspectChecklistIcon(status) {
+    if (status === "pass") return "✓";
+    if (status === "warn") return "!";
+    if (status === "fail") return "✕";
+    if (status === "skip") return "—";
+    return "…";
+  }
+
+  function renderInspectChecklistHtml(checklist) {
+    if (!checklist?.length) return "";
+    const items = checklist
+      .map((item) => {
+        const count =
+          item.issue_count > 0
+            ? ` <span class="admin-muted">(${item.issue_count}건)</span>`
+            : "";
+        return `<li class="admin-inspect-check-item status-${item.status}">
+          <span class="admin-inspect-check-icon" aria-hidden="true">${inspectChecklistIcon(item.status)}</span>
+          <div class="admin-inspect-check-body">
+            <strong>${escapeHtml(item.label)}</strong>${count}
+            <span class="admin-muted">${escapeHtml(item.description)}</span>
+            <div>${escapeHtml(item.message)}</div>
+          </div>
+        </li>`;
+      })
+      .join("");
+    return `<ul class="admin-inspect-checklist" aria-label="검사 항목">${items}</ul>`;
+  }
+
+  const INSPECT_BUSY_LABELS = [
+    "글자 수 · NEIS 분량",
+    "금지 표현",
+    "과장·비교·단정",
+    "실명 노출",
+    "문장 반복",
+  ];
+  let inspectBusyTimer = null;
+
+  function renderBusyInspectChecklist(activeIndex = -1) {
+    const el = document.getElementById("busyChecklist");
+    if (!el) return;
+    el.hidden = false;
+    el.innerHTML = INSPECT_BUSY_LABELS.map((label, index) => {
+      let status = "pending";
+      if (index < activeIndex) status = "pass";
+      else if (index === activeIndex) status = "active";
+      return `<li class="admin-busy-check-item status-${status}">
+        <span class="admin-inspect-check-icon" aria-hidden="true">${inspectChecklistIcon(status === "pass" ? "pass" : status === "active" ? "pending" : "pending")}</span>
+        <span>${escapeHtml(label)}</span>
+      </li>`;
+    }).join("");
+  }
+
+  function startInspectBusyAnimation() {
+    if (inspectBusyTimer) clearInterval(inspectBusyTimer);
+    let step = 0;
+    renderBusyInspectChecklist(0);
+    inspectBusyTimer = setInterval(() => {
+      step = (step + 1) % (INSPECT_BUSY_LABELS.length + 1);
+      renderBusyInspectChecklist(step >= INSPECT_BUSY_LABELS.length ? INSPECT_BUSY_LABELS.length : step);
+    }, 520);
+  }
+
+  function stopInspectBusyAnimation() {
+    if (inspectBusyTimer) {
+      clearInterval(inspectBusyTimer);
+      inspectBusyTimer = null;
+    }
+    const el = document.getElementById("busyChecklist");
+    if (el) {
+      el.hidden = true;
+      el.innerHTML = "";
+    }
+  }
+
+  function formatInspectSummaryToast(summary) {
+    const parts = [];
+    if (summary.total) {
+      parts.push(`검사 ${summary.total}명`);
+      parts.push(`통과 ${summary.ok}`);
+      parts.push(`주의 ${summary.warn}`);
+      parts.push(`오류 ${summary.fail}`);
+    } else {
+      parts.push("새로 검사한 작성본 없음");
+    }
+    if (summary.skipped_ok) parts.push(`이미 통과 ${summary.skipped_ok}명 건너뜀`);
+    if (summary.skipped_empty) parts.push(`작성본 없음 ${summary.skipped_empty}명`);
+    return `검사 완료 · ${parts.join(" · ")}`;
+  }
+
   function renderInspectSummary(report, containerId = "detailIssues") {
     const box = document.getElementById(containerId);
     if (!box) return;
-    if (!report || !report.issues?.length) {
+    if (!report) {
       box.hidden = true;
       box.innerHTML = "";
       return;
     }
     box.hidden = false;
-    const items = report.issues
-      .map((issue) => {
-        const detail = issue.detail ? ` <span class="admin-muted">(${escapeHtml(issue.detail)})</span>` : "";
-        return `<li class="${inspectIssueClass(issue.severity)}">
+    const checklistHtml = renderInspectChecklistHtml(report.checklist);
+    const issuesHtml = report.issues?.length
+      ? `<ul class="admin-inspect-issues">${report.issues
+          .map((issue) => {
+            const detail = issue.detail ? ` <span class="admin-muted">(${escapeHtml(issue.detail)})</span>` : "";
+            return `<li class="${inspectIssueClass(issue.severity)}">
           <span class="issue-section">${escapeHtml(issue.section)}</span>${escapeHtml(issue.message)}${detail}
         </li>`;
-      })
-      .join("");
+          })
+          .join("")}</ul>`
+      : `<p class="admin-muted">세부 지적 사항이 없습니다. 위 항목을 모두 통과했습니다.</p>`;
     box.innerHTML = `
       <h3>검사 결과 ${inspectBadgeHtml(report.student_id, report)}</h3>
-      <ul class="admin-inspect-issues">${items}</ul>`;
+      ${checklistHtml}
+      ${issuesHtml}`;
   }
 
   function renderFieldIssues(report) {
@@ -199,30 +293,57 @@
   }
 
   async function inspectStudents(ids = null) {
-    const body = ids && ids.length ? { ids } : { ids: [] };
-    const data = await api("/api/inspect/batch", { method: "POST", body });
-    for (const report of data.reports || []) {
+    const data = await api("/api/students");
+    let students = mergeStudentsWithDrafts(data.students || []);
+    if (ids?.length) {
+      const idSet = new Set(ids);
+      students = students.filter((student) => idSet.has(student.id));
+    }
+    const candidates = students.filter((student) => Object.keys(student.generated || {}).length);
+    const skipOkIds = candidates
+      .filter((student) => inspectReportCache.get(student.id)?.status === "ok")
+      .map((student) => student.id);
+    const items = candidates.map((student) => ({
+      id: student.id,
+      name: student.name || "",
+      label: studentLabel(student),
+      generated: student.generated || {},
+    }));
+    const body = { items, skip_ok_ids: skipOkIds };
+    if (ids?.length) body.ids = ids;
+    const result = await api("/api/inspect/batch", { method: "POST", body });
+    for (const report of result.reports || []) {
       if (report.student_id) inspectReportCache.set(report.student_id, report);
     }
-    return data;
+    return result;
   }
 
-  async function inspectCurrentStudent() {
+  async function inspectCurrentStudent({ generated = null } = {}) {
     if (!currentStudentId) return null;
-    const report = await api(`/api/students/${currentStudentId}/inspect`);
+    const body = {};
+    const editorGenerated = generated ?? collectGeneratedFromEditor();
+    if (Object.keys(editorGenerated || {}).length) {
+      body.generated = editorGenerated;
+    }
+    const report = await api(`/api/students/${currentStudentId}/inspect`, {
+      method: "POST",
+      body,
+    });
     inspectReportCache.set(currentStudentId, report);
     currentInspectReport = report;
     return report;
   }
 
   async function runInspectBatch(ids = null) {
-    const stop = startBusy("생기부 검사", "작성본을 기재요령 기준으로 점검합니다.", "잠시만 기다려 주세요.", {
+    const stop = startBusy("생기부 검사", "작성본을 기재요령 기준으로 점검합니다.", "항목별로 순차 검사합니다.", {
       showModel: false,
+      showInspectChecklist: true,
     });
+    startInspectBusyAnimation();
     try {
       const data = await inspectStudents(ids);
       const { summary } = data;
-      showToast(`검사 완료 · 통과 ${summary.ok} · 주의 ${summary.warn} · 오류 ${summary.fail}`);
+      showToast(formatInspectSummaryToast(summary || {}));
       await loadReviewList();
       if (currentStudentId && inspectReportCache.has(currentStudentId)) {
         currentInspectReport = inspectReportCache.get(currentStudentId);
@@ -235,6 +356,7 @@
       showToast(error.message || "검사 실패");
       return null;
     } finally {
+      stopInspectBusyAnimation();
       stop();
     }
   }
@@ -270,7 +392,7 @@
   }
 
   function setBusy(active, title = "AI 처리 중", message = "잠시만 기다려 주세요", hint = "", options = {}) {
-    const { showModel = true } = options;
+    const { showModel = true, showInspectChecklist = false } = options;
     if (active) {
       document.body.classList.add("admin-is-busy");
       if (busyOverlay) busyOverlay.hidden = false;
@@ -279,19 +401,30 @@
       if (busyHint) busyHint.textContent = hint;
       if (busyModel) {
         busyModel.hidden = !showModel;
-        busyModel.textContent = `사용 모델 · ${systemInfo.gemini_model}`;
+        busyModel.textContent = `사용 모델 · ${systemInfo.gemini_model || "—"}`;
       }
-    if (busyElapsed) busyElapsed.textContent = "0초 경과";
-    if (busyBarFill) {
-      busyBarFill.style.width = "35%";
-      busyBarFill.style.animation = "";
-    }
-    return;
+      const busyChecklist = document.getElementById("busyChecklist");
+      if (busyChecklist && !showInspectChecklist) {
+        busyChecklist.hidden = true;
+        busyChecklist.innerHTML = "";
+      }
+      if (busyElapsed) busyElapsed.textContent = "0초 경과";
+      if (busyBarFill) {
+        busyBarFill.style.width = showModel ? "35%" : "100%";
+        busyBarFill.style.animation = showModel ? "" : "none";
+        if (showModel) {
+          busyBarFill.classList.add("is-indeterminate");
+        } else {
+          busyBarFill.classList.remove("is-indeterminate");
+        }
+      }
+      return;
     }
     if (busyTimer) {
       clearInterval(busyTimer);
       busyTimer = null;
     }
+    stopInspectBusyAnimation();
     document.body.classList.remove("admin-is-busy");
     if (busyOverlay) busyOverlay.hidden = true;
   }
@@ -299,7 +432,7 @@
   function startBusy(title, message, hint = "응답을 기다리는 중입니다. 창을 닫지 마세요.", options = {}) {
     const { showModel = true } = options;
     busyStartedAt = Date.now();
-    setBusy(true, title, message, hint, { showModel });
+    setBusy(true, title, message, hint, options);
     if (busyTimer) clearInterval(busyTimer);
     busyTimer = setInterval(() => {
       const sec = Math.floor((Date.now() - busyStartedAt) / 1000);
@@ -344,11 +477,15 @@
     const message = formatJobProgress(job);
     if (busyMessage) busyMessage.textContent = message;
     if (busyBarFill) {
-      if (job.total) {
+      const total = Number(job.total) || 0;
+      const processed = Number(job.processed) || 0;
+      if (total > 1) {
+        busyBarFill.classList.remove("is-indeterminate");
         busyBarFill.style.animation = "none";
-        const pct = Math.min(100, Math.round(((job.processed || 0) / job.total) * 100));
+        const pct = Math.min(100, Math.max(4, Math.round((processed / total) * 100)));
         busyBarFill.style.width = `${pct}%`;
       } else {
+        busyBarFill.classList.add("is-indeterminate");
         busyBarFill.style.animation = "";
         busyBarFill.style.width = "35%";
       }
@@ -366,7 +503,8 @@
   }
 
   async function withAsyncRun(title, message, hint, payload) {
-    const stop = startBusy(title, message, hint);
+    await loadSystemInfo().catch(() => null);
+    const stop = startBusy(title, message, hint, { showModel: true });
     try {
       const started = await api("/api/run/async", { method: "POST", body: payload });
       const job = await pollRunJob(started.job_id);
@@ -1852,7 +1990,11 @@
 
   document.getElementById("inspectDetailBtn")?.addEventListener("click", async () => {
     if (!currentStudentId) return;
-    const stop = startBusy("생기부 검사", "수정한 본문을 점검합니다.", "잠시만 기다려 주세요.", { showModel: false });
+    const stop = startBusy("생기부 검사", "수정한 본문을 점검합니다.", "항목별로 순차 검사합니다.", {
+      showModel: false,
+      showInspectChecklist: true,
+    });
+    startInspectBusyAnimation();
     try {
       currentInspectReport = await inspectCurrentStudent();
       document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(currentStudentData?.status || "pending")} ${inspectBadgeHtml(
@@ -1867,6 +2009,7 @@
     } catch (error) {
       showToast(error.message || "검사 실패");
     } finally {
+      stopInspectBusyAnimation();
       stop();
     }
   });

@@ -12,6 +12,13 @@ from pydantic import BaseModel, Field
 
 from src.saenggibu.config import get_gemini_model
 from src.saenggibu.generator import generate_for_student, run_batch
+from src.saenggibu.inspector import inspect_text as run_inspect_text
+from src.saenggibu.inspector.issues import report_to_dict
+from src.saenggibu.inspector.runner import (
+    inspect_all_students,
+    inspect_student_by_id,
+    inspect_students_by_ids,
+)
 from src.saenggibu.models import StudentInput
 from src.saenggibu.pattern_analyzer import analyze_and_save, load_patterns, update_style_guide
 from src.saenggibu.sample_store import (
@@ -92,6 +99,16 @@ class StudentUpdateRequest(BaseModel):
     subjects: dict[str, dict[str, Any]] | None = None
     changche: dict[str, str] | None = None
     status: str | None = None
+
+
+class InspectTextRequest(BaseModel):
+    text: str
+    section_key: str = "본문"
+    student_name: str = ""
+
+
+class InspectBatchRequest(BaseModel):
+    ids: list[str] = Field(default_factory=list)
 
 
 def _extract_token(request: Request) -> str:
@@ -250,6 +267,50 @@ def api_students_export_xlsx(_: AdminSession = Depends(require_admin)) -> Respon
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/students/{student_id}/inspect")
+def api_student_inspect(student_id: str, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    report = inspect_student_by_id(student_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
+    return report_to_dict(report)
+
+
+@router.post("/inspect/text")
+def api_inspect_text(payload: InspectTextRequest, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
+    text = payload.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="검사할 본문을 입력하세요.")
+    report = run_inspect_text(
+        text,
+        section_key=payload.section_key.strip() or "본문",
+        student_name=payload.student_name.strip(),
+    )
+    return report_to_dict(report)
+
+
+@router.post("/inspect/batch")
+def api_inspect_batch(
+    payload: InspectBatchRequest,
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    if payload.ids:
+        reports, not_found = inspect_students_by_ids(payload.ids)
+    else:
+        reports = inspect_all_students()
+        not_found = []
+    summary = {
+        "total": len(reports),
+        "fail": sum(1 for report in reports if report.status == "fail"),
+        "warn": sum(1 for report in reports if report.status == "warn"),
+        "ok": sum(1 for report in reports if report.status == "ok"),
+    }
+    return {
+        "summary": summary,
+        "not_found": not_found,
+        "reports": [report_to_dict(report) for report in reports],
+    }
 
 
 @router.get("/students/{student_id}")

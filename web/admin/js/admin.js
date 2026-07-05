@@ -107,6 +107,144 @@
   let selectedSampleIds = new Set();
   let selectedStudentIds = new Set();
   let selectedReviewIds = new Set();
+  let inspectReportCache = new Map();
+  let currentInspectReport = null;
+  function inspectBadgeHtml(studentId, report = null) {
+    const cached = report || inspectReportCache.get(studentId);
+    if (!cached) {
+      return `<span class="admin-inspect-badge pending">미검사</span>`;
+    }
+    if (cached.status === "fail") {
+      return `<span class="admin-inspect-badge fail">오류 ${cached.error_count}</span>`;
+    }
+    if (cached.status === "warn") {
+      return `<span class="admin-inspect-badge warn">주의 ${cached.warning_count}</span>`;
+    }
+    return `<span class="admin-inspect-badge ok">통과</span>`;
+  }
+
+  function inspectIssueClass(severity) {
+    if (severity === "error") return "issue-error";
+    if (severity === "warning") return "issue-warning";
+    return "issue-info";
+  }
+
+  function renderInspectSummary(report, containerId = "detailIssues") {
+    const box = document.getElementById(containerId);
+    if (!box) return;
+    if (!report || !report.issues?.length) {
+      box.hidden = true;
+      box.innerHTML = "";
+      return;
+    }
+    box.hidden = false;
+    const items = report.issues
+      .map((issue) => {
+        const detail = issue.detail ? ` <span class="admin-muted">(${escapeHtml(issue.detail)})</span>` : "";
+        return `<li class="${inspectIssueClass(issue.severity)}">
+          <span class="issue-section">${escapeHtml(issue.section)}</span>${escapeHtml(issue.message)}${detail}
+        </li>`;
+      })
+      .join("");
+    box.innerHTML = `
+      <h3>검사 결과 ${inspectBadgeHtml(report.student_id, report)}</h3>
+      <ul class="admin-inspect-issues">${items}</ul>`;
+  }
+
+  function renderFieldIssues(report) {
+    const bySection = new Map();
+    for (const issue of report?.issues || []) {
+      if (!bySection.has(issue.section)) bySection.set(issue.section, []);
+      bySection.get(issue.section).push(issue);
+    }
+    document.querySelectorAll(".inspect-field-issues").forEach((list) => {
+      const section = list.dataset.for;
+      const issues = bySection.get(section) || [];
+      if (!issues.length) {
+        list.innerHTML = "";
+        return;
+      }
+      list.innerHTML = issues
+        .map(
+          (issue) =>
+            `<li class="${inspectIssueClass(issue.severity)}">${escapeHtml(issue.message)}</li>`
+        )
+        .join("");
+    });
+  }
+
+  function updateDetailCharCounts(report = currentInspectReport) {
+    document.querySelectorAll("#detailEditor .detail-field").forEach((textarea) => {
+      const section = textarea.dataset.key;
+      if (!section) return;
+      const counter = document.querySelector(`.inspect-char-count[data-for="${CSS.escape(section)}"]`);
+      if (!counter) return;
+      const length = textarea.value.trim().length;
+      counter.textContent = `${length}자`;
+      counter.classList.remove("is-warn", "is-error");
+      const sectionIssues = (report?.issues || []).filter((issue) => issue.section === section);
+      if (sectionIssues.some((issue) => issue.severity === "error")) {
+        counter.classList.add("is-error");
+      } else if (sectionIssues.some((issue) => issue.severity === "warning")) {
+        counter.classList.add("is-warn");
+      }
+    });
+  }
+
+  function bindDetailEditorInspectEvents() {
+    document.querySelectorAll("#detailEditor .detail-field").forEach((textarea) => {
+      textarea.addEventListener("input", () => updateDetailCharCounts());
+    });
+  }
+
+  async function inspectStudents(ids = null) {
+    const body = ids && ids.length ? { ids } : { ids: [] };
+    const data = await api("/api/inspect/batch", { method: "POST", body });
+    for (const report of data.reports || []) {
+      if (report.student_id) inspectReportCache.set(report.student_id, report);
+    }
+    return data;
+  }
+
+  async function inspectCurrentStudent() {
+    if (!currentStudentId) return null;
+    const report = await api(`/api/students/${currentStudentId}/inspect`);
+    inspectReportCache.set(currentStudentId, report);
+    currentInspectReport = report;
+    return report;
+  }
+
+  async function runInspectBatch(ids = null) {
+    const stop = startBusy("생기부 검사", "작성본을 기재요령 기준으로 점검합니다.", "잠시만 기다려 주세요.", {
+      showModel: false,
+    });
+    try {
+      const data = await inspectStudents(ids);
+      const { summary } = data;
+      showToast(`검사 완료 · 통과 ${summary.ok} · 주의 ${summary.warn} · 오류 ${summary.fail}`);
+      await loadReviewList();
+      if (currentStudentId && inspectReportCache.has(currentStudentId)) {
+        currentInspectReport = inspectReportCache.get(currentStudentId);
+        renderInspectSummary(currentInspectReport);
+        renderFieldIssues(currentInspectReport);
+        updateDetailCharCounts(currentInspectReport);
+      }
+      return data;
+    } catch (error) {
+      showToast(error.message || "검사 실패");
+      return null;
+    } finally {
+      stop();
+    }
+  }
+
+  function sectionLabelFromKey(key) {
+    if (key === "행발") return "행동특성 및 종합의견";
+    if (key.startsWith("세특:")) return `세특 · ${key.slice(4)}`;
+    if (key.startsWith("창체:")) return `창체 · ${key.slice(4)}`;
+    return key;
+  }
+
   let busyTimer = null;
   let busyStartedAt = 0;
   let systemInfo = { gemini_model: "—" };
@@ -515,12 +653,12 @@
     const tbody = document.getElementById("reviewTableBody");
     const toolbar = document.getElementById("reviewBulkActions");
     if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="4">불러오는 중…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5">불러오는 중…</td></tr>`;
     if (toolbar) toolbar.hidden = true;
     const data = await api("/api/students");
     const reviewable = data.students.filter((s) => s.status === "done" || Object.keys(s.generated || {}).length);
     if (!reviewable.length) {
-      tbody.innerHTML = `<tr><td colspan="4" class="admin-muted">아직 작성된 생기부가 없습니다. ④에서 일괄 작성을 실행하세요.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="admin-muted">아직 작성된 생기부가 없습니다. ④에서 일괄 작성을 실행하세요.</td></tr>`;
       selectedReviewIds.clear();
       updateReviewSelectionUi(0);
       return;
@@ -537,6 +675,7 @@
           </td>
           <td>${studentLabel(s)}</td>
           <td>${statusPill(s.status)}</td>
+          <td>${inspectBadgeHtml(s.id)}</td>
           <td class="admin-row-actions">
             <button class="admin-btn secondary admin-btn-sm" data-action="review" data-id="${s.id}">열기</button>
             <button class="admin-btn danger admin-btn-sm" type="button" data-action="reset-generated" data-id="${s.id}" data-label="${escapeAttr(studentLabel(s))}">작성 삭제</button>
@@ -805,27 +944,41 @@
 
     if (generated.행발) {
       parts.push(`
-        <div class="admin-field">
-          <label>행동특성 및 종합의견</label>
+        <div class="admin-field inspect-field">
+          <div class="admin-field-head">
+            <label>행동특성 및 종합의견</label>
+            <span class="inspect-char-count" data-for="행발">0자</span>
+          </div>
           <textarea class="admin-textarea detail-field" data-key="행발" rows="6">${escapeHtml(generated.행발)}</textarea>
+          <ul class="inspect-field-issues" data-for="행발"></ul>
         </div>`);
     }
 
     const setuk = generated.세특 || {};
     for (const [subject, text] of Object.entries(setuk)) {
+      const key = `세특:${subject}`;
       parts.push(`
-        <div class="admin-field">
-          <label>세특 · ${escapeHtml(subject)}</label>
-          <textarea class="admin-textarea detail-field" data-key="세특:${escapeAttr(subject)}" rows="5">${escapeHtml(text)}</textarea>
+        <div class="admin-field inspect-field">
+          <div class="admin-field-head">
+            <label>세특 · ${escapeHtml(subject)}</label>
+            <span class="inspect-char-count" data-for="${escapeAttr(key)}">0자</span>
+          </div>
+          <textarea class="admin-textarea detail-field" data-key="${escapeAttr(key)}" rows="5">${escapeHtml(text)}</textarea>
+          <ul class="inspect-field-issues" data-for="${escapeAttr(key)}"></ul>
         </div>`);
     }
 
     const changche = generated.창체 || {};
-    for (const [key, text] of Object.entries(changche)) {
+    for (const [keyName, text] of Object.entries(changche)) {
+      const key = `창체:${keyName}`;
       parts.push(`
-        <div class="admin-field">
-          <label>창체 · ${escapeHtml(key)}</label>
-          <textarea class="admin-textarea detail-field" data-key="창체:${escapeAttr(key)}" rows="4">${escapeHtml(text)}</textarea>
+        <div class="admin-field inspect-field">
+          <div class="admin-field-head">
+            <label>창체 · ${escapeHtml(keyName)}</label>
+            <span class="inspect-char-count" data-for="${escapeAttr(key)}">0자</span>
+          </div>
+          <textarea class="admin-textarea detail-field" data-key="${escapeAttr(key)}" rows="4">${escapeHtml(text)}</textarea>
+          <ul class="inspect-field-issues" data-for="${escapeAttr(key)}"></ul>
         </div>`);
     }
 
@@ -834,6 +987,9 @@
       return;
     }
     editor.innerHTML = parts.join("");
+    bindDetailEditorInspectEvents();
+    updateDetailCharCounts(currentInspectReport);
+    renderFieldIssues(currentInspectReport);
   }
 
   function escapeHtml(text) {
@@ -882,8 +1038,24 @@
     currentStudentData = student;
     switchTab("detail");
     document.getElementById("detailTitle").textContent = studentLabel(student);
-    document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(student.status)}`;
+    const cached = inspectReportCache.get(id);
+    document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(student.status)} ${
+      cached ? inspectBadgeHtml(id, cached) : ""
+    }`;
     buildDetailEditor(student.generated || {});
+    try {
+      currentInspectReport = await inspectCurrentStudent();
+      document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(student.status)} ${inspectBadgeHtml(
+        id,
+        currentInspectReport
+      )}`;
+      renderInspectSummary(currentInspectReport);
+      renderFieldIssues(currentInspectReport);
+      updateDetailCharCounts(currentInspectReport);
+    } catch {
+      currentInspectReport = null;
+      renderInspectSummary(null);
+    }
   }
 
   loginForm?.addEventListener("submit", async (event) => {
@@ -1041,6 +1213,11 @@
     await resetGeneratedByIds(ids, `선택한 ${ids.length}명의 작성본을 삭제할까요?\n학생 메모는 유지됩니다.`);
   });
 
+  document.getElementById("inspectAllReviewBtn")?.addEventListener("click", async () => {
+    const ids = getSelectedReviewIds();
+    await runInspectBatch(ids.length ? ids : null);
+  });
+
   document.getElementById("resetAllReviewBtn")?.addEventListener("click", async () => {
     const data = await api("/api/students");
     const count = data.students.filter((s) => Object.keys(s.generated || {}).length).length;
@@ -1086,8 +1263,42 @@
       });
       currentStudentData = updated;
       showToast("저장됨");
+      try {
+        currentInspectReport = await inspectCurrentStudent();
+        document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(updated.status)} ${inspectBadgeHtml(
+          currentStudentId,
+          currentInspectReport
+        )}`;
+        renderInspectSummary(currentInspectReport);
+        renderFieldIssues(currentInspectReport);
+        updateDetailCharCounts(currentInspectReport);
+        await loadReviewList();
+      } catch {
+        /* inspect optional after save */
+      }
     } catch (error) {
       showToast(error.message);
+    }
+  });
+
+  document.getElementById("inspectDetailBtn")?.addEventListener("click", async () => {
+    if (!currentStudentId) return;
+    const stop = startBusy("생기부 검사", "수정한 본문을 점검합니다.", "잠시만 기다려 주세요.", { showModel: false });
+    try {
+      currentInspectReport = await inspectCurrentStudent();
+      document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(currentStudentData?.status || "pending")} ${inspectBadgeHtml(
+        currentStudentId,
+        currentInspectReport
+      )}`;
+      renderInspectSummary(currentInspectReport);
+      renderFieldIssues(currentInspectReport);
+      updateDetailCharCounts(currentInspectReport);
+      await loadReviewList();
+      showToast("검사 완료");
+    } catch (error) {
+      showToast(error.message || "검사 실패");
+    } finally {
+      stop();
     }
   });
 

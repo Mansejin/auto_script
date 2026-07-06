@@ -54,7 +54,7 @@ def _proofread_new_fields(
 ) -> None:
     for section, kind, key in fields:
         label = key or section
-        notify(section, f"AI 맞춤법 검사 중 · {label}")
+        notify(section, f"proofread:{label}")
         check_generation_allowed()
         current = _read_generated_field(generated, kind, key)
         corrected = proofread_text(current)

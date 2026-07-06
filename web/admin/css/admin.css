@@ -497,14 +497,17 @@
   overflow: hidden;
   background: var(--bg);
   gap: 0;
+  isolation: isolate;
 }
 
 .admin-student-meta .admin-grade-btn {
+  position: relative;
   flex: 1;
   min-width: 0;
   width: auto;
   height: 100%;
   padding: 0;
+  margin: 0;
   border: none;
   border-radius: 0;
   border-right: 1px solid var(--border);
@@ -512,6 +515,9 @@
   font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-secondary);
+  outline: none;
+  box-shadow: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .admin-student-meta .admin-grade-btn:last-child {
@@ -523,10 +529,16 @@
   color: var(--text);
 }
 
+.admin-student-meta .admin-grade-btn:focus-visible {
+  z-index: 1;
+  background: color-mix(in srgb, var(--blue) 10%, var(--bg));
+}
+
 .admin-student-meta .admin-grade-btn.active {
-  background: color-mix(in srgb, var(--blue) 14%, var(--card));
+  z-index: 1;
+  background: color-mix(in srgb, var(--blue) 18%, var(--card));
   color: var(--blue);
-  box-shadow: inset 0 0 0 1px var(--blue);
+  box-shadow: none;
 }
 
 .admin-grade-pick {

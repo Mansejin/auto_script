@@ -19,9 +19,16 @@ def test_inspect_text_detects_score() -> None:
 
 
 def test_inspect_text_char_count_warning() -> None:
-    long_text = "가" * 520
+    long_text = "가" * 760
     report = inspect_text(long_text, section_key="세특:수학")
     assert any(issue.code in {"char_count_over", "char_count_high"} for issue in report.issues)
+
+
+def test_inspect_setuk_uses_byte_limit_not_char_limit() -> None:
+    text = "가" * 545
+    report = inspect_text(text, section_key="세특:수학")
+    assert not any(issue.code == "char_count_over" for issue in report.issues)
+    assert report.char_count["세특:수학"] == 1090
 
 
 def test_inspect_text_char_count_low_info() -> None:

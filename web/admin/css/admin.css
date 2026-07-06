@@ -1145,6 +1145,7 @@ body.admin-is-busy .admin-tab {
 }
 
 .admin-header-btn {
+  display: inline-block;
   padding: 6px 12px;
   font-size: 0.8125rem;
   font-weight: 600;
@@ -1153,6 +1154,7 @@ body.admin-is-busy .admin-tab {
   border: 1px solid var(--border);
   border-radius: 8px;
   cursor: pointer;
+  text-decoration: none;
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
@@ -1417,4 +1419,112 @@ body.admin-guide-open {
   .admin-student-meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* 업데이트 내역 (changelog) */
+.admin-changelog-page {
+  max-width: 720px;
+}
+
+.admin-changelog-current {
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.admin-changelog-version-label {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.admin-changelog-version {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--blue);
+  margin-bottom: 6px;
+}
+
+.admin-changelog-release {
+  margin-bottom: 16px;
+}
+
+.admin-changelog-release-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.admin-changelog-release-head h2 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.admin-changelog-release-head time {
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.admin-changelog-summary {
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-changelog-section + .admin-changelog-section {
+  margin-top: 14px;
+}
+
+.admin-changelog-section h3 {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.admin-changelog-list {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.admin-changelog-list li + li {
+  margin-top: 6px;
+}
+
+.admin-changelog-list strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.admin-changelog-list code {
+  font-size: 0.85em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.admin-changelog-foot {
+  margin-top: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.admin-version-link {
+  color: var(--text-tertiary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.admin-version-link:hover {
+  color: var(--blue);
 }

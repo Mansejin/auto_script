@@ -6,7 +6,6 @@ import re
 from typing import Any
 
 from .config import CHANGCHE_SUBSECTIONS
-from .models import StudentInput
 
 _CHANGCHE_HEADER_MAP = {
     "자율": frozenset({"자율", "자율활동", "창체_자율", "창체 자율"}),
@@ -218,76 +217,3 @@ def parse_neis_paste(text: str) -> dict[str, Any]:
     headers, rows = _parse_tsv_rows(text)
     fields = _row_to_fields(rows[0], headers)
     return {"format": "tsv", "headers": headers, "row_count": len(rows), **fields}
-
-
-def format_neis_tsv(student: StudentInput, *, include_header: bool = True) -> str:
-    """NEIS·엑셀 일괄 입력용 탭 구분 한 행(선택적 헤더 포함)을 만듭니다."""
-    generated = student.generated or {}
-    setuk = generated.get("세특") or {}
-    changche = generated.get("창체") or {}
-    subjects = list(setuk.keys())
-
-    headers = [
-        "학년",
-        "반",
-        "번호",
-        "이름",
-        "행동특성 및 종합의견",
-        *[f"세특_{subject}" for subject in subjects],
-        "자율활동",
-        "동아리활동",
-        "봉사활동",
-        "진로활동",
-    ]
-    values = [
-        str(student.grade),
-        str(student.class_num),
-        str(student.number),
-        student.name,
-        str(generated.get("행발") or ""),
-        *[str(setuk.get(subject) or "") for subject in subjects],
-        str(changche.get("자율") or ""),
-        str(changche.get("동아리") or ""),
-        str(changche.get("봉사") or ""),
-        str(changche.get("진로") or ""),
-    ]
-
-    buffer = io.StringIO()
-    writer = csv.writer(buffer, delimiter="\t", lineterminator="\n")
-    if include_header:
-        writer.writerow(headers)
-    writer.writerow(values)
-    return buffer.getvalue().rstrip("\n")
-
-
-def merge_parsed_into_student(student: StudentInput, parsed: dict[str, Any]) -> StudentInput:
-    """파싱 결과를 기존 학생 메모·작성본에 병합합니다."""
-    notes = dict(student.notes or {})
-    notes.update(parsed.get("notes") or {})
-    if parsed.get("notes", {}).get("write_targets"):
-        notes["write_targets"] = parsed["notes"]["write_targets"]
-
-    subjects = dict(student.subjects or {})
-    for subject, info in (parsed.get("subjects") or {}).items():
-        current = dict(subjects.get(subject) or {})
-        current.update(info)
-        subjects[subject] = current
-
-    changche = dict(student.changche or {})
-    changche.update(parsed.get("changche") or {})
-
-    generated = dict(student.generated or {})
-    for key, value in (parsed.get("generated") or {}).items():
-        if key == "세특" and isinstance(value, dict):
-            generated.setdefault("세특", {}).update(value)
-        elif key == "창체" and isinstance(value, dict):
-            generated.setdefault("창체", {}).update(value)
-        else:
-            generated[key] = value
-
-    student.notes = notes
-    student.subjects = subjects
-    student.changche = changche
-    if generated:
-        student.generated = generated
-    return student

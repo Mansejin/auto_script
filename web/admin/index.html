@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260706d">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260706e">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -167,13 +167,27 @@
               </div>
               <div class="admin-field">
                 <span class="admin-field-label" id="simpleClassLabel">반</span>
-                <div id="simpleClassPick" class="admin-meta-pick" role="group" aria-labelledby="simpleClassLabel"></div>
-                <input type="hidden" id="simpleClass" value="1" required>
+                <div class="admin-meta-dropdown" id="simpleClassDropdown">
+                  <div class="admin-meta-trigger-wrap" id="simpleClassTriggerWrap">
+                    <button type="button" class="admin-meta-trigger" id="simpleClassTrigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="simpleClassPick">
+                      <span id="simpleClassTriggerText">반 선택</span>
+                    </button>
+                  </div>
+                  <div id="simpleClassPick" class="admin-meta-drop" role="listbox" hidden></div>
+                  <input type="hidden" id="simpleClass" value="1" required>
+                </div>
               </div>
               <div class="admin-field">
                 <span class="admin-field-label" id="simpleNumberLabel">번호</span>
-                <div id="simpleNumberPick" class="admin-meta-pick" role="group" aria-labelledby="simpleNumberLabel"></div>
-                <input type="hidden" id="simpleNumber" value="1" required>
+                <div class="admin-meta-dropdown" id="simpleNumberDropdown">
+                  <div class="admin-meta-trigger-wrap" id="simpleNumberTriggerWrap">
+                    <button type="button" class="admin-meta-trigger" id="simpleNumberTrigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="simpleNumberPick">
+                      <span id="simpleNumberTriggerText">번호 선택</span>
+                    </button>
+                  </div>
+                  <div id="simpleNumberPick" class="admin-meta-drop" role="listbox" hidden></div>
+                  <input type="hidden" id="simpleNumber" value="1" required>
+                </div>
               </div>
             </div>
             <div class="admin-memo-panels" id="studentMemoPanels">
@@ -416,7 +430,7 @@
         <li><strong>④ 작성·검토</strong> — 영역 하나씩 선택해 일괄 작성 → 검토·복사·엑셀 추출</li>
       </ol>
       <ul class="admin-guide-tips">
-        <li>학년·반·번호는 <strong>숫자 타일</strong>에서 고릅니다. 범위 밖은 <strong>직접</strong> 칸에 입력하세요.</li>
+        <li>학년·반·번호는 <strong>선택 박스</strong>를 눌러 고릅니다. 범위 밖은 <strong>직접 입력</strong> 타일을 사용하세요.</li>
         <li>세특 메모는 <strong>과목명 필수</strong>, 진로·수행평가·주제·활동 내용은 비워 두면 없음 처리됩니다.</li>
         <li>③ <strong>등록된 학생</strong>에서 선택 삭제·전체 초기화로 학생 데이터를 지울 수 있습니다.</li>
         <li>④ <strong>검토 목록</strong>에서 작성본만 삭제(초기화)하거나 <strong>엑셀 추출</strong>할 수 있습니다.</li>
@@ -491,6 +505,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260706d"></script>
+  <script src="/admin-static/js/admin.js?v=20260706e"></script>
 </body>
 </html>

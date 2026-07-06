@@ -474,11 +474,64 @@
   color: var(--blue);
 }
 
-.admin-meta-pick {
+.admin-meta-dropdown {
+  position: relative;
+  width: max-content;
+  max-width: 100%;
+}
+
+.admin-meta-trigger-wrap {
+  width: 100%;
+}
+
+.admin-meta-trigger,
+.admin-meta-trigger-input {
+  width: 100%;
+  min-width: 108px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.admin-meta-trigger:hover,
+.admin-meta-trigger[aria-expanded="true"] {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+.admin-meta-trigger-input {
+  cursor: text;
+}
+
+.admin-meta-trigger-input:focus {
+  outline: none;
+  border-color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 8%, var(--card));
+}
+
+.admin-meta-drop {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(220px, 92vw);
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  box-shadow: var(--shadow);
   display: grid;
   grid-template-columns: repeat(5, minmax(34px, 1fr));
   gap: 6px;
-  max-width: 220px;
 }
 
 .admin-meta-btn {
@@ -506,36 +559,10 @@
   color: var(--blue);
 }
 
-.admin-meta-custom {
-  display: block;
-}
-
-.admin-meta-custom-input {
-  width: 100%;
-  min-width: 0;
-  padding: 7px 4px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 1.2;
-  text-align: center;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.admin-meta-custom-input::placeholder {
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.admin-meta-custom-input:focus,
-.admin-meta-custom.active .admin-meta-custom-input {
-  outline: none;
-  border-color: var(--blue);
-  background: color-mix(in srgb, var(--blue) 14%, var(--card));
+.admin-meta-btn-custom {
+  grid-column: 1 / -1;
+  padding: 8px 6px;
+  font-size: 0.75rem;
 }
 
 .admin-samples-toolbar {

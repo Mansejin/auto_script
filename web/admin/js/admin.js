@@ -901,90 +901,205 @@
     }
   }
 
-  function buildMetaPick(containerId, max) {
-    const container = document.getElementById(containerId);
-    if (!container || container.dataset.ready) return;
-    container.dataset.ready = "1";
-    container.innerHTML = "";
-    for (let i = 1; i <= max; i += 1) {
+  const META_DROPDOWNS = [
+    {
+      dropdownId: "simpleClassDropdown",
+      pickId: "simpleClassPick",
+      triggerId: "simpleClassTrigger",
+      triggerWrapId: "simpleClassTriggerWrap",
+      triggerTextId: "simpleClassTriggerText",
+      hiddenId: "simpleClass",
+      max: 15,
+      suffix: "반",
+      placeholder: "반 선택",
+    },
+    {
+      dropdownId: "simpleNumberDropdown",
+      pickId: "simpleNumberPick",
+      triggerId: "simpleNumberTrigger",
+      triggerWrapId: "simpleNumberTriggerWrap",
+      triggerTextId: "simpleNumberTriggerText",
+      hiddenId: "simpleNumber",
+      max: 30,
+      suffix: "번",
+      placeholder: "번호 선택",
+    },
+  ];
+
+  function getMetaDropdownConfig(pickId) {
+    return META_DROPDOWNS.find((item) => item.pickId === pickId);
+  }
+
+  function formatMetaDisplay(value, suffix) {
+    return `${value}${suffix}`;
+  }
+
+  function closeMetaDropdown(config) {
+    const pick = document.getElementById(config.pickId);
+    const trigger = document.getElementById(config.triggerId);
+    if (pick) pick.hidden = true;
+    if (trigger) trigger.setAttribute("aria-expanded", "false");
+  }
+
+  function closeAllMetaDropdowns(exceptPickId = "") {
+    META_DROPDOWNS.forEach((config) => {
+      if (config.pickId !== exceptPickId) closeMetaDropdown(config);
+    });
+  }
+
+  function buildMetaDropdown(config) {
+    const pick = document.getElementById(config.pickId);
+    if (!pick || pick.dataset.ready) return;
+    pick.dataset.ready = "1";
+    pick.innerHTML = "";
+    for (let i = 1; i <= config.max; i += 1) {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "admin-meta-btn";
       btn.dataset.value = String(i);
+      btn.setAttribute("role", "option");
       btn.textContent = String(i);
       if (i === 1) btn.classList.add("active");
-      container.appendChild(btn);
+      pick.appendChild(btn);
     }
-    const customWrap = document.createElement("label");
-    customWrap.className = "admin-meta-custom";
-    const input = document.createElement("input");
-    input.type = "number";
-    input.min = "1";
-    input.className = "admin-meta-custom-input";
-    input.placeholder = "직접";
-    input.inputMode = "numeric";
-    customWrap.appendChild(input);
-    container.appendChild(customWrap);
+    const customBtn = document.createElement("button");
+    customBtn.type = "button";
+    customBtn.className = "admin-meta-btn admin-meta-btn-custom";
+    customBtn.dataset.custom = "1";
+    customBtn.setAttribute("role", "option");
+    customBtn.textContent = "직접 입력";
+    pick.appendChild(customBtn);
   }
 
-  function setMetaPickValue(pickId, hiddenId, value) {
-    const pick = document.getElementById(pickId);
-    const hidden = document.getElementById(hiddenId);
+  function setMetaDropdownValue(pickId, value, { showPlaceholder = false } = {}) {
+    const config = getMetaDropdownConfig(pickId);
+    if (!config) return;
+    const hidden = document.getElementById(config.hiddenId);
+    const triggerText = document.getElementById(config.triggerTextId);
+    const pick = document.getElementById(config.pickId);
     const val = String(value);
     if (hidden) hidden.value = val;
+    if (triggerText) {
+      triggerText.textContent = showPlaceholder ? config.placeholder : formatMetaDisplay(val, config.suffix);
+    }
     if (!pick) return;
     let matchedPreset = false;
-    pick.querySelectorAll(".admin-meta-btn").forEach((btn) => {
+    pick.querySelectorAll(".admin-meta-btn:not(.admin-meta-btn-custom)").forEach((btn) => {
       const active = btn.dataset.value === val;
       btn.classList.toggle("active", active);
       if (active) matchedPreset = true;
     });
-    const customWrap = pick.querySelector(".admin-meta-custom");
-    const customInput = pick.querySelector(".admin-meta-custom-input");
-    if (customWrap && customInput) {
-      if (matchedPreset) {
-        customInput.value = "";
-        customWrap.classList.remove("active");
-      } else {
-        customInput.value = val;
-        customWrap.classList.add("active");
+    pick.querySelector(".admin-meta-btn-custom")?.classList.toggle("active", !matchedPreset);
+    exitMetaCustomMode(config, { keepValue: true });
+  }
+
+  function enterMetaCustomMode(config) {
+    const wrap = document.getElementById(config.triggerWrapId);
+    const trigger = document.getElementById(config.triggerId);
+    const hidden = document.getElementById(config.hiddenId);
+    if (!wrap || !trigger || wrap.dataset.customMode === "1") return;
+    closeMetaDropdown(config);
+    wrap.dataset.customMode = "1";
+    trigger.hidden = true;
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "1";
+    input.className = "admin-meta-trigger-input";
+    input.inputMode = "numeric";
+    input.value = hidden?.value || "";
+    input.setAttribute("aria-label", config.placeholder);
+    wrap.appendChild(input);
+    input.focus();
+    input.select();
+
+    const applyCustom = () => {
+      const raw = input.value.trim();
+      const previous = hidden?.value || "1";
+      if (!raw) {
+        setMetaDropdownValue(config.pickId, previous);
+        return;
       }
+      const num = Number(raw);
+      if (!Number.isFinite(num) || num < 1) {
+        setMetaDropdownValue(config.pickId, previous);
+        return;
+      }
+      setMetaDropdownValue(config.pickId, String(Math.floor(num)));
+    };
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        applyCustom();
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMetaDropdownValue(config.pickId, hidden?.value || "1");
+      }
+    });
+    input.addEventListener("blur", applyCustom, { once: true });
+  }
+
+  function exitMetaCustomMode(config, { keepValue = false } = {}) {
+    const wrap = document.getElementById(config.triggerWrapId);
+    const trigger = document.getElementById(config.triggerId);
+    if (!wrap || wrap.dataset.customMode !== "1") return;
+    wrap.querySelector(".admin-meta-trigger-input")?.remove();
+    if (trigger) trigger.hidden = false;
+    wrap.dataset.customMode = "0";
+    if (!keepValue) {
+      const hidden = document.getElementById(config.hiddenId);
+      const triggerText = document.getElementById(config.triggerTextId);
+      const val = hidden?.value || "1";
+      if (triggerText) triggerText.textContent = formatMetaDisplay(val, config.suffix);
     }
   }
 
-  function wireMetaPick(pickId, hiddenId) {
-    const pick = document.getElementById(pickId);
-    if (!pick || pick.dataset.wired) return;
+  function wireMetaDropdown(config) {
+    const pick = document.getElementById(config.pickId);
+    const trigger = document.getElementById(config.triggerId);
+    if (!pick || !trigger || pick.dataset.wired) return;
     pick.dataset.wired = "1";
+
+    trigger.addEventListener("click", () => {
+      const wrap = document.getElementById(config.triggerWrapId);
+      if (wrap?.dataset.customMode === "1") return;
+      const willOpen = pick.hidden;
+      closeAllMetaDropdowns(config.pickId);
+      pick.hidden = !willOpen;
+      trigger.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    });
+
     pick.addEventListener("click", (event) => {
+      const customBtn = event.target.closest(".admin-meta-btn-custom");
+      if (customBtn) {
+        enterMetaCustomMode(config);
+        return;
+      }
       const btn = event.target.closest(".admin-meta-btn");
       if (!btn) return;
-      setMetaPickValue(pickId, hiddenId, btn.dataset.value);
-    });
-    const customInput = pick.querySelector(".admin-meta-custom-input");
-    customInput?.addEventListener("input", () => {
-      const raw = customInput.value.trim();
-      if (!raw) return;
-      const num = Number(raw);
-      if (!Number.isFinite(num) || num < 1) return;
-      pick.querySelectorAll(".admin-meta-btn").forEach((btn) => btn.classList.remove("active"));
-      pick.querySelector(".admin-meta-custom")?.classList.add("active");
-      const hidden = document.getElementById(hiddenId);
-      if (hidden) hidden.value = String(Math.floor(num));
-    });
-    customInput?.addEventListener("focus", () => {
-      pick.querySelectorAll(".admin-meta-btn").forEach((btn) => btn.classList.remove("active"));
-      pick.querySelector(".admin-meta-custom")?.classList.add("active");
+      setMetaDropdownValue(config.pickId, btn.dataset.value);
+      closeMetaDropdown(config);
     });
   }
 
   function initStudentFormControls() {
-    buildMetaPick("simpleClassPick", 15);
-    buildMetaPick("simpleNumberPick", 30);
-    wireMetaPick("simpleClassPick", "simpleClass");
-    wireMetaPick("simpleNumberPick", "simpleNumber");
-    setMetaPickValue("simpleClassPick", "simpleClass", 1);
-    setMetaPickValue("simpleNumberPick", "simpleNumber", 1);
+    META_DROPDOWNS.forEach((config) => {
+      buildMetaDropdown(config);
+      wireMetaDropdown(config);
+      setMetaDropdownValue(config.pickId, 1, { showPlaceholder: true });
+    });
+
+    if (!document.body.dataset.metaDropdownBound) {
+      document.body.dataset.metaDropdownBound = "1";
+      document.addEventListener("click", (event) => {
+        if (event.target.closest(".admin-meta-dropdown")) return;
+        closeAllMetaDropdowns();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeAllMetaDropdowns();
+      });
+    }
   }
 
   function setStudentGrade(grade) {
@@ -998,8 +1113,8 @@
 
   function resetStudentFormDefaults() {
     setStudentGrade(2);
-    setMetaPickValue("simpleClassPick", "simpleClass", 1);
-    setMetaPickValue("simpleNumberPick", "simpleNumber", 1);
+    setMetaDropdownValue("simpleClassPick", 1, { showPlaceholder: true });
+    setMetaDropdownValue("simpleNumberPick", 1, { showPlaceholder: true });
     document.querySelectorAll(".write-target").forEach((box) => {
       box.checked = box.value === "행발";
     });

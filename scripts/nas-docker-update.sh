@@ -425,15 +425,16 @@ if [ "$PULL_ONLY" = "1" ]; then
   log "==> pull only (--pull-only)"
 elif [ "$NO_BUILD" = "1" ]; then
   log "==> skip docker build (--no-build)"
+elif [ "$FORCE_BUILD" = "1" ]; then
+  ensure_docker_access
+  log "==> docker: $DOCKER"
+  log "==> forced API rebuild (--full-build)"
+  enable_maintenance_page
+  compose_up rebuild
 elif [ "$DEPLOY_SCOPE" = "none" ]; then
   log "==> no file changes — skip docker build"
 elif [ "$DEPLOY_SCOPE" = "ui-only" ]; then
   log "==> UI only — skip docker build (Ctrl+F5 in browser)"
-elif [ "$FORCE_BUILD" = "1" ]; then
-  ensure_docker_access
-  log "==> docker: $DOCKER"
-  enable_maintenance_page
-  compose_up rebuild
 else
   ensure_docker_access
   log "==> docker: $DOCKER"

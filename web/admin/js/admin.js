@@ -908,19 +908,90 @@
     }
   }
 
+  function buildMetaPick(containerId, max) {
+    const container = document.getElementById(containerId);
+    if (!container || container.dataset.ready) return;
+    container.dataset.ready = "1";
+    container.innerHTML = "";
+    for (let i = 1; i <= max; i += 1) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "admin-meta-btn";
+      btn.dataset.value = String(i);
+      btn.textContent = String(i);
+      if (i === 1) btn.classList.add("active");
+      container.appendChild(btn);
+    }
+    const customWrap = document.createElement("label");
+    customWrap.className = "admin-meta-custom";
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "1";
+    input.className = "admin-meta-custom-input";
+    input.placeholder = "직접";
+    input.inputMode = "numeric";
+    customWrap.appendChild(input);
+    container.appendChild(customWrap);
+  }
+
+  function setMetaPickValue(pickId, hiddenId, value) {
+    const pick = document.getElementById(pickId);
+    const hidden = document.getElementById(hiddenId);
+    const val = String(value);
+    if (hidden) hidden.value = val;
+    if (!pick) return;
+    let matchedPreset = false;
+    pick.querySelectorAll(".admin-meta-btn").forEach((btn) => {
+      const active = btn.dataset.value === val;
+      btn.classList.toggle("active", active);
+      if (active) matchedPreset = true;
+    });
+    const customWrap = pick.querySelector(".admin-meta-custom");
+    const customInput = pick.querySelector(".admin-meta-custom-input");
+    if (customWrap && customInput) {
+      if (matchedPreset) {
+        customInput.value = "";
+        customWrap.classList.remove("active");
+      } else {
+        customInput.value = val;
+        customWrap.classList.add("active");
+      }
+    }
+  }
+
+  function wireMetaPick(pickId, hiddenId) {
+    const pick = document.getElementById(pickId);
+    if (!pick || pick.dataset.wired) return;
+    pick.dataset.wired = "1";
+    pick.addEventListener("click", (event) => {
+      const btn = event.target.closest(".admin-meta-btn");
+      if (!btn) return;
+      setMetaPickValue(pickId, hiddenId, btn.dataset.value);
+    });
+    const customInput = pick.querySelector(".admin-meta-custom-input");
+    customInput?.addEventListener("input", () => {
+      const raw = customInput.value.trim();
+      if (!raw) return;
+      const num = Number(raw);
+      if (!Number.isFinite(num) || num < 1) return;
+      pick.querySelectorAll(".admin-meta-btn").forEach((btn) => btn.classList.remove("active"));
+      pick.querySelector(".admin-meta-custom")?.classList.add("active");
+      const hidden = document.getElementById(hiddenId);
+      if (hidden) hidden.value = String(Math.floor(num));
+    });
+    customInput?.addEventListener("focus", () => {
+      pick.querySelectorAll(".admin-meta-btn").forEach((btn) => btn.classList.remove("active"));
+      pick.querySelector(".admin-meta-custom")?.classList.add("active");
+    });
+  }
+
   function initStudentFormControls() {
-    const classEl = document.getElementById("simpleClass");
-    const numberEl = document.getElementById("simpleNumber");
-    if (classEl && !classEl.options.length) {
-      for (let i = 1; i <= 20; i += 1) {
-        classEl.add(new Option(`${i}반`, String(i), false, i === 1));
-      }
-    }
-    if (numberEl && !numberEl.options.length) {
-      for (let i = 1; i <= 50; i += 1) {
-        numberEl.add(new Option(`${i}번`, String(i), false, i === 1));
-      }
-    }
+    buildMetaPick("simpleClassPick", 15);
+    buildMetaPick("simpleNumberPick", 30);
+    wireMetaPick("simpleClassPick", "simpleClass");
+    wireMetaPick("simpleNumberPick", "simpleNumber");
+    setMetaPickValue("simpleClassPick", "simpleClass", 1);
+    setMetaPickValue("simpleNumberPick", "simpleNumber", 1);
   }
 
   function setStudentGrade(grade) {
@@ -934,10 +1005,8 @@
 
   function resetStudentFormDefaults() {
     setStudentGrade(2);
-    const classEl = document.getElementById("simpleClass");
-    const numberEl = document.getElementById("simpleNumber");
-    if (classEl) classEl.value = "1";
-    if (numberEl) numberEl.value = "1";
+    setMetaPickValue("simpleClassPick", "simpleClass", 1);
+    setMetaPickValue("simpleNumberPick", "simpleNumber", 1);
     document.querySelectorAll(".write-target").forEach((box) => {
       box.checked = box.value === "행발";
     });

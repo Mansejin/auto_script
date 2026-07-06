@@ -412,7 +412,6 @@
   const busyModel = document.getElementById("busyModel");
   const busyHint = document.getElementById("busyHint");
   const busyElapsed = document.getElementById("busyElapsed");
-  const busyBarFill = document.querySelector(".admin-busy-bar-fill");
 
   function showToast(message) {
     if (!toast) return;
@@ -439,15 +438,6 @@
         busyChecklist.innerHTML = "";
       }
       if (busyElapsed) busyElapsed.textContent = "0초 경과";
-      if (busyBarFill) {
-        busyBarFill.style.width = showModel ? "35%" : "100%";
-        busyBarFill.style.animation = showModel ? "" : "none";
-        if (showModel) {
-          busyBarFill.classList.add("is-indeterminate");
-        } else {
-          busyBarFill.classList.remove("is-indeterminate");
-        }
-      }
       return;
     }
     if (busyTimer) {
@@ -529,19 +519,15 @@
   function updateBusyFromJob(job) {
     const message = formatJobProgress(job);
     if (busyMessage) busyMessage.textContent = message;
-    if (busyBarFill) {
-      const total = Number(job.total) || 0;
-      const processed = Number(job.processed) || 0;
-      if (total > 1) {
-        busyBarFill.classList.remove("is-indeterminate");
-        busyBarFill.style.animation = "none";
-        const pct = Math.min(100, Math.max(4, Math.round((processed / total) * 100)));
-        busyBarFill.style.width = `${pct}%`;
-      } else {
-        busyBarFill.classList.add("is-indeterminate");
-        busyBarFill.style.animation = "";
-        busyBarFill.style.width = "35%";
-      }
+    if (busyTitle) {
+      const raw = job.message || "";
+      busyTitle.textContent = raw.includes("맞춤법") ? "AI 맞춤법 검사" : "AI 작성 중";
+    }
+    if (busyHint) {
+      const raw = job.message || "";
+      busyHint.textContent = raw.includes("맞춤법")
+        ? "맞춤법·띄어쓰기를 점검하고 있습니다. 창을 닫지 마세요."
+        : "응답을 기다리는 중입니다. 창을 닫지 마세요.";
     }
   }
 
@@ -557,7 +543,7 @@
 
   async function withAsyncRun(title, message, hint, payload) {
     await loadSystemInfo().catch(() => null);
-    const stop = startBusy(title, message, hint, { showModel: true });
+    const stop = startBusy(title || "AI 작성 중", message, hint, { showModel: true });
     try {
       const started = await api("/api/run/async", { method: "POST", body: payload });
       const job = await pollRunJob(started.job_id);

@@ -10,9 +10,11 @@ from src.saenggibu.models import StudentInput
 @patch("src.saenggibu.generator.check_generation_allowed")
 @patch("src.saenggibu.generator.save_student", side_effect=lambda student: student)
 @patch("src.saenggibu.generator.record_generation")
+@patch("src.saenggibu.generator.proofread_text", side_effect=lambda text: text)
 @patch("src.saenggibu.generator.generate_text", return_value="새로 생성된 본문")
 def test_generate_setuk_skips_existing_subjects(
     mock_generate,
+    _proofread,
     _record,
     _save,
     _check,

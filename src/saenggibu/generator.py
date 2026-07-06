@@ -8,6 +8,7 @@ from typing import Any, Callable
 from .config import OUTPUTS_DIR, ensure_data_dirs
 from .curriculum import find_relevant_standards, format_curriculum_context
 from .gemini_client import generate_text
+from .spell_check import proofread_text
 from .subject_info import format_setuk_prompt_context
 from .storage_policy import store_generated_on_server
 from .io_utils import save_json
@@ -19,6 +20,46 @@ from .write_sections import normalize_write_sections, student_sections_complete
 
 
 ProgressCallback = Callable[[str, str], None]
+
+WrittenField = tuple[str, str, str | None]  # notify_section, kind, key (세특/창체 과목·영역)
+
+
+def _read_generated_field(generated: dict[str, Any], kind: str, key: str | None) -> str:
+    if kind == "행발":
+        return str(generated.get("행발") or "")
+    if kind == "세특" and key:
+        return str((generated.get("세특") or {}).get(key) or "")
+    if kind == "창체" and key:
+        return str((generated.get("창체") or {}).get(key) or "")
+    return ""
+
+
+def _write_generated_field(generated: dict[str, Any], kind: str, key: str | None, value: str) -> None:
+    if kind == "행발":
+        generated["행발"] = value
+        return
+    if kind == "세특" and key:
+        generated.setdefault("세특", {})
+        generated["세특"][key] = value
+        return
+    if kind == "창체" and key:
+        generated.setdefault("창체", {})
+        generated["창체"][key] = value
+
+
+def _proofread_new_fields(
+    generated: dict[str, Any],
+    fields: list[WrittenField],
+    notify: ProgressCallback,
+) -> None:
+    for section, kind, key in fields:
+        label = key or section
+        notify(section, f"AI 맞춤법 검사 중 · {label}")
+        check_generation_allowed()
+        current = _read_generated_field(generated, kind, key)
+        corrected = proofread_text(current)
+        _write_generated_field(generated, kind, key, corrected)
+        record_generation()
 
 
 def _default_progress(section: str, message: str) -> None:
@@ -112,6 +153,7 @@ def generate_for_student(
     save_student(student)
 
     generated: dict[str, Any] = dict(student.generated or {})
+    newly_written: list[WrittenField] = []
 
     try:
         section = target_sections[0]
@@ -121,6 +163,7 @@ def generate_for_student(
             else:
                 notify("행발", f"{student.display_name} 작성 중...")
                 generated["행발"] = _generate_haengbal(student, style_guide)
+                newly_written.append(("행발", "행발", None))
         elif section == "세특":
             if not student.subjects:
                 raise ValueError(f"{student.display_name}: 세특 작성에 필요한 과목 정보가 없습니다.")
@@ -131,6 +174,7 @@ def generate_for_student(
                     continue
                 notify("세특", f"{student.display_name} · {subject}")
                 generated["세특"][subject] = _generate_setuk(student, subject, info, style_guide)
+                newly_written.append(("세특", "세특", subject))
         elif section in ("자율", "동아리", "봉사", "진로"):
             notes = str(student.changche.get(section) or "").strip()
             if not notes:
@@ -141,6 +185,10 @@ def generate_for_student(
             else:
                 notify("창체", f"{student.display_name} · {section}")
                 generated["창체"][section] = _generate_changche(student, section, notes, style_guide)
+                newly_written.append(("창체", "창체", section))
+
+        if newly_written:
+            _proofread_new_fields(generated, newly_written, notify)
 
         student.generated = generated
         student.status = "done" if student_sections_complete(student) else "partial"

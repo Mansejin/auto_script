@@ -487,11 +487,22 @@
     }
   }
 
+  function buildRunDraftsPayload() {
+    if (privacySettings.store_generated) return [];
+    const drafts = loadDrafts();
+    return Object.entries(drafts).map(([studentId, draft]) => ({
+      student_id: studentId,
+      generated: draft?.generated || {},
+    }));
+  }
+
   function buildRunPayload({ studentId = null, limit = null } = {}) {
     const section = getSelectedWriteSection();
     const payload = {};
     if (studentId) payload.student_id = studentId;
     if (limit) payload.limit = limit;
+    const drafts = buildRunDraftsPayload();
+    if (drafts.length) payload.drafts = drafts;
     if (section === "전체") {
       payload.all_targets = true;
       return payload;

@@ -120,13 +120,19 @@ def generate_for_student(
     try:
         section = target_sections[0]
         if section == "행발":
-            notify("행발", f"{student.display_name} 작성 중...")
-            generated["행발"] = _generate_haengbal(student, style_guide)
+            if str(generated.get("행발") or "").strip():
+                pass
+            else:
+                notify("행발", f"{student.display_name} 작성 중...")
+                generated["행발"] = _generate_haengbal(student, style_guide)
         elif section == "세특":
             if not student.subjects:
                 raise ValueError(f"{student.display_name}: 세특 작성에 필요한 과목 정보가 없습니다.")
             generated.setdefault("세특", {})
             for subject, info in student.subjects.items():
+                existing = str((generated.get("세특") or {}).get(subject) or "").strip()
+                if existing:
+                    continue
                 notify("세특", f"{student.display_name} · {subject}")
                 generated["세특"][subject] = _generate_setuk(student, subject, info, style_guide)
         elif section in ("자율", "동아리", "봉사", "진로"):
@@ -134,8 +140,11 @@ def generate_for_student(
             if not notes:
                 raise ValueError(f"{student.display_name}: {section} 활동 메모가 없습니다.")
             generated.setdefault("창체", {})
-            notify("창체", f"{student.display_name} · {section}")
-            generated["창체"][section] = _generate_changche(student, section, notes, style_guide)
+            if str((generated.get("창체") or {}).get(section) or "").strip():
+                pass
+            else:
+                notify("창체", f"{student.display_name} · {section}")
+                generated["창체"][section] = _generate_changche(student, section, notes, style_guide)
 
         student.generated = generated
         student.status = "done" if student_sections_complete(student) else "partial"

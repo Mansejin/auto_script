@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260706l">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260706n">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -58,7 +58,7 @@
 
     <section id="adminApp" hidden>
       <div class="admin-toolbar">
-        <p class="admin-muted" id="usageBadge">① 학습 → ② 설정 → ③ 학생 → ④ 작성·검토 · <a class="admin-version-link" href="/admin/changelog">v2.1.0</a></p>
+        <p class="admin-muted" id="usageBadge">① 학습 → ② 설정 → ③ 학생 → ④ 작성·검토 · <a class="admin-version-link" href="/admin/changelog">v2.2.0</a></p>
         <button id="logoutBtn" class="admin-logout" type="button">로그아웃</button>
       </div>
 
@@ -435,6 +435,8 @@
         <li>세특 메모는 <strong>과목명 필수</strong>, 진로·수행평가·주제·활동 내용은 비워 두면 없음 처리됩니다.</li>
         <li>③ <strong>등록된 학생</strong>에서 선택 삭제·전체 초기화로 학생 데이터를 지울 수 있습니다.</li>
         <li>④ <strong>검토 목록</strong>에서 작성본만 삭제(초기화)하거나 <strong>엑셀 추출</strong>할 수 있습니다.</li>
+        <li>④ 상세 편집에서 항목별 <strong>다시 쓰기</strong>·<strong>맞춤법</strong>·<strong>분량 맞추기</strong>·<strong>AI 수정</strong>을 사용할 수 있습니다.</li>
+        <li>④ <strong>검사</strong> 후 지적 사항을 클릭하면 해당 항목으로 이동합니다. 이슈가 있으면 <strong>AI 수정</strong> 버튼이 나타납니다.</li>
         <li>기본 설정에서는 <strong>작성본이 서버에 저장되지 않고</strong> 이 브라우저에만 보관됩니다. 탭을 닫기 전에 엑셀로 백업하세요.</li>
         <li>학생 메모는 서버에 <strong>암호화</strong>되어 저장됩니다. 자세한 내용은 상단 <strong>개인정보</strong>를 참고하세요.</li>
         <li>행발과 세특은 <strong>각각 따로</strong> ④에서 실행하세요.</li>
@@ -477,12 +479,6 @@
       <h3 class="admin-subheading">작성 항목</h3>
       <div class="admin-target-grid" id="memoEditTargets"></div>
       <div id="memoEditFields" class="admin-memo-panels" style="margin-top:16px"></div>
-      <details class="admin-advanced" style="margin-top:16px">
-        <summary>NEIS·엑셀 붙여넣기</summary>
-        <p class="admin-muted" style="margin-top:8px">엑셀·NEIS에서 복사한 탭 구분 행이나 【항목】 블록을 붙여넣으면 메모·작성본에 반영합니다.</p>
-        <textarea id="neisPasteInput" class="admin-textarea" rows="6" placeholder="학년	반	번호	이름	행발_notes	세특_과목	창체_봉사 …"></textarea>
-        <button id="neisPasteApplyBtn" class="admin-btn secondary" type="button" style="margin-top:8px">붙여넣기 반영</button>
-      </details>
       <div class="admin-actions" style="margin-top:16px">
         <button id="memoEditCancelBtn" class="admin-btn secondary" type="button">취소</button>
         <button id="memoEditSaveBtn" class="admin-btn" type="button">메모 저장</button>
@@ -505,6 +501,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260706h"></script>
+  <script src="/admin-static/js/admin.js?v=20260706n"></script>
 </body>
 </html>

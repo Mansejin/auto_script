@@ -16,10 +16,7 @@ JOBS_DIR = DATA_DIR / "jobs"
 PATTERNS_PATH = DATA_DIR / "patterns.json"
 PROMPT_PATH = ROOT / "prompts" / "saenggibu.md"
 
-SECTION_TYPES = ("행발", "세특", "창체")
 CHANGCHE_SUBSECTIONS = ("자율", "동아리", "봉사", "진로")
-
-
 def get_gemini_api_key() -> str:
     key = os.getenv("GEMINI_API_KEY", "").strip()
     if not key:

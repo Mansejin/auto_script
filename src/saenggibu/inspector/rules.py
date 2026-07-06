@@ -56,10 +56,6 @@ def measure_volume(text: str, section_key: str) -> int:
     return char_len(text)
 
 
-def volume_unit(section_key: str) -> str:
-    return "byte" if uses_byte_limit(section_key) else "char"
-
-
 def get_volume_limits(section_key: str) -> dict[str, Any]:
     kind = section_kind(section_key)
     if kind == "세특":
@@ -78,11 +74,6 @@ def get_volume_limits(section_key: str) -> dict[str, Any]:
         }
 
     return {"unit": "char", **DEFAULT_CHAR_LIMITS.get(kind, DEFAULT_CHAR_LIMITS["창체"])}
-
-
-def get_char_limits(section_key: str) -> dict[str, int]:
-    limits = get_volume_limits(section_key)
-    return {key: limits[key] for key in ("min", "max", "hard_max")}
 
 
 def section_kind(section_key: str) -> str:

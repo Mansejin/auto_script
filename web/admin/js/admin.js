@@ -398,13 +398,6 @@
     return colon >= 0 ? key.slice(colon + 1) : key;
   }
 
-  function sectionLabelFromKey(key) {
-    if (key === "행발") return "행동특성 및 종합의견";
-    if (key.startsWith("세특:")) return `세특 · ${sectionSubjectFromKey(key)}`;
-    if (key.startsWith("창체:")) return `창체 · ${sectionSubjectFromKey(key)}`;
-    return key;
-  }
-
   let busyTimer = null;
   let busyStartedAt = 0;
   let systemInfo = { gemini_model: "—" };

@@ -354,13 +354,3 @@ def _update_job_progress(
         job.current_section = current_section
     save_job(job)
 
-
-def list_jobs(*, limit: int = 20) -> list[RunJob]:
-    ensure_data_dirs()
-    paths = sorted(JOBS_DIR.glob("job*.json"), key=lambda path: path.stat().st_mtime, reverse=True)
-    jobs: list[RunJob] = []
-    for path in paths[:limit]:
-        job = get_job(path.stem)
-        if job:
-            jobs.append(job)
-    return jobs

@@ -2,7 +2,7 @@ name: Sync admin to tools-site
 
 on:
   push:
-    branches: [cursor/saenggibu-writer-5821, main]
+    branches: [main]
     paths:
       - "deploy/tools-site-admin/**"
       - "web/admin/**"

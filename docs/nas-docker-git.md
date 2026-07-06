@@ -12,7 +12,7 @@ SSH 접속 후:
 
 ```bash
 cd /volume1/docker/saenggibu
-docker run --rm -v /volume1/docker/saenggibu:/git -w /git alpine/git pull origin cursor/saenggibu-writer-5821
+docker run --rm -v /volume1/docker/saenggibu:/git -w /git alpine/git pull origin main
 ```
 
 또는 저장소 스크립트:
@@ -35,7 +35,7 @@ cd /volume1/docker
 mv saenggibu saenggibu_backup
 
 docker run --rm -v /volume1/docker:/git -w /git alpine/git \
-  clone -b cursor/saenggibu-writer-5821 https://github.com/Mansejin/auto_script.git saenggibu
+  clone -b main https://github.com/Mansejin/auto_script.git saenggibu
 
 cp saenggibu_backup/.env saenggibu/.env
 cp -a saenggibu_backup/data/saenggibu/. saenggibu/data/saenggibu/

@@ -93,13 +93,6 @@ def list_samples() -> list[SampleRecord]:
     return [SampleRecord.from_dict(item) for item in _load_index()]
 
 
-def get_sample(sample_id: str) -> SampleRecord | None:
-    for sample in list_samples():
-        if sample.id == sample_id:
-            return sample
-    return None
-
-
 def add_sample(record: SampleRecord) -> SampleRecord:
     ensure_data_dirs()
     items = _load_index()

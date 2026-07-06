@@ -12,29 +12,13 @@ from pydantic import BaseModel, Field
 
 from src.saenggibu.config import get_gemini_model
 from src.saenggibu.data_crypto import encrypt_data_enabled
-from src.saenggibu.storage_policy import (
-    apply_run_draft,
-    apply_run_drafts,
-    draft_map_from_items,
-    store_generated_on_server,
-)
-from src.saenggibu.curriculum import (
-    curriculum_meta,
-    find_relevant_standards,
-    list_curriculum_subjects,
-    resolve_subject_entry,
-)
+from src.saenggibu.storage_policy import draft_map_from_items, store_generated_on_server
+from src.saenggibu.curriculum import find_relevant_standards, resolve_subject_entry
 from src.saenggibu.pii_mask import mask_pii_enabled, mask_student_names_enabled
 from src.saenggibu.writing_guides import get_writing_guide
-from src.saenggibu.generator import generate_for_student, run_batch
-from src.saenggibu.job_queue import create_run_job, execute_run_job, get_job, list_jobs
-from src.saenggibu.inspector import inspect_text as run_inspect_text
+from src.saenggibu.job_queue import create_run_job, execute_run_job, get_job
 from src.saenggibu.inspector.issues import report_to_dict
-from src.saenggibu.inspector.runner import (
-    inspect_batch,
-    inspect_student_by_id,
-    inspect_students_by_ids,
-)
+from src.saenggibu.inspector.runner import inspect_batch, inspect_student_by_id
 from src.saenggibu.neis_format import parse_neis_paste
 from src.saenggibu.models import StudentInput
 from src.saenggibu.pattern_analyzer import analyze_and_save, load_patterns, update_style_guide
@@ -44,12 +28,11 @@ from src.saenggibu.sample_store import (
     delete_samples,
     import_path,
     list_samples,
-    reconcile_sample_index,
 )
 from src.saenggibu.student_parser import parse_and_save, parse_file_to_student, parse_text_to_student
 from src.saenggibu.upload_formats import SAMPLE_EXTENSIONS, STUDENT_EXTENSIONS, check_upload_extension
 from src.saenggibu.usage import usage_summary
-from src.saenggibu.write_sections import normalize_write_sections, students_needing_section
+from src.saenggibu.write_sections import normalize_write_sections
 from src.saenggibu.student_store import (
     add_student,
     delete_all_students,
@@ -59,7 +42,6 @@ from src.saenggibu.student_store import (
     get_student,
     import_students_file,
     list_students,
-    reconcile_students,
     reset_all_generated,
     reset_generated_for_students,
     reset_student_generated,
@@ -151,12 +133,6 @@ class StudentExportItem(BaseModel):
 
 class StudentExportRequest(BaseModel):
     students: list[StudentExportItem] = Field(default_factory=list)
-
-
-class InspectTextRequest(BaseModel):
-    text: str
-    section_key: str = "본문"
-    student_name: str = ""
 
 
 class InspectBatchItem(BaseModel):
@@ -268,15 +244,6 @@ def api_usage(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
     return usage_summary()
 
 
-@router.get("/curriculum/subjects")
-def api_curriculum_subjects(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
-    return {
-        "meta": curriculum_meta(),
-        "subjects": list_curriculum_subjects(),
-        "count": len(list_curriculum_subjects()),
-    }
-
-
 @router.get("/curriculum/standards")
 def api_curriculum_standards(
     subject: str,
@@ -332,13 +299,6 @@ def api_samples_list(_: AdminSession = Depends(require_admin)) -> dict[str, Any]
             detail=f"샘플 목록을 읽지 못했습니다. SGB_DATA_KEY 설정을 확인하세요. ({exc})",
         ) from exc
     return {"samples": [s.to_dict() for s in samples], "count": len(samples)}
-
-
-@router.post("/samples/reconcile")
-def api_samples_reconcile(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
-    removed = reconcile_sample_index()
-    samples = list_samples()
-    return {"removed": removed, "count": len(samples), "samples": [s.to_dict() for s in samples]}
 
 
 @router.post("/samples/import")
@@ -426,13 +386,6 @@ def api_students_list(status: str | None = None, _: AdminSession = Depends(requi
     return {"students": [s.to_dict() for s in students], "count": len(students)}
 
 
-@router.post("/students/reconcile")
-def api_students_reconcile(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
-    result = reconcile_students()
-    students = list_students()
-    return {**result, "count": len(students), "students": [s.to_dict() for s in students]}
-
-
 @router.get("/students/export/xlsx")
 def api_students_export_xlsx_get(_: AdminSession = Depends(require_admin)) -> Response:
     students = list_students()
@@ -486,14 +439,6 @@ def _build_xlsx_response(students: list[StudentInput]) -> Response:
     )
 
 
-@router.get("/students/{student_id}/inspect")
-def api_student_inspect_get(student_id: str, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
-    report = inspect_student_by_id(student_id)
-    if report is None:
-        raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
-    return report_to_dict(report)
-
-
 @router.post("/students/{student_id}/inspect")
 def api_student_inspect_post(
     student_id: str,
@@ -507,19 +452,6 @@ def api_student_inspect_post(
         report = inspect_student_by_id(student_id)
     if report is None:
         raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
-    return report_to_dict(report)
-
-
-@router.post("/inspect/text")
-def api_inspect_text(payload: InspectTextRequest, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
-    text = payload.text.strip()
-    if not text:
-        raise HTTPException(status_code=400, detail="검사할 본문을 입력하세요.")
-    report = run_inspect_text(
-        text,
-        section_key=payload.section_key.strip() or "본문",
-        student_name=payload.student_name.strip(),
-    )
     return report_to_dict(report)
 
 
@@ -748,40 +680,6 @@ def _run_draft_payload(drafts: list[RunDraftItem]) -> list[dict[str, Any]]:
     ]
 
 
-@router.post("/run")
-def api_run(payload: RunRequest, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
-    try:
-        sections = normalize_write_sections(payload.sections)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    section = sections[0]
-    draft_map = draft_map_from_items(_run_draft_payload(payload.drafts))
-
-    if payload.student_id:
-        student = get_student(payload.student_id)
-        if not student:
-            raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
-        student = apply_run_draft(student, draft_map.get(student.id))
-        updated = generate_for_student(student, sections=sections)
-        return {"mode": "single", "section": section, "student": updated.to_dict()}
-
-    students = students_needing_section(apply_run_drafts(list_students(), draft_map), section)
-    if payload.limit:
-        students = students[: payload.limit]
-    if not students:
-        return {
-            "mode": "batch",
-            "section": section,
-            "processed": 0,
-            "errors": [],
-            "results": [],
-            "message": f"작성이 필요한 학생이 없습니다 ({section}).",
-        }
-
-    result = run_batch(students, sections=sections, continue_on_error=True)
-    return {"mode": "batch", "section": section, **result}
-
-
 @router.post("/run/async")
 def api_run_async(
     payload: RunRequest,
@@ -813,12 +711,6 @@ def api_run_async(
         "section": job.section,
         "all_targets": job.all_targets,
     }
-
-
-@router.get("/jobs")
-def api_jobs_list(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
-    jobs = list_jobs()
-    return {"jobs": [job.to_dict() for job in jobs], "count": len(jobs)}
 
 
 @router.get("/jobs/{job_id}")

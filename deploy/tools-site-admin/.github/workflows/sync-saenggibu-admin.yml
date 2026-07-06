@@ -25,7 +25,7 @@ jobs:
         run: |
           mkdir -p admin/saenggibu
           curl -fsSL \
-            "https://raw.githubusercontent.com/Mansejin/auto_script/cursor/saenggibu-writer-5821/deploy/tools-site-admin/admin/saenggibu/index.html" \
+            "https://raw.githubusercontent.com/Mansejin/auto_script/main/deploy/tools-site-admin/admin/saenggibu/index.html" \
             -o admin/saenggibu/index.html
 
       - name: Commit and push

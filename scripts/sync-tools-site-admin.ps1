@@ -1,4 +1,4 @@
-# deploy/tools-site-admin → tools-site 저장소로 복사 (Windows PowerShell)
+# deploy/tools-site-admin → tools-site 저장소로 redirect 페이지만 복사 (Windows PowerShell)
 param(
     [Parameter(Mandatory = $true)]
     [string]$ToolsSitePath
@@ -14,7 +14,7 @@ if (-not (Test-Path $ToolsSitePath)) {
 }
 
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
-Copy-Item -Path (Join-Path $Src "admin\saenggibu\*") -Destination $Dest -Recurse -Force
+Copy-Item -Path (Join-Path $Src "admin\saenggibu\index.html") -Destination (Join-Path $Dest "index.html") -Force
 
 $robotsSnippet = Join-Path $Src "robots.txt.snippet"
 $robotsDest = Join-Path $ToolsSitePath "robots.txt"
@@ -31,4 +31,4 @@ if (Test-Path $robotsDest) {
     Write-Host "robots.txt 생성됨"
 }
 
-Write-Host "복사 완료: $Dest"
+Write-Host "복사 완료: $Dest\index.html"

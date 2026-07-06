@@ -38,7 +38,7 @@ SSH 몰라도 됩니다. (SSH 쓰는 방법은 맨 아래 참고)
 
 **방법 A — PC에서 ZIP (SSH 없을 때 추천)**
 
-1. PC에서 https://github.com/Mansejin/auto_script/archive/refs/heads/cursor/saenggibu-writer-5821.zip 다운로드
+1. PC에서 https://github.com/Mansejin/auto_script/archive/refs/heads/main.zip 다운로드
 2. ZIP 풀기
 3. 안에 있는 파일·폴더 전부를 File Station의 `docker/saenggibu/` 에 업로드
 
@@ -62,7 +62,7 @@ web/
 cd /volume1/docker
 git clone https://github.com/Mansejin/auto_script.git saenggibu
 cd saenggibu
-git checkout cursor/saenggibu-writer-5821
+git checkout main
 ```
 
 ---

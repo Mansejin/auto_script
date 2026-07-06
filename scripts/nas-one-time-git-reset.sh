@@ -6,7 +6,7 @@
 
 set -e
 REPO="/volume1/docker/saenggibu"
-BRANCH="${SGB_BRANCH:-cursor/saenggibu-writer-5821}"
+BRANCH="${SGB_BRANCH:-main}"
 
 if [ -f "$REPO/.env" ]; then
   line=$(grep -E '^SGB_DEPLOY_BRANCH=' "$REPO/.env" 2>/dev/null | tail -n 1 || true)

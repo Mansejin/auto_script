@@ -323,6 +323,3 @@ def _check_duplicate_sentences(report: InspectReport, section_key: str, text: st
             )
         )
 
-
-def reports_as_dicts(reports: list[InspectReport]) -> list[dict[str, Any]]:
-    return [report_to_dict(report) for report in reports]

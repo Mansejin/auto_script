@@ -10,7 +10,7 @@
 REPO="/volume1/docker/saenggibu"
 LOG="$REPO/logs/scheduled-pull.log"
 LOCK="/tmp/saenggibu-deploy.lock"
-BRANCH="cursor/saenggibu-writer-5821"
+BRANCH="main"
 
 mkdir -p "$REPO/logs"
 export PATH="/usr/local/bin:/var/packages/ContainerManager/target/usr/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"

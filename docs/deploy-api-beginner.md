@@ -167,7 +167,7 @@ https://railway.app — GitHub로 로그인
 ### C-2. 새 프로젝트
 
 1. **Deploy from GitHub repo** → `Mansejin/auto_script` 선택
-2. 브랜치: `cursor/saenggibu-writer-5821` (또는 머지된 main)
+2. 브랜치: `main`
 
 ### C-3. 환경 변수 (Railway Variables)
 

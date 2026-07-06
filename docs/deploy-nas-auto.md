@@ -22,7 +22,7 @@ GitHub 서버가 집 나스에 직접 못 들어와도 **나스가 밖으로 나
 1. 나스에 파일 복사 (PC `git pull` 후 탐색기 `K:\saenggibu\scripts\nas-dsm-task.sh` 복사되게 deploy 1회 성공 후, 또는 SSH):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Mansejin/auto_script/cursor/saenggibu-writer-5821/scripts/nas-dsm-task.sh \
+curl -fsSL https://raw.githubusercontent.com/Mansejin/auto_script/main/scripts/nas-dsm-task.sh \
   -o /volume1/docker/saenggibu/scripts/nas-dsm-task.sh
 chmod +x /volume1/docker/saenggibu/scripts/nas-dsm-task.sh
 ```
@@ -30,7 +30,7 @@ chmod +x /volume1/docker/saenggibu/scripts/nas-dsm-task.sh
 2. **더러운 git 한 번 정리** (merge 오류 났을 때만):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Mansejin/auto_script/cursor/saenggibu-writer-5821/scripts/nas-one-time-git-reset.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Mansejin/auto_script/main/scripts/nas-one-time-git-reset.sh | sh
 ```
 
 3. DSM → **작업 스케줄러** → `saenggibu-auto-pull` → 사용자 **`root`**
@@ -43,7 +43,7 @@ sh /volume1/docker/saenggibu/scripts/nas-dsm-task.sh
 5. 나스 `.env` (선택):
 
 ```env
-SGB_DEPLOY_BRANCH=cursor/saenggibu-writer-5821
+SGB_DEPLOY_BRANCH=main
 SGB_DOCKER_SUDO=1
 ```
 

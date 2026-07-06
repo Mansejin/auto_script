@@ -31,7 +31,7 @@ Cursor 봇은 **당신 GitHub Secrets에 접근할 수 없어서** PAT는 본인
 ## 3) 자동 배포 실행 (30초)
 
 1. 열기: https://github.com/Mansejin/auto_script/actions/workflows/sync-tools-site.yml  
-2. **Run workflow** → Branch: `cursor/saenggibu-writer-5821` → **Run workflow**
+2. **Run workflow** → Branch: `main` → **Run workflow**
 3. 초록 체크 뜨면 성공
 
 1~2분 후: https://mansejin.com/admin/saenggibu/ → `sgb.mansejin.com` 으로 이동

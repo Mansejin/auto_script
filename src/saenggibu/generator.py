@@ -79,10 +79,6 @@ def _generate_setuk(student: StudentInput, subject: str, info: dict[str, Any], s
     return generate_text(system=_system_prompt(), user=user, student_names=_student_names(student))
 
 
-def _student_names(student: StudentInput) -> list[str]:
-    return [student.name] if student.name.strip() else []
-
-
 def _generate_changche(
     student: StudentInput,
     subsection: str,

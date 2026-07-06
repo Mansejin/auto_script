@@ -28,6 +28,9 @@ for arg in "$@"; do
     --full-build) FORCE_BUILD=1 ;;
   esac
 done
+if [ -n "$SGB_FORCE_BUILD" ] && [ "$SGB_FORCE_BUILD" != "0" ]; then
+  FORCE_BUILD=1
+fi
 
 export PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
@@ -37,6 +40,7 @@ if [ "$(id -u)" != "0" ] && [ -n "$NAS_SUDO_PASSWORD" ] && [ -z "$SGB_DEPLOY_AS_
   printf '%s\n' "$NAS_SUDO_PASSWORD" | sudo -S -E env \
     SGB_BRANCH="${SGB_BRANCH:-}" \
     SGB_DOCKER_SUDO="${SGB_DOCKER_SUDO:-}" \
+    SGB_FORCE_BUILD="${SGB_FORCE_BUILD:-}" \
     NAS_SUDO_PASSWORD="$NAS_SUDO_PASSWORD" \
     SGB_DEPLOY_AS_ROOT=1 \
     sh "$0" "$@"
@@ -417,6 +421,20 @@ fi
 
 OLD_REV=$(git_current_rev)
 git_sync_deploy
+
+# PC deploy curls to /tmp/sgb-deploy.sh; after git sync, run repo copy so
+# --full-build and deploy-scope logic always match the commit we just pulled.
+REPO_SCRIPT="$REPO_DIR/scripts/nas-docker-update.sh"
+case "$0" in
+  "$REPO_SCRIPT"|*/scripts/nas-docker-update.sh) ;;
+  *)
+    if [ -f "$REPO_SCRIPT" ]; then
+      log "==> re-exec deploy script from repo (post git sync)"
+      exec sh "$REPO_SCRIPT" "$@"
+    fi
+    ;;
+esac
+
 NEW_REV=$(git_current_rev)
 DEPLOY_SCOPE=$(classify_deploy_changes "$OLD_REV" "$NEW_REV")
 log "==> deploy scope: $DEPLOY_SCOPE"

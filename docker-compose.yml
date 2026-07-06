@@ -3,14 +3,27 @@ services:
     build: .
     container_name: saenggibu-api
     restart: unless-stopped
-    ports:
-      - "8787:8787"
+    expose:
+      - "8787"
     env_file:
       - .env
     environment:
-      # Must listen on all interfaces — cloudflared reaches sgb-api via docker network
+      # Must listen on all interfaces — gateway reaches sgb-api via docker network
       SGB_HOST: "0.0.0.0"
       SGB_PLAN: "admin"
     volumes:
       - ./data/saenggibu:/app/data/saenggibu
       - ./web/admin:/app/web/admin
+
+  sgb-gateway:
+    image: nginx:1.27-alpine
+    container_name: saenggibu-gateway
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./web/maintenance.html:/usr/share/nginx/html/maintenance.html:ro
+      - ./data/saenggibu:/var/run/sgb:ro
+    depends_on:
+      - sgb-api

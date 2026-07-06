@@ -45,7 +45,7 @@ ipTIME에 접속할 수 없을 때는 **Cloudflare Tunnel**을 씁니다 (포트
 4. **Public Hostname** 추가:
    - Subdomain: `sgb`
    - Domain: `mansejin.com` (목록에 없으면 아래 DNS만 수동 추가)
-   - Service: `http://sgb-api:8787`
+   - Service: `http://sgb-gateway:8787`
 5. 표시되는 **토큰** 복사 → 나스 `.env`에 추가:
 
 ```env

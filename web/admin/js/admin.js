@@ -495,12 +495,25 @@
     return payload;
   }
 
+  function parseJobMessage(message = "") {
+    if (message.startsWith("proofread:")) {
+      return { phase: "proofread", detail: message.slice("proofread:".length) };
+    }
+    return { phase: "write", detail: message };
+  }
+
   function formatJobProgress(job) {
     const parts = [];
     if (job.total) parts.push(`${job.processed || 0}/${job.total}`);
     if (job.current_section) parts.push(job.current_section);
     const label = job.current_label || "";
-    const message = job.message || "";
+    const { phase, detail } = parseJobMessage(job.message || "");
+    if (phase === "proofread") {
+      if (label) parts.push(label);
+      if (detail) parts.push(detail);
+      return parts.join(" · ") || "검사 중...";
+    }
+    const message = detail;
     if (message && message !== "완료" && message !== "작성을 시작합니다.") {
       if (label && message.includes(label)) {
         parts.push(message);
@@ -519,13 +532,12 @@
   function updateBusyFromJob(job) {
     const message = formatJobProgress(job);
     if (busyMessage) busyMessage.textContent = message;
+    const { phase } = parseJobMessage(job.message || "");
     if (busyTitle) {
-      const raw = job.message || "";
-      busyTitle.textContent = raw.includes("맞춤법") ? "AI 맞춤법 검사" : "AI 작성 중";
+      busyTitle.textContent = phase === "proofread" ? "AI 맞춤법 검사" : "AI 작성 중";
     }
     if (busyHint) {
-      const raw = job.message || "";
-      busyHint.textContent = raw.includes("맞춤법")
+      busyHint.textContent = phase === "proofread"
         ? "맞춤법·띄어쓰기를 점검하고 있습니다. 창을 닫지 마세요."
         : "응답을 기다리는 중입니다. 창을 닫지 마세요.";
     }

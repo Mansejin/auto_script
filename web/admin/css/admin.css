@@ -474,6 +474,70 @@
   color: var(--blue);
 }
 
+.admin-meta-pick {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(34px, 1fr));
+  gap: 6px;
+  max-width: 220px;
+}
+
+.admin-meta-btn {
+  padding: 7px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.admin-meta-btn:hover {
+  border-color: var(--blue);
+  color: var(--text);
+}
+
+.admin-meta-btn.active {
+  border-color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, var(--card));
+  color: var(--blue);
+}
+
+.admin-meta-custom {
+  display: block;
+}
+
+.admin-meta-custom-input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.admin-meta-custom-input::placeholder {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.admin-meta-custom-input:focus,
+.admin-meta-custom.active .admin-meta-custom-input {
+  outline: none;
+  border-color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 14%, var(--card));
+}
+
 .admin-samples-toolbar {
   display: flex;
   flex-wrap: wrap;

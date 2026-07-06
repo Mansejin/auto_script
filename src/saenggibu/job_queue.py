@@ -10,6 +10,7 @@ from .config import JOBS_DIR, ensure_data_dirs
 from .generator import generate_for_student
 from .io_utils import save_json
 from .models import new_id
+from .storage_policy import apply_run_draft, apply_run_drafts, draft_map_from_items
 from .student_store import get_student, list_students
 from .write_sections import (
     ALL_TARGETS_SECTION,
@@ -36,6 +37,7 @@ class RunJob:
     message: str = ""
     result: dict[str, Any] = field(default_factory=dict)
     errors: list[dict[str, str]] = field(default_factory=list)
+    drafts: list[dict[str, Any]] = field(default_factory=list)
     created_at: str = ""
     updated_at: str = ""
 
@@ -57,6 +59,7 @@ def create_run_job(
     all_targets: bool = False,
     student_id: str | None = None,
     limit: int | None = None,
+    drafts: list[dict[str, Any]] | None = None,
 ) -> RunJob:
     ensure_data_dirs()
     if all_targets:
@@ -69,6 +72,7 @@ def create_run_job(
         all_targets=all_targets,
         student_id=student_id,
         limit=limit,
+        drafts=drafts or [],
         created_at=_now_iso(),
         updated_at=_now_iso(),
     )
@@ -95,6 +99,7 @@ def get_job(job_id: str) -> RunJob | None:
         return None
     data.setdefault("all_targets", False)
     data.setdefault("current_section", "")
+    data.setdefault("drafts", [])
     return RunJob(**data)
 
 
@@ -119,11 +124,23 @@ def _plan_all_target_tasks(students: list) -> list[tuple[str, str]]:
     return tasks
 
 
+def _job_draft_map(job: RunJob) -> dict[str, dict[str, Any]]:
+    return draft_map_from_items(job.drafts)
+
+
+def _get_student_for_run(student_id: str, draft_map: dict[str, dict[str, Any]]):
+    student = get_student(student_id)
+    if not student:
+        return None
+    return apply_run_draft(student, draft_map.get(student_id))
+
+
 def execute_run_job(job_id: str) -> RunJob:
     job = get_job(job_id)
     if not job:
         raise ValueError(f"job not found: {job_id}")
 
+    draft_map = _job_draft_map(job)
     job.status = "running"
     job.message = "작성을 시작합니다."
     save_job(job)
@@ -134,7 +151,7 @@ def execute_run_job(job_id: str) -> RunJob:
 
         sections = [job.section]
         if job.student_id:
-            student = get_student(job.student_id)
+            student = _get_student_for_run(job.student_id, draft_map)
             if not student:
                 raise ValueError("학생을 찾을 수 없습니다.")
             job.total = 1
@@ -154,7 +171,10 @@ def execute_run_job(job_id: str) -> RunJob:
             job.message = "완료"
             return save_job(job)
 
-        students = students_needing_section(list_students(), job.section)
+        students = students_needing_section(
+            apply_run_drafts(list_students(), draft_map),
+            job.section,
+        )
         if job.limit:
             students = students[: job.limit]
         job.total = len(students)
@@ -212,8 +232,9 @@ def execute_run_job(job_id: str) -> RunJob:
 
 
 def _execute_all_targets_job(job: RunJob) -> RunJob:
+    draft_map = _job_draft_map(job)
     if job.student_id:
-        student = get_student(job.student_id)
+        student = _get_student_for_run(job.student_id, draft_map)
         if not student:
             raise ValueError("학생을 찾을 수 없습니다.")
         sections = pending_sections_for_student(student)
@@ -256,7 +277,7 @@ def _execute_all_targets_job(job: RunJob) -> RunJob:
         job.message = "완료"
         return save_job(job)
 
-    students = students_with_any_pending(list_students())
+    students = students_with_any_pending(apply_run_drafts(list_students(), draft_map))
     if job.limit:
         students = students[: job.limit]
     tasks = _plan_all_target_tasks(students)
@@ -278,7 +299,7 @@ def _execute_all_targets_job(job: RunJob) -> RunJob:
     results_by_id: dict[str, dict[str, Any]] = {}
     errors: list[dict[str, str]] = []
     for index, (student_id, section) in enumerate(tasks, start=1):
-        student = get_student(student_id)
+        student = _get_student_for_run(student_id, draft_map)
         if not student:
             errors.append({"id": student_id, "name": student_id, "error": "학생을 찾을 수 없습니다."})
             job.processed = index

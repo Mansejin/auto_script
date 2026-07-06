@@ -12,7 +12,12 @@ from pydantic import BaseModel, Field
 
 from src.saenggibu.config import get_gemini_model
 from src.saenggibu.data_crypto import encrypt_data_enabled
-from src.saenggibu.storage_policy import store_generated_on_server
+from src.saenggibu.storage_policy import (
+    apply_run_draft,
+    apply_run_drafts,
+    draft_map_from_items,
+    store_generated_on_server,
+)
 from src.saenggibu.curriculum import (
     curriculum_meta,
     find_relevant_standards,
@@ -92,12 +97,18 @@ class StudentCreateRequest(BaseModel):
     write_targets: list[str] = Field(default_factory=list)
 
 
+class RunDraftItem(BaseModel):
+    student_id: str
+    generated: dict[str, Any] = Field(default_factory=dict)
+
+
 class RunRequest(BaseModel):
     student_id: str | None = None
     status: str = "pending"
     sections: list[str] | None = None
     all_targets: bool = False
     limit: int | None = None
+    drafts: list[RunDraftItem] = Field(default_factory=list)
 
 
 class ParseStudentRequest(BaseModel):
@@ -730,6 +741,13 @@ def api_students_reset_all_generated(_: AdminSession = Depends(require_admin)) -
     return {"reset": True, "count": count}
 
 
+def _run_draft_payload(drafts: list[RunDraftItem]) -> list[dict[str, Any]]:
+    return [
+        {"student_id": item.student_id, "generated": item.generated}
+        for item in drafts
+    ]
+
+
 @router.post("/run")
 def api_run(payload: RunRequest, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
     try:
@@ -737,15 +755,17 @@ def api_run(payload: RunRequest, _: AdminSession = Depends(require_admin)) -> di
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     section = sections[0]
+    draft_map = draft_map_from_items(_run_draft_payload(payload.drafts))
 
     if payload.student_id:
         student = get_student(payload.student_id)
         if not student:
             raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
+        student = apply_run_draft(student, draft_map.get(student.id))
         updated = generate_for_student(student, sections=sections)
         return {"mode": "single", "section": section, "student": updated.to_dict()}
 
-    students = students_needing_section(list_students(), section)
+    students = students_needing_section(apply_run_drafts(list_students(), draft_map), section)
     if payload.limit:
         students = students[: payload.limit]
     if not students:
@@ -773,6 +793,7 @@ def api_run_async(
             all_targets=True,
             student_id=payload.student_id,
             limit=payload.limit,
+            drafts=_run_draft_payload(payload.drafts),
         )
     else:
         try:
@@ -783,6 +804,7 @@ def api_run_async(
             sections=payload.sections or ["행발"],
             student_id=payload.student_id,
             limit=payload.limit,
+            drafts=_run_draft_payload(payload.drafts),
         )
     background_tasks.add_task(execute_run_job, job.id)
     return {

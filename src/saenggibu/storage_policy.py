@@ -28,3 +28,32 @@ def merge_generated_for_response(student: StudentInput, generated: dict[str, Any
 
         student.status = "done" if student_sections_complete(student) else "partial"
     return student
+
+
+def apply_run_draft(student: StudentInput, generated: dict[str, Any] | None) -> StudentInput:
+    if not generated:
+        return student
+    return merge_generated_for_response(student, generated)
+
+
+def apply_run_drafts(
+    students: list[StudentInput],
+    draft_map: dict[str, dict[str, Any]],
+) -> list[StudentInput]:
+    if not draft_map:
+        return students
+    return [apply_run_draft(student, draft_map.get(student.id)) for student in students]
+
+
+def draft_map_from_items(items: list[dict[str, Any]] | None) -> dict[str, dict[str, Any]]:
+    draft_map: dict[str, dict[str, Any]] = {}
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        student_id = str(item.get("student_id") or "").strip()
+        if not student_id:
+            continue
+        generated = item.get("generated")
+        if isinstance(generated, dict) and generated:
+            draft_map[student_id] = generated
+    return draft_map

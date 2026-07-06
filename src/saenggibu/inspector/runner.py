@@ -12,8 +12,9 @@ from .rules import (
     WARNING_PATTERNS,
     char_len,
     find_pattern_matches,
-    get_char_limits,
+    get_volume_limits,
     iter_generated_fields,
+    measure_volume,
 )
 
 
@@ -27,7 +28,7 @@ def inspect_text(
     section_key: str = "본문",
     student_name: str = "",
 ) -> InspectReport:
-    report = InspectReport(char_count={section_key: char_len(text)})
+    report = InspectReport(char_count={section_key: measure_volume(text, section_key)})
     _inspect_field(report, section_key, text, student_name=student_name)
     return report
 
@@ -38,7 +39,7 @@ def inspect_student(student: StudentInput) -> InspectReport:
         student_label=_student_label(student),
     )
     for section_key, body in iter_generated_fields(student.generated or {}):
-        report.char_count[section_key] = char_len(body)
+        report.char_count[section_key] = measure_volume(body, section_key)
         _inspect_field(report, section_key, body, student_name=student.name.strip())
     return report
 
@@ -185,10 +186,42 @@ def _inspect_field(
     if not text.strip():
         return
 
-    limits = get_char_limits(section_key)
-    length = char_len(text)
+    limits = get_volume_limits(section_key)
+    unit = limits["unit"]
+    length = measure_volume(text, section_key)
 
-    if length > limits["hard_max"]:
+    if unit == "byte":
+        if length > limits["hard_max"]:
+            report.issues.append(
+                InspectIssue(
+                    section=section_key,
+                    code="char_count_over",
+                    severity="error",
+                    message=f"NEIS 용량 초과 ({length}byte / 최대 {limits['hard_max']}byte)",
+                    detail=f"현재 {length}byte",
+                )
+            )
+        elif length > limits["max"]:
+            report.issues.append(
+                InspectIssue(
+                    section=section_key,
+                    code="char_count_high",
+                    severity="warning",
+                    message=f"NEIS 용량이 권장 상한에 가깝습니다 ({length}byte / 권장 {limits['max']}byte)",
+                    detail=f"현재 {length}byte",
+                )
+            )
+        elif length < limits["min"]:
+            report.issues.append(
+                InspectIssue(
+                    section=section_key,
+                    code="char_count_low",
+                    severity="info",
+                    message=f"NEIS 용량이 권장 하한보다 짧습니다 ({length}byte / 권장 {limits['min']}byte 이상)",
+                    detail=f"현재 {length}byte",
+                )
+            )
+    elif length > limits["hard_max"]:
         report.issues.append(
             InspectIssue(
                 section=section_key,

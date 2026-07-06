@@ -110,18 +110,47 @@
   let selectedReviewIds = new Set();
   let inspectReportCache = new Map();
   let currentInspectReport = null;
+  const INSPECT_STATUS_LABEL = {
+    fail: "확인 필요",
+    warn: "주의",
+    ok: "통과",
+    pending: "미검사",
+  };
+
+  const SETUK_BYTE_HARD_MAX = 1500;
+  const SETUK_BYTE_WARN_MAX = 1400;
+
+  function neisByteLen(text) {
+    const trimmed = String(text || "").trim();
+    let bytes = 0;
+    for (let i = 0; i < trimmed.length; i++) {
+      bytes += trimmed.charCodeAt(i) <= 0x7f ? 1 : 2;
+    }
+    return bytes;
+  }
+
+  function measureFieldVolume(text, sectionKey) {
+    if (sectionKey.startsWith("세특:")) return neisByteLen(text);
+    return String(text || "").trim().length;
+  }
+
+  function formatFieldVolume(value, sectionKey) {
+    if (sectionKey.startsWith("세특:")) return `${value}byte`;
+    return `${value}자`;
+  }
+
   function inspectBadgeHtml(studentId, report = null) {
     const cached = report || inspectReportCache.get(studentId);
     if (!cached) {
-      return `<span class="admin-inspect-badge pending">미검사</span>`;
+      return `<span class="admin-inspect-badge pending">${INSPECT_STATUS_LABEL.pending}</span>`;
     }
     if (cached.status === "fail") {
-      return `<span class="admin-inspect-badge fail">오류 ${cached.error_count}</span>`;
+      return `<span class="admin-inspect-badge fail">${INSPECT_STATUS_LABEL.fail} ${cached.error_count}</span>`;
     }
     if (cached.status === "warn") {
-      return `<span class="admin-inspect-badge warn">주의 ${cached.warning_count}</span>`;
+      return `<span class="admin-inspect-badge warn">${INSPECT_STATUS_LABEL.warn} ${cached.warning_count}</span>`;
     }
-    return `<span class="admin-inspect-badge ok">통과</span>`;
+    return `<span class="admin-inspect-badge ok">${INSPECT_STATUS_LABEL.ok}</span>`;
   }
 
   function inspectIssueClass(severity) {
@@ -160,7 +189,7 @@
   }
 
   const INSPECT_BUSY_LABELS = [
-    "글자 수 · NEIS 분량",
+    "NEIS 용량(바이트)",
     "금지 표현",
     "과장·비교·단정",
     "실명 노출",
@@ -211,7 +240,7 @@
       parts.push(`검사 ${summary.total}명`);
       parts.push(`통과 ${summary.ok}`);
       parts.push(`주의 ${summary.warn}`);
-      parts.push(`오류 ${summary.fail}`);
+      parts.push(`${INSPECT_STATUS_LABEL.fail} ${summary.fail}`);
     } else {
       parts.push("새로 검사한 작성본 없음");
     }
@@ -274,14 +303,17 @@
       if (!section) return;
       const counter = document.querySelector(`.inspect-char-count[data-for="${CSS.escape(section)}"]`);
       if (!counter) return;
-      const length = textarea.value.trim().length;
-      counter.textContent = `${length}자`;
+      const volume = measureFieldVolume(textarea.value, section);
+      counter.textContent = formatFieldVolume(volume, section);
       counter.classList.remove("is-warn", "is-error");
       const sectionIssues = (report?.issues || []).filter((issue) => issue.section === section);
       if (sectionIssues.some((issue) => issue.severity === "error")) {
         counter.classList.add("is-error");
       } else if (sectionIssues.some((issue) => issue.severity === "warning")) {
         counter.classList.add("is-warn");
+      } else if (section.startsWith("세특:")) {
+        if (volume > SETUK_BYTE_HARD_MAX) counter.classList.add("is-error");
+        else if (volume > SETUK_BYTE_WARN_MAX) counter.classList.add("is-warn");
       }
     });
   }

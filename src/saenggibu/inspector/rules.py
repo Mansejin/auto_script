@@ -7,10 +7,16 @@ from ..config import CHANGCHE_SUBSECTIONS
 from ..pattern_analyzer import load_patterns
 
 # NEIS·기재요령 기본 분량 (샘플 분석 없을 때)
+NEIS_ENCODING = "cp949"
+
 DEFAULT_CHAR_LIMITS: dict[str, dict[str, int]] = {
     "행발": {"min": 400, "max": 700, "hard_max": 750},
-    "세특": {"min": 300, "max": 500, "hard_max": 500},
     "창체": {"min": 100, "max": 300, "hard_max": 350},
+}
+
+# 세특은 NEIS 입력란 기준 바이트(CP949) 한도
+DEFAULT_BYTE_LIMITS: dict[str, dict[str, int]] = {
+    "세특": {"min": 400, "max": 1400, "hard_max": 1500},
 }
 
 # 금지·주의 표현 (prompts/saenggibu.md 기반)
@@ -36,6 +42,49 @@ def char_len(text: str) -> int:
     return len(text.strip())
 
 
+def neis_byte_len(text: str) -> int:
+    return len(text.strip().encode(NEIS_ENCODING, errors="replace"))
+
+
+def uses_byte_limit(section_key: str) -> bool:
+    return section_kind(section_key) == "세특"
+
+
+def measure_volume(text: str, section_key: str) -> int:
+    if uses_byte_limit(section_key):
+        return neis_byte_len(text)
+    return char_len(text)
+
+
+def volume_unit(section_key: str) -> str:
+    return "byte" if uses_byte_limit(section_key) else "char"
+
+
+def get_volume_limits(section_key: str) -> dict[str, Any]:
+    kind = section_kind(section_key)
+    if kind == "세특":
+        return {"unit": "byte", **DEFAULT_BYTE_LIMITS["세특"]}
+
+    patterns = load_patterns() or {}
+    sections = patterns.get("sections") or {}
+    info = sections.get(kind)
+    if isinstance(info, dict) and "char_count" in info:
+        cc = info["char_count"]
+        return {
+            "unit": "char",
+            "min": int(cc.get("min", DEFAULT_CHAR_LIMITS[kind]["min"])),
+            "max": int(cc.get("max", DEFAULT_CHAR_LIMITS[kind]["max"])),
+            "hard_max": int(cc.get("max", DEFAULT_CHAR_LIMITS.get(kind, DEFAULT_CHAR_LIMITS["창체"])["hard_max"])),
+        }
+
+    return {"unit": "char", **DEFAULT_CHAR_LIMITS.get(kind, DEFAULT_CHAR_LIMITS["창체"])}
+
+
+def get_char_limits(section_key: str) -> dict[str, int]:
+    limits = get_volume_limits(section_key)
+    return {key: limits[key] for key in ("min", "max", "hard_max")}
+
+
 def section_kind(section_key: str) -> str:
     if section_key == "행발":
         return "행발"
@@ -44,35 +93,6 @@ def section_kind(section_key: str) -> str:
     if section_key.startswith("창체:"):
         return "창체"
     return section_key.split(":", 1)[0]
-
-
-def get_char_limits(section_key: str) -> dict[str, int]:
-    kind = section_kind(section_key)
-    patterns = load_patterns() or {}
-    sections = patterns.get("sections") or {}
-
-    if kind == "세특" and ":" in section_key:
-        subject = section_key.split(":", 1)[1]
-        setuk = sections.get("세특")
-        if isinstance(setuk, dict) and subject in setuk:
-            cc = setuk[subject].get("char_count") or {}
-            if cc:
-                return {
-                    "min": int(cc.get("min", DEFAULT_CHAR_LIMITS["세특"]["min"])),
-                    "max": int(cc.get("max", DEFAULT_CHAR_LIMITS["세특"]["max"])),
-                    "hard_max": int(cc.get("max", DEFAULT_CHAR_LIMITS["세특"]["hard_max"])),
-                }
-
-    info = sections.get(kind)
-    if isinstance(info, dict) and "char_count" in info:
-        cc = info["char_count"]
-        return {
-            "min": int(cc.get("min", DEFAULT_CHAR_LIMITS[kind]["min"])),
-            "max": int(cc.get("max", DEFAULT_CHAR_LIMITS[kind]["max"])),
-            "hard_max": int(cc.get("max", DEFAULT_CHAR_LIMITS.get(kind, DEFAULT_CHAR_LIMITS["창체"])["hard_max"])),
-        }
-
-    return dict(DEFAULT_CHAR_LIMITS.get(kind, DEFAULT_CHAR_LIMITS["창체"]))
 
 
 def iter_generated_fields(generated: dict[str, Any]) -> list[tuple[str, str]]:

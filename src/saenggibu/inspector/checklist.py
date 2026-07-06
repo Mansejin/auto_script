@@ -9,8 +9,8 @@ CheckStatus = Literal["pass", "warn", "fail", "skip", "pending"]
 INSPECT_CATEGORIES: list[dict[str, Any]] = [
     {
         "id": "char_count",
-        "label": "글자 수 · NEIS 분량",
-        "description": "영역별 권장 최소·최대 글자 수",
+        "label": "NEIS 용량(바이트)",
+        "description": "세특 입력란 CP949 기준 최대 1500byte",
         "codes": {"char_count_over", "char_count_high", "char_count_low"},
     },
     {

@@ -107,8 +107,9 @@ Actions → **Deploy to NAS** → **Run workflow**
 | 상황 | 명령 |
 |------|------|
 | 평소 | `git push` 만 |
-| 급히 지금 | `.\scripts\nas-pc.ps1 deploy -Profile local` |
-| UI만 | `.\scripts\NAS-UI-동기화.bat` 후 Ctrl+F5 |
+| 급히 — **사무실** (NAS 옆) | `scripts\NAS-업데이트-로컬.bat` |
+| 급히 — **집 PC** (Tailscale) | `scripts\NAS-업데이트.bat` |
+| UI만 | `scripts\NAS-UI-동기화.bat` (사무실이면 `-Profile local` 기본) 후 Ctrl+F5 |
 
 ---
 

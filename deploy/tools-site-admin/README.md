@@ -27,3 +27,5 @@ docker compose up -d --build
 ```
 
 `web/admin` 은 volume 마운트라 UI 변경은 **재시작만**으로도 반영될 수 있습니다.
+
+배포 중 점검 페이지: `docs/maintenance-page.md` 참고.

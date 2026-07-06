@@ -216,6 +216,13 @@ compose_up() {
     log "==> remove stale saenggibu-tunnel (will recreate)"
     $DOCKER rm -f saenggibu-tunnel 2>/dev/null || true
   fi
+  if $DOCKER container inspect saenggibu-gateway >/dev/null 2>&1; then
+    running=$($DOCKER inspect -f '{{.State.Running}}' saenggibu-gateway 2>/dev/null || echo false)
+    if [ "$running" != "true" ]; then
+      log "==> remove stopped saenggibu-gateway"
+      $DOCKER rm -f saenggibu-gateway 2>/dev/null || true
+    fi
+  fi
   if $DOCKER container inspect saenggibu-api >/dev/null 2>&1; then
     running=$($DOCKER inspect -f '{{.State.Running}}' saenggibu-api 2>/dev/null || echo false)
     if [ "$running" != "true" ]; then
@@ -226,6 +233,17 @@ compose_up() {
 
   # shellcheck disable=SC2086
   $DOCKER compose $files up -d --build
+}
+
+enable_maintenance_page() {
+  mkdir -p "$REPO_DIR/data/saenggibu"
+  touch "$REPO_DIR/data/saenggibu/maintenance.on"
+  log "==> maintenance page ON"
+}
+
+disable_maintenance_page() {
+  rm -f "$REPO_DIR/data/saenggibu/maintenance.on"
+  log "==> maintenance page OFF"
 }
 
 if [ "$LOGS_ONLY" = "1" ]; then
@@ -247,6 +265,7 @@ if [ "$NO_BUILD" = "1" ]; then
 else
   ensure_docker_access
   log "==> docker: $DOCKER"
+  enable_maintenance_page
   log "==> docker compose up -d --build"
   compose_up
 fi
@@ -254,10 +273,14 @@ fi
 if command -v curl >/dev/null 2>&1; then
   if curl -sf "http://127.0.0.1:${SGB_PORT:-8787}/health" >/dev/null 2>&1; then
     log "==> health OK"
+    disable_maintenance_page
   else
     log "WARN: health check failed — try: docker logs saenggibu-api --tail 50"
     log "WARN: ensure .env has SGB_HOST=0.0.0.0 (or redeploy with latest docker-compose.yml)"
+    log "WARN: maintenance page stays ON until health recovers"
   fi
+else
+  disable_maintenance_page
 fi
 
 log "==> done ($(date '+%Y-%m-%d %H:%M'))"

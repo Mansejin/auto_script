@@ -146,3 +146,37 @@ def test_reconcile_removes_ghost_student(students_dir: Path) -> None:
     students = list_students()
     assert len(students) == 1
     assert students[0].name == "정상"
+
+
+def test_reconcile_keeps_encrypted_student_when_data_key_missing(
+    students_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SGB_ENCRYPT_DATA", "1")
+    monkeypatch.setenv("SGB_DATA_KEY", "original-key")
+    student = add_student(StudentInput(id="senc0001", name="암호화", grade=1, class_num=1, number=1))
+    path = students_dir / f"{student.id}.json"
+    assert path.exists()
+
+    monkeypatch.delenv("SGB_DATA_KEY", raising=False)
+    result = reconcile_students()
+
+    assert path.exists()
+    assert path.name not in result["removed"]
+    assert list_students() == []
+    assert path.exists()
+
+
+def test_list_students_skips_encrypted_student_when_data_key_mismatches(
+    students_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SGB_ENCRYPT_DATA", "1")
+    monkeypatch.setenv("SGB_DATA_KEY", "original-key")
+    student = add_student(StudentInput(id="senc0001", name="암호화", grade=1, class_num=1, number=1))
+    path = students_dir / f"{student.id}.json"
+
+    monkeypatch.setenv("SGB_DATA_KEY", "wrong-key")
+
+    assert list_students() == []
+    assert path.exists()

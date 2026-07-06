@@ -28,6 +28,9 @@ for arg in "$@"; do
     --full-build) FORCE_BUILD=1 ;;
   esac
 done
+if [ -n "$SGB_FORCE_BUILD" ] && [ "$SGB_FORCE_BUILD" != "0" ]; then
+  FORCE_BUILD=1
+fi
 
 export PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
@@ -37,6 +40,7 @@ if [ "$(id -u)" != "0" ] && [ -n "$NAS_SUDO_PASSWORD" ] && [ -z "$SGB_DEPLOY_AS_
   printf '%s\n' "$NAS_SUDO_PASSWORD" | sudo -S -E env \
     SGB_BRANCH="${SGB_BRANCH:-}" \
     SGB_DOCKER_SUDO="${SGB_DOCKER_SUDO:-}" \
+    SGB_FORCE_BUILD="${SGB_FORCE_BUILD:-}" \
     NAS_SUDO_PASSWORD="$NAS_SUDO_PASSWORD" \
     SGB_DEPLOY_AS_ROOT=1 \
     sh "$0" "$@"
@@ -240,6 +244,40 @@ compose_app_services() {
   printf '%s' "$services"
 }
 
+compose_service_names() {
+  files=$(compose_files)
+  # shellcheck disable=SC2086
+  $DOCKER compose $files config --services 2>/dev/null || true
+}
+
+service_in_compose() {
+  name="$1"
+  echo "$(compose_service_names)" | grep -qx "$name"
+}
+
+prune_stale_stack_containers() {
+  for pair in "saenggibu-api:sgb-api" "saenggibu-gateway:sgb-gateway" "saenggibu-tunnel:cloudflared"; do
+    cname="${pair%%:*}"
+    svc="${pair#*:}"
+    if $DOCKER container inspect "$cname" >/dev/null 2>&1; then
+      if ! service_in_compose "$svc"; then
+        log "==> remove stale $cname (not in current compose stack)"
+        $DOCKER rm -f "$cname" 2>/dev/null || true
+      fi
+    fi
+  done
+}
+
+prepare_compose_rebuild() {
+  prune_stale_stack_containers
+  for name in saenggibu-api saenggibu-gateway; do
+    if $DOCKER container inspect "$name" >/dev/null 2>&1; then
+      log "==> stop $name before rebuild (free port / layout change)"
+      $DOCKER rm -f "$name" 2>/dev/null || true
+    fi
+  done
+}
+
 remove_stopped_container() {
   name="$1"
   if $DOCKER container inspect "$name" >/dev/null 2>&1; then
@@ -267,12 +305,14 @@ compose_up() {
       $DOCKER compose $files restart $services
       ;;
     rebuild)
-      log "==> docker compose up -d --build $services (tunnel untouched)"
-      $DOCKER compose $files up -d --build $services
+      prepare_compose_rebuild
+      log "==> docker compose up -d --build --remove-orphans $services (tunnel untouched)"
+      $DOCKER compose $files up -d --build --remove-orphans $services
       ;;
     up)
-      log "==> docker compose up -d $services (tunnel untouched)"
-      $DOCKER compose $files up -d $services
+      prune_stale_stack_containers
+      log "==> docker compose up -d --remove-orphans $services (tunnel untouched)"
+      $DOCKER compose $files up -d --remove-orphans $services
       ;;
     *)
       log "ERROR: unknown compose mode: $mode"
@@ -312,14 +352,12 @@ ensure_compose_stack() {
   if ! uses_cloudflare_tunnel; then
     return
   fi
-  files=$(compose_files)
-  services=$(compose_app_services)
   need_build=0
-  if ! container_running saenggibu-gateway; then
+  if service_in_compose sgb-gateway && ! container_running saenggibu-gateway; then
     log "WARN: saenggibu-gateway not running — will create stack"
     need_build=1
   fi
-  if ! container_running saenggibu-api; then
+  if service_in_compose sgb-api && ! container_running saenggibu-api; then
     log "WARN: saenggibu-api not running — will create stack"
     need_build=1
   fi
@@ -333,12 +371,24 @@ ensure_compose_stack() {
 enable_maintenance_page() {
   mkdir -p "$REPO_DIR/data/saenggibu"
   touch "$REPO_DIR/data/saenggibu/maintenance.on"
+  MAINTENANCE_ENABLED=1
   log "==> maintenance page ON"
 }
 
 disable_maintenance_page() {
   rm -f "$REPO_DIR/data/saenggibu/maintenance.on"
+  MAINTENANCE_ENABLED=0
   log "==> maintenance page OFF"
+}
+
+cleanup_deploy_exit() {
+  code=$?
+  if [ "$code" -ne 0 ] && [ "${MAINTENANCE_ENABLED:-0}" = "1" ]; then
+    log "WARN: deploy failed (exit $code) — removing maintenance flag"
+    rm -f "$REPO_DIR/data/saenggibu/maintenance.on" 2>/dev/null || true
+    MAINTENANCE_ENABLED=0
+  fi
+  exit "$code"
 }
 
 docker_can_run() {
@@ -399,6 +449,8 @@ if [ -z "$DOCKER" ]; then
 fi
 
 mkdir -p "$LOG_DIR"
+MAINTENANCE_ENABLED=0
+trap cleanup_deploy_exit EXIT
 log "==> deploy start (branch=$BRANCH)"
 
 cd "$REPO_DIR" || exit 1
@@ -417,6 +469,20 @@ fi
 
 OLD_REV=$(git_current_rev)
 git_sync_deploy
+
+# PC deploy curls to /tmp/sgb-deploy.sh; after git sync, run repo copy so
+# --full-build and deploy-scope logic always match the commit we just pulled.
+REPO_SCRIPT="$REPO_DIR/scripts/nas-docker-update.sh"
+case "$0" in
+  "$REPO_SCRIPT"|*/scripts/nas-docker-update.sh) ;;
+  *)
+    if [ -f "$REPO_SCRIPT" ]; then
+      log "==> re-exec deploy script from repo (post git sync)"
+      exec sh "$REPO_SCRIPT" "$@"
+    fi
+    ;;
+esac
+
 NEW_REV=$(git_current_rev)
 DEPLOY_SCOPE=$(classify_deploy_changes "$OLD_REV" "$NEW_REV")
 log "==> deploy scope: $DEPLOY_SCOPE"

@@ -401,9 +401,13 @@ function Build-NasUpdateRemote([hashtable]$Cfg, [string]$Repo, [string]$ExtraArg
   $pathPrefix = Get-NasRemotePathPrefix
   $remoteEnv = Build-NasRemoteExports $Cfg
   $branch = Escape-ShSingleQuoted (Get-DeployBranch $Cfg)
-  $args = if ($ExtraArgs) { " $ExtraArgs" } else { "" }
-  $run = "curl -fsSL ""https://raw.githubusercontent.com/Mansejin/auto_script/$branch/scripts/nas-docker-update.sh"" -o /tmp/sgb-deploy.sh && sed -i 's/\r$//' /tmp/sgb-deploy.sh && cd '$Repo' && sh /tmp/sgb-deploy.sh$args"
-  return "${pathPrefix}; ${remoteEnv}; $run"
+  $deployArgs = if ($ExtraArgs) { " $ExtraArgs" } else { "" }
+  $forceExport = ""
+  if ($ExtraArgs -match "full-build") {
+    $forceExport = "; export SGB_FORCE_BUILD=1"
+  }
+  $run = "curl -fsSL ""https://raw.githubusercontent.com/Mansejin/auto_script/$branch/scripts/nas-docker-update.sh"" -o /tmp/sgb-deploy.sh && sed -i 's/\r$//' /tmp/sgb-deploy.sh && cd '$Repo' && sh /tmp/sgb-deploy.sh$deployArgs"
+  return "${pathPrefix}; ${remoteEnv}${forceExport}; $run"
 }
 
 function Invoke-NasDeploy {

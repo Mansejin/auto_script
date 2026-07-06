@@ -428,10 +428,42 @@
 
 .admin-student-meta {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-  margin-bottom: 4px;
+  grid-template-columns: minmax(0, 1.5fr) auto auto auto;
+  gap: 10px 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.admin-student-meta-name {
+  min-width: 0;
+}
+
+.admin-student-meta-grade {
+  width: max-content;
+}
+
+.admin-student-meta-class,
+.admin-student-meta-number {
+  width: 108px;
+}
+
+.admin-student-meta .admin-meta-dropdown {
+  width: 100%;
+}
+
+.admin-student-meta .admin-meta-trigger,
+.admin-student-meta .admin-meta-trigger-input {
+  min-width: 0;
+  padding: 12px 10px;
+}
+
+.admin-student-meta .admin-grade-pick {
+  grid-template-columns: repeat(3, 40px);
+  gap: 6px;
+}
+
+.admin-student-meta .admin-grade-btn {
+  padding: 12px 0;
 }
 
 .admin-student-meta .admin-field {
@@ -1317,6 +1349,16 @@ body.admin-guide-open {
   }
 
   .admin-student-meta {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+
+  .admin-student-meta-name {
+    grid-column: 1 / -1;
+  }
+
+  .admin-student-meta-class,
+  .admin-student-meta-number {
+    width: auto;
   }
 }

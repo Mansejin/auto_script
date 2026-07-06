@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260706g">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260706h">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -151,12 +151,12 @@
         <div class="admin-card" style="margin-top:16px">
           <h2>학생 등록</h2>
           <form id="simpleStudentForm">
-            <div class="admin-field">
-              <label for="simpleName">이름</label>
-              <input id="simpleName" required>
-            </div>
             <div class="admin-student-meta">
-              <div class="admin-field">
+              <div class="admin-field admin-student-meta-name">
+                <label for="simpleName">이름</label>
+                <input id="simpleName" required>
+              </div>
+              <div class="admin-field admin-student-meta-grade">
                 <span class="admin-field-label" id="simpleGradeLabel">학년</span>
                 <div class="admin-grade-pick" role="group" aria-labelledby="simpleGradeLabel">
                   <button type="button" class="admin-grade-btn" data-grade="1">1</button>
@@ -165,7 +165,7 @@
                 </div>
                 <input type="hidden" id="simpleGrade" value="2" required>
               </div>
-              <div class="admin-field">
+              <div class="admin-field admin-student-meta-class">
                 <span class="admin-field-label" id="simpleClassLabel">반</span>
                 <div class="admin-meta-dropdown" id="simpleClassDropdown">
                   <div class="admin-meta-trigger-wrap" id="simpleClassTriggerWrap">
@@ -177,7 +177,7 @@
                   <input type="hidden" id="simpleClass" value="1" required>
                 </div>
               </div>
-              <div class="admin-field">
+              <div class="admin-field admin-student-meta-number">
                 <span class="admin-field-label" id="simpleNumberLabel">번호</span>
                 <div class="admin-meta-dropdown" id="simpleNumberDropdown">
                   <div class="admin-meta-trigger-wrap" id="simpleNumberTriggerWrap">

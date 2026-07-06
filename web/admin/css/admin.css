@@ -529,9 +529,13 @@
   border-radius: var(--radius-md);
   background: var(--card);
   box-shadow: var(--shadow);
-  display: grid;
+  display: none;
   grid-template-columns: repeat(5, minmax(34px, 1fr));
   gap: 6px;
+}
+
+.admin-meta-drop:not([hidden]) {
+  display: grid;
 }
 
 .admin-meta-btn {

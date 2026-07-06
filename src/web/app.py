@@ -43,6 +43,10 @@ def create_app() -> FastAPI:
         def admin_page() -> FileResponse:
             return FileResponse(ADMIN_STATIC / "index.html")
 
+        @app.get("/admin/changelog")
+        def admin_changelog() -> FileResponse:
+            return FileResponse(ADMIN_STATIC / "changelog.html")
+
         privacy_doc = ROOT / "docs" / "privacy-policy.md"
 
         @app.get("/docs/privacy-policy.md")

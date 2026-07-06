@@ -194,7 +194,7 @@ classify_deploy_changes() {
         ui_only=0
         ;;
       src/*|prompts/*)
-        need_restart=1
+        need_rebuild=1
         ui_only=0
         ;;
       web/admin/*)

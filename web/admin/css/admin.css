@@ -428,7 +428,7 @@
 
 .admin-student-meta {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) auto auto auto;
+  grid-template-columns: minmax(88px, 132px) auto auto auto;
   gap: 10px 12px;
   align-items: end;
   margin-bottom: 16px;

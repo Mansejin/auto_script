@@ -10,7 +10,7 @@
 #>
 param(
   [Parameter(Position = 0)]
-  [ValidateSet("setup", "connect", "update", "deploy", "logs", "map", "unmap", "status", "fix-ssh", "install-key", "sync-ui")]
+  [ValidateSet("setup", "connect", "update", "update-api", "deploy", "logs", "map", "unmap", "status", "fix-ssh", "install-key", "sync-ui")]
   [string]$Command = "connect",
 
   [ValidateSet("remote", "local")]
@@ -397,11 +397,12 @@ function Build-NasRemoteExports([hashtable]$Cfg) {
   return $exports
 }
 
-function Build-NasUpdateRemote([hashtable]$Cfg, [string]$Repo) {
+function Build-NasUpdateRemote([hashtable]$Cfg, [string]$Repo, [string]$ExtraArgs = "") {
   $pathPrefix = Get-NasRemotePathPrefix
   $remoteEnv = Build-NasRemoteExports $Cfg
   $branch = Escape-ShSingleQuoted (Get-DeployBranch $Cfg)
-  $run = "curl -fsSL ""https://raw.githubusercontent.com/Mansejin/auto_script/$branch/scripts/nas-docker-update.sh"" -o /tmp/sgb-deploy.sh && sed -i 's/\r$//' /tmp/sgb-deploy.sh && cd '$Repo' && sh /tmp/sgb-deploy.sh"
+  $args = if ($ExtraArgs) { " $ExtraArgs" } else { "" }
+  $run = "curl -fsSL ""https://raw.githubusercontent.com/Mansejin/auto_script/$branch/scripts/nas-docker-update.sh"" -o /tmp/sgb-deploy.sh && sed -i 's/\r$//' /tmp/sgb-deploy.sh && cd '$Repo' && sh /tmp/sgb-deploy.sh$args"
   return "${pathPrefix}; ${remoteEnv}; $run"
 }
 
@@ -411,6 +412,16 @@ function Invoke-NasDeploy {
   Write-Info "UI comes from git. sync-ui only for emergency hotfix."
   Invoke-NasUpdate
   Write-Ok "Deploy complete. Browser: Ctrl+F5 on sgb.mansejin.com"
+}
+
+function Invoke-NasUpdateApi {
+  $cfg = Get-NasConfig
+  $repo = $cfg["NAS_REPO_PATH"]
+  $profile = Resolve-NasProfile $cfg $script:NasProfile
+  Write-Info "NAS update + API rebuild [$($profile.Label)] -> $($profile.Host)..."
+  Write-Info "Branch: $(Get-DeployBranch $cfg)"
+  Invoke-NasRemote (Build-NasUpdateRemote $cfg $repo "--full-build")
+  Write-Ok "Done — Ctrl+F5"
 }
 
 function Invoke-NasUpdate {
@@ -576,6 +587,7 @@ try {
     "setup" { Invoke-NasSetup }
     "connect" { Invoke-NasConnect }
     "update" { Invoke-NasUpdate }
+    "update-api" { Invoke-NasUpdateApi }
     "deploy" { Invoke-NasDeploy }
     "logs" { Invoke-NasLogs }
     "map" { Invoke-NasMap }

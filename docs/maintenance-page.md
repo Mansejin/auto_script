@@ -38,9 +38,41 @@ rm /volume1/docker/saenggibu/data/saenggibu/maintenance.on
 
 ## Cloudflare 502가 그대로일 때
 
-게이트웨이·터널 컨테이너까지 모두 내려간 경우(첫 배포, 터널 재시작 등)에는 Cloudflare가 여전히 502를 보여 줄 수 있습니다.
+### 원인 (가장 흔함)
 
-**백업:** Cloudflare 대시보드 → **Error Pages** → **502** → Custom page  
+터널을 `http://sgb-gateway:8787` 로 바꿨는데, NAS에 **sgb-gateway 컨테이너가 아직 없을 때** Cloudflare 502가 납니다.
+
+### 즉시 복구 (둘 중 하나)
+
+**A. 긴급 — 터널만 되돌리기 (1분)**  
+Zero Trust → Tunnels → Public Hostname → Service:
+
+| 임시 값 | `http://sgb-api:8787` |
+
+저장 후 1~2분 대기. (게이트웨이 없이 API만 살아 있을 때)
+
+**B. 정식 — 스택 올리기**  
+PC에서 `NAS-업데이트.bat` 실행 (또는 NAS에서):
+
+```bash
+cd /volume1/docker/saenggibu
+sh scripts/nas-docker-update.sh --full-build
+```
+
+성공 후 터널 Service를 다시 `http://sgb-gateway:8787` 로 설정.
+
+### 점검 명령 (NAS SSH)
+
+```bash
+docker ps --format 'table {{.Names}}\t{{.Status}}' | grep saenggibu
+curl -s http://127.0.0.1:8787/health
+```
+
+`saenggibu-gateway` 가 없으면 B안 실행.
+
+점검 파일이 남았으면: `rm /volume1/docker/saenggibu/data/saenggibu/maintenance.on`
+
+### 백업 (오리진 완전 다운)
 → `web/maintenance.html` 내용을 붙여 넣으면, 오리진이 완전히 죽어도 같은 문구를 보여 줄 수 있습니다.
 
 ## 로컬 개발

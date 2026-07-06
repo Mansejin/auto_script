@@ -270,18 +270,63 @@ compose_up() {
       log "==> docker compose up -d --build $services (tunnel untouched)"
       $DOCKER compose $files up -d --build $services
       ;;
+    up)
+      log "==> docker compose up -d $services (tunnel untouched)"
+      $DOCKER compose $files up -d $services
+      ;;
     *)
       log "ERROR: unknown compose mode: $mode"
       exit 1
       ;;
   esac
 
-  if echo "$files" | grep -q cloudflare; then
-    if ! $DOCKER container inspect saenggibu-tunnel >/dev/null 2>&1; then
-      log "==> start cloudflared (first run)"
-      # shellcheck disable=SC2086
-      $DOCKER compose $files up -d cloudflared
-    fi
+  ensure_cloudflared_running
+}
+
+uses_cloudflare_tunnel() {
+  [ -f .env ] && grep -q '^CLOUDFLARE_TUNNEL_TOKEN=' .env 2>/dev/null
+}
+
+container_running() {
+  name="$1"
+  [ "$($DOCKER inspect -f '{{.State.Running}}' "$name" 2>/dev/null || echo false)" = "true" ]
+}
+
+ensure_cloudflared_running() {
+  files=$(compose_files)
+  if ! uses_cloudflare_tunnel; then
+    return
+  fi
+  if ! echo "$files" | grep -q cloudflare; then
+    return
+  fi
+  if container_running saenggibu-tunnel; then
+    return
+  fi
+  log "==> start cloudflared (missing or stopped)"
+  # shellcheck disable=SC2086
+  $DOCKER compose $files up -d cloudflared
+}
+
+ensure_compose_stack() {
+  if ! uses_cloudflare_tunnel; then
+    return
+  fi
+  files=$(compose_files)
+  services=$(compose_app_services)
+  need_build=0
+  if ! container_running saenggibu-gateway; then
+    log "WARN: saenggibu-gateway not running — will create stack"
+    need_build=1
+  fi
+  if ! container_running saenggibu-api; then
+    log "WARN: saenggibu-api not running — will create stack"
+    need_build=1
+  fi
+  if [ "$need_build" = "1" ]; then
+    compose_up rebuild
+  else
+    compose_up up
   fi
 }
 
@@ -379,11 +424,11 @@ log "==> deploy scope: $DEPLOY_SCOPE"
 if [ "$PULL_ONLY" = "1" ]; then
   log "==> pull only (--pull-only)"
 elif [ "$NO_BUILD" = "1" ]; then
-  log "==> skip docker (--no-build)"
+  log "==> skip docker build (--no-build)"
 elif [ "$DEPLOY_SCOPE" = "none" ]; then
-  log "==> no file changes — skip docker"
+  log "==> no file changes — skip docker build"
 elif [ "$DEPLOY_SCOPE" = "ui-only" ]; then
-  log "==> UI only — skip docker (Ctrl+F5 in browser)"
+  log "==> UI only — skip docker build (Ctrl+F5 in browser)"
 elif [ "$FORCE_BUILD" = "1" ]; then
   ensure_docker_access
   log "==> docker: $DOCKER"
@@ -400,14 +445,21 @@ else
   fi
 fi
 
+if [ "$PULL_ONLY" != "1" ] && uses_cloudflare_tunnel; then
+  ensure_docker_access
+  ensure_compose_stack
+fi
+
 if command -v curl >/dev/null 2>&1; then
   if curl -sf "http://127.0.0.1:${SGB_PORT:-8787}/health" >/dev/null 2>&1; then
     log "==> health OK"
     disable_maintenance_page
   else
     log "WARN: health check failed — try: docker logs saenggibu-api --tail 50"
-    log "WARN: ensure .env has SGB_HOST=0.0.0.0 (or redeploy with latest docker-compose.yml)"
-    log "WARN: maintenance page stays ON until health recovers"
+    log "WARN: gateway: docker logs saenggibu-gateway --tail 30"
+    log "WARN: tunnel target must be http://sgb-gateway:8787 after gateway deploy"
+    log "WARN: emergency rollback: tunnel -> http://sgb-api:8787 if gateway missing"
+    log "WARN: stuck maintenance? rm data/saenggibu/maintenance.on"
   fi
 else
   disable_maintenance_page

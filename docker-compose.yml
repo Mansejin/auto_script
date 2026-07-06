@@ -14,6 +14,8 @@ services:
     volumes:
       - ./data/saenggibu:/app/data/saenggibu
       - ./web/admin:/app/web/admin
+    networks:
+      - sgb-net
 
   sgb-gateway:
     image: nginx:1.27-alpine
@@ -27,3 +29,9 @@ services:
       - ./data/saenggibu:/var/run/sgb:ro
     depends_on:
       - sgb-api
+    networks:
+      - sgb-net
+
+networks:
+  sgb-net:
+    driver: bridge

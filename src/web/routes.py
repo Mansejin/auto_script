@@ -30,7 +30,7 @@ from src.saenggibu.inspector.runner import (
     inspect_student_by_id,
     inspect_students_by_ids,
 )
-from src.saenggibu.neis_format import format_neis_tsv, merge_parsed_into_student, parse_neis_paste
+from src.saenggibu.neis_format import parse_neis_paste
 from src.saenggibu.models import StudentInput
 from src.saenggibu.pattern_analyzer import analyze_and_save, load_patterns, update_style_guide
 from src.saenggibu.sample_store import (
@@ -652,32 +652,6 @@ def api_neis_parse(payload: NeisPasteRequest, _: AdminSession = Depends(require_
         return parse_neis_paste(payload.text)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@router.get("/students/{student_id}/neis-export")
-def api_student_neis_export(student_id: str, _: AdminSession = Depends(require_admin)) -> dict[str, Any]:
-    student = get_student(student_id)
-    if not student:
-        raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
-    return {"tsv": format_neis_tsv(student), "student_id": student.id}
-
-
-@router.post("/students/{student_id}/neis-import")
-def api_student_neis_import(
-    student_id: str,
-    payload: NeisPasteRequest,
-    _: AdminSession = Depends(require_admin),
-) -> dict[str, Any]:
-    student = get_student(student_id)
-    if not student:
-        raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
-    try:
-        parsed = parse_neis_paste(payload.text)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    merged = merge_parsed_into_student(student, parsed)
-    saved = save_student(merged)
-    return saved.to_dict()
 
 
 @router.post("/students/import")

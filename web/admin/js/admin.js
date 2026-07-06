@@ -2081,17 +2081,6 @@
     }
   });
 
-  document.getElementById("copyNeisBtn")?.addEventListener("click", async () => {
-    if (!currentStudentId) return;
-    try {
-      const data = await api(`/api/students/${currentStudentId}/neis-export`);
-      await navigator.clipboard.writeText(data.tsv);
-      showToast("NEIS용 탭 구분 형식으로 복사됨");
-    } catch (error) {
-      showToast(error.message || "복사에 실패했습니다.");
-    }
-  });
-
   document.getElementById("editMemoFromDetailBtn")?.addEventListener("click", async () => {
     if (!currentStudentId) return;
     try {

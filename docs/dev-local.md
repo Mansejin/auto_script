@@ -1,6 +1,25 @@
 # 로컬 테스트 (NAS 배포 전)
 
-NAS에 배포할 때마다 Docker 컨테이너가 재시작되므로, **UI·기능 수정은 PC에서 먼저 확인**하고 NAS 배포는 하루 1~2회 정도만 하는 것을 권장합니다.
+NAS에 배포할 때 **매번** 컨테이너·터널을 재시작할 필요는 없습니다. `nas-docker-update.sh`가 변경 파일을 보고 자동으로 판단합니다.
+
+| 변경 내용 | 필요한 작업 |
+|-----------|-------------|
+| `web/admin` (HTML·CSS·JS) | **git pull만** — 볼륨 마운트라 재시작 불필요. 브라우저 **Ctrl+F5** |
+| `src/` Python API | API 컨테이너 **restart** (이미지 재빌드 없음) |
+| `Dockerfile`, `requirements.txt`, compose | API **rebuild** |
+| Cloudflare 터널 | **거의 재시작 안 함** (터널 설정 바뀔 때만) |
+
+수동 옵션:
+
+```bash
+sh scripts/nas-docker-update.sh --pull-only   # git만
+sh scripts/nas-docker-update.sh --no-build      # git + docker 스킵
+sh scripts/nas-docker-update.sh --full-build    # 항상 API 재빌드
+```
+
+UI만 급히 반영: `NAS-UI-동기화.bat` (SMB 복사) 또는 git pull 후 Ctrl+F5.
+
+**UI·기능 수정은 PC에서 먼저 확인**하고 NAS 배포는 하루 1~2회 정도만 하는 것을 권장합니다.
 
 ## 빠른 시작 (Windows)
 

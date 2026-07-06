@@ -5,6 +5,7 @@
 #   cd /volume1/docker/saenggibu && sh scripts/nas-docker-update.sh
 #   cd /volume1/docker/saenggibu && sh scripts/nas-docker-update.sh --logs-only
 #   cd /volume1/docker/saenggibu && sh scripts/nas-docker-update.sh --no-build
+#   cd /volume1/docker/saenggibu && sh scripts/nas-docker-update.sh --pull-only
 #
 # Branch: SGB_BRANCH=main sh scripts/nas-docker-update.sh
 #        (or set SGB_DEPLOY_BRANCH in .env)
@@ -16,11 +17,15 @@ REPO_DIR="/volume1/docker/saenggibu"
 GIT_IMAGE="alpine/git:latest"
 LOGS_ONLY=0
 NO_BUILD=0
+PULL_ONLY=0
+FORCE_BUILD=0
 
 for arg in "$@"; do
   case "$arg" in
     --logs-only) LOGS_ONLY=1 ;;
     --no-build) NO_BUILD=1 ;;
+    --pull-only) PULL_ONLY=1 ;;
+    --full-build) FORCE_BUILD=1 ;;
   esac
 done
 
@@ -141,6 +146,145 @@ git_sync_deploy() {
   log "==> git at $short"
 }
 
+git_current_rev() {
+  GIT=$(resolve_git)
+  if [ -n "$GIT" ]; then
+    "$GIT" -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || true
+    return
+  fi
+  $DOCKER run --rm \
+    --entrypoint git \
+    -v "$REPO_DIR:/git" \
+    -w /git \
+    "$GIT_IMAGE" \
+    -C /git rev-parse HEAD 2>/dev/null || true
+}
+
+classify_deploy_changes() {
+  old_rev="$1"
+  new_rev="$2"
+  if [ -z "$old_rev" ]; then
+    echo "rebuild"
+    return
+  fi
+  if [ "$old_rev" = "$new_rev" ]; then
+    echo "none"
+    return
+  fi
+
+  files=$(git -C "$REPO_DIR" diff --name-only "$old_rev" "$new_rev" 2>/dev/null || true)
+  if [ -z "$files" ]; then
+    echo "none"
+    return
+  fi
+
+  need_rebuild=0
+  need_restart=0
+  ui_only=1
+
+  while IFS= read -r file; do
+    [ -n "$file" ] || continue
+    case "$file" in
+      Dockerfile|requirements.txt|server.py)
+        need_rebuild=1
+        ui_only=0
+        ;;
+      docker-compose*.yml|docker/*)
+        need_rebuild=1
+        ui_only=0
+        ;;
+      src/*|prompts/*)
+        need_restart=1
+        ui_only=0
+        ;;
+      web/admin/*)
+        ;;
+      *)
+        ui_only=0
+        ;;
+    esac
+  done <<EOF
+$files
+EOF
+
+  if [ "$need_rebuild" = "1" ]; then
+    echo "rebuild"
+    return
+  fi
+  if [ "$need_restart" = "1" ]; then
+    echo "restart"
+    return
+  fi
+  if [ "$ui_only" = "1" ]; then
+    echo "ui-only"
+    return
+  fi
+  echo "restart"
+}
+
+compose_files() {
+  files="-f docker-compose.yml"
+  if [ -f docker-compose.cloudflare.yml ] && grep -q '^CLOUDFLARE_TUNNEL_TOKEN=' .env 2>/dev/null; then
+    files="$files -f docker-compose.cloudflare.yml"
+  fi
+  printf '%s' "$files"
+}
+
+compose_app_services() {
+  files=$(compose_files)
+  services="sgb-api"
+  # shellcheck disable=SC2086
+  if $DOCKER compose $files config --services 2>/dev/null | grep -qx 'sgb-gateway'; then
+    services="$services sgb-gateway"
+  fi
+  printf '%s' "$services"
+}
+
+remove_stopped_container() {
+  name="$1"
+  if $DOCKER container inspect "$name" >/dev/null 2>&1; then
+    running=$($DOCKER inspect -f '{{.State.Running}}' "$name" 2>/dev/null || echo false)
+    if [ "$running" != "true" ]; then
+      log "==> remove stopped $name"
+      $DOCKER rm -f "$name" 2>/dev/null || true
+    fi
+  fi
+}
+
+compose_up() {
+  mode="${1:-rebuild}"
+  files=$(compose_files)
+  services=$(compose_app_services)
+
+  remove_stopped_container saenggibu-api
+  remove_stopped_container saenggibu-gateway
+  remove_stopped_container saenggibu-tunnel
+
+  # shellcheck disable=SC2086
+  case "$mode" in
+    restart)
+      log "==> docker compose restart $services (tunnel untouched)"
+      $DOCKER compose $files restart $services
+      ;;
+    rebuild)
+      log "==> docker compose up -d --build $services (tunnel untouched)"
+      $DOCKER compose $files up -d --build $services
+      ;;
+    *)
+      log "ERROR: unknown compose mode: $mode"
+      exit 1
+      ;;
+  esac
+
+  if echo "$files" | grep -q cloudflare; then
+    if ! $DOCKER container inspect saenggibu-tunnel >/dev/null 2>&1; then
+      log "==> start cloudflared (first run)"
+      # shellcheck disable=SC2086
+      $DOCKER compose $files up -d cloudflared
+    fi
+  fi
+}
+
 docker_can_run() {
   # shellcheck disable=SC2086
   $DOCKER info >/dev/null 2>&1
@@ -203,31 +347,6 @@ log "==> deploy start (branch=$BRANCH)"
 
 cd "$REPO_DIR" || exit 1
 
-compose_up() {
-  files="-f docker-compose.yml"
-  use_cf=0
-  if [ -f docker-compose.cloudflare.yml ] && grep -q '^CLOUDFLARE_TUNNEL_TOKEN=' .env 2>/dev/null; then
-    files="$files -f docker-compose.cloudflare.yml"
-    use_cf=1
-  fi
-
-  # Orphaned named containers block compose recreate (common after manual/docker updates)
-  if [ "$use_cf" = "1" ] && $DOCKER container inspect saenggibu-tunnel >/dev/null 2>&1; then
-    log "==> remove stale saenggibu-tunnel (will recreate)"
-    $DOCKER rm -f saenggibu-tunnel 2>/dev/null || true
-  fi
-  if $DOCKER container inspect saenggibu-api >/dev/null 2>&1; then
-    running=$($DOCKER inspect -f '{{.State.Running}}' saenggibu-api 2>/dev/null || echo false)
-    if [ "$running" != "true" ]; then
-      log "==> remove stopped saenggibu-api"
-      $DOCKER rm -f saenggibu-api 2>/dev/null || true
-    fi
-  fi
-
-  # shellcheck disable=SC2086
-  $DOCKER compose $files up -d --build
-}
-
 if [ "$LOGS_ONLY" = "1" ]; then
   ensure_docker_access
   log "==> docker: $DOCKER"
@@ -240,15 +359,32 @@ if [ ! -d .git ]; then
   exit 1
 fi
 
+OLD_REV=$(git_current_rev)
 git_sync_deploy
+NEW_REV=$(git_current_rev)
+DEPLOY_SCOPE=$(classify_deploy_changes "$OLD_REV" "$NEW_REV")
+log "==> deploy scope: $DEPLOY_SCOPE"
 
-if [ "$NO_BUILD" = "1" ]; then
-  log "==> skip rebuild (--no-build)"
+if [ "$PULL_ONLY" = "1" ]; then
+  log "==> pull only (--pull-only)"
+elif [ "$NO_BUILD" = "1" ]; then
+  log "==> skip docker (--no-build)"
+elif [ "$DEPLOY_SCOPE" = "none" ]; then
+  log "==> no file changes — skip docker"
+elif [ "$DEPLOY_SCOPE" = "ui-only" ]; then
+  log "==> UI only — skip docker (Ctrl+F5 in browser)"
+elif [ "$FORCE_BUILD" = "1" ]; then
+  ensure_docker_access
+  log "==> docker: $DOCKER"
+  compose_up rebuild
 else
   ensure_docker_access
   log "==> docker: $DOCKER"
-  log "==> docker compose up -d --build"
-  compose_up
+  if [ "$DEPLOY_SCOPE" = "restart" ]; then
+    compose_up restart
+  else
+    compose_up rebuild
+  fi
 fi
 
 if command -v curl >/dev/null 2>&1; then

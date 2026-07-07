@@ -1041,7 +1041,8 @@
         return api(path, options, false);
       }
       const message = data?.detail || data?.message || `요청 실패 (${response.status})`;
-      const error = new Error(formatUserError(typeof message === "string" ? message : JSON.stringify(message)));
+      const rawMessage = typeof message === "string" ? message : JSON.stringify(message);
+      const error = new Error(options.rawError ? rawMessage : formatUserError(rawMessage));
       error.status = response.status;
       throw error;
     }
@@ -2177,13 +2178,29 @@
     event.preventDefault();
     loginError.textContent = "";
     const password = document.getElementById("adminPassword").value;
+    const submitBtn = loginForm.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
     try {
-      const data = await api("/api/auth/login", { method: "POST", body: { password } });
+      const data = await api("/api/auth/login", { method: "POST", body: { password }, rawError: true });
+      if (!data?.token) {
+        throw new Error("로그인 응답이 올바르지 않습니다. API 서버를 재빌드해 주세요.");
+      }
       setToken(data.token);
+      await api("/api/auth/me", { rawError: true });
       showApp();
       await refreshAll();
     } catch (error) {
-      loginError.textContent = error.message;
+      setToken("");
+      showGate();
+      if (error?.status === 401) {
+        loginError.textContent = "비밀번호가 올바르지 않습니다.";
+      } else if (error?.status === 503) {
+        loginError.textContent = error.message || "서버 설정이 완료되지 않았습니다.";
+      } else {
+        loginError.textContent = error.message || "로그인에 실패했습니다.";
+      }
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
   });
 
@@ -2844,16 +2861,19 @@
       showToast("관리자 UI가 오래됐습니다. NAS-UI-동기화.bat 실행 후 Ctrl+F5");
     }
     try {
-      await api("/api/auth/me");
+      await api("/api/auth/me", { rawError: true });
+      showApp();
+      await refreshAll();
     } catch (error) {
-      if (error?.status === 401) {
-        setToken("");
-        showGate();
-        return;
+      setToken("");
+      showGate();
+      if (error?.status && error.status !== 401 && loginError) {
+        loginError.textContent =
+          error.status === 503
+            ? error.message || "서버 점검 중이거나 설정이 완료되지 않았습니다."
+            : "세션을 확인하지 못했습니다. 다시 로그인해 주세요.";
       }
     }
-    showApp();
-    await refreshAll();
   }
 
   bootstrap();

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import os
 import time
 from typing import Any
 
@@ -10,6 +12,8 @@ from .api_errors import friendly_api_error
 from .config import get_gemini_api_key, get_gemini_model
 from .pii_mask import mask_for_ai
 
+logger = logging.getLogger(__name__)
+
 _RETRYABLE_MARKERS = (
     "503",
     "429",
@@ -17,9 +21,39 @@ _RETRYABLE_MARKERS = (
     "resource_exhausted",
     "high demand",
     "rate limit",
+    "capacity",
     "deadline",
     "timeout",
 )
+
+_last_call_at = 0.0
+
+
+def _min_interval_sec() -> float:
+    raw = os.getenv("GEMINI_MIN_INTERVAL_SEC", "2").strip()
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return 2.0
+
+
+def _throttle() -> None:
+    global _last_call_at
+    interval = _min_interval_sec()
+    if interval <= 0:
+        return
+    now = time.monotonic()
+    wait = interval - (now - _last_call_at)
+    if wait > 0:
+        time.sleep(wait)
+    _last_call_at = time.monotonic()
+
+
+def _retry_sleep(attempt: int, exc: BaseException) -> float:
+    text = str(exc).lower()
+    if "429" in text or "rate limit" in text or "resource_exhausted" in text:
+        return min(30.0, 5.0 * attempt)
+    return min(12.0, 2.0 ** attempt)
 
 
 def _client() -> genai.Client:
@@ -37,7 +71,7 @@ def generate_text(
     user: str,
     temperature: float = 0.4,
     student_names: list[str] | None = None,
-    max_attempts: int = 3,
+    max_attempts: int = 4,
 ) -> str:
     client = _client()
     safe_user = mask_for_ai(user, student_names=student_names)
@@ -45,6 +79,7 @@ def generate_text(
     last_exc: BaseException | None = None
 
     for attempt in range(1, max_attempts + 1):
+        _throttle()
         try:
             response = client.models.generate_content(
                 model=get_gemini_model(),
@@ -60,9 +95,16 @@ def generate_text(
             return text
         except Exception as exc:
             last_exc = exc
+            logger.warning(
+                "Gemini call failed (attempt %s/%s, model=%s): %s",
+                attempt,
+                max_attempts,
+                get_gemini_model(),
+                exc,
+            )
             if attempt >= max_attempts or not _is_retryable(exc):
                 break
-            time.sleep(min(2 ** attempt, 8))
+            time.sleep(_retry_sleep(attempt, exc))
 
     assert last_exc is not None
     raise RuntimeError(friendly_api_error(last_exc)) from last_exc

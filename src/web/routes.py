@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from src.saenggibu.config import get_gemini_model
+from src.saenggibu.data_crypto import encrypt_data_enabled
 from src.saenggibu.field_edit import edit_student_field
 from src.saenggibu.storage_policy import draft_map_from_items, store_generated_on_server
 from src.saenggibu.curriculum import find_relevant_standards, resolve_subject_entry
@@ -744,6 +745,7 @@ def api_run_async(
         "status": job.status,
         "section": job.section,
         "all_targets": job.all_targets,
+        "gemini_model": get_gemini_model(),
     }
 
 
@@ -752,4 +754,6 @@ def api_job_show(job_id: str, _: AdminSession = Depends(require_admin)) -> dict[
     job = get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다.")
-    return job.to_dict()
+    data = job.to_dict()
+    data["gemini_model"] = get_gemini_model()
+    return data

@@ -27,8 +27,29 @@ def get_gemini_api_key() -> str:
     return key
 
 
+def get_gemini_model_pro() -> str:
+    explicit = os.getenv("GEMINI_MODEL_PRO", "").strip()
+    if explicit:
+        return explicit
+    legacy = os.getenv("GEMINI_MODEL", "gemini-3.1-pro-preview").strip()
+    return legacy or "gemini-3.1-pro-preview"
+
+
+def get_gemini_model_fast() -> str:
+    return os.getenv("GEMINI_MODEL_FAST", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+
+
 def get_gemini_model() -> str:
-    return os.getenv("GEMINI_MODEL", "gemini-3.1-pro-preview").strip() or "gemini-3.1-pro-preview"
+    """Primary writing model (backward compatible alias for pro)."""
+    return get_gemini_model_pro()
+
+
+def gemini_models_for_api() -> dict[str, str]:
+    return {
+        "gemini_model": get_gemini_model_pro(),
+        "gemini_model_pro": get_gemini_model_pro(),
+        "gemini_model_fast": get_gemini_model_fast(),
+    }
 
 
 def ensure_data_dirs() -> None:

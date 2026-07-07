@@ -81,7 +81,7 @@ def adjust_field_volume(text: str, field_key: str) -> str:
         f"- 출력은 수정된 본문만 작성하세요.\n\n"
         f"{body}"
     )
-    return generate_text(system=_system_prompt(), user=user, temperature=0.3)
+    return generate_text(system=_system_prompt(), user=user, temperature=0.3, tier="fast")
 
 
 def _issues_from_payload(items: list[dict[str, Any]]) -> list[InspectIssue]:
@@ -136,7 +136,7 @@ def fix_field_issues(text: str, field_key: str, issues: list[dict[str, Any]]) ->
         + "\n\n## 본문\n"
         + body
     )
-    return generate_text(system=_system_prompt(), user=user, temperature=0.25)
+    return generate_text(system=_system_prompt(), user=user, temperature=0.25, tier="fast")
 
 
 def edit_student_field(

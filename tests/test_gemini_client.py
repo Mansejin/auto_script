@@ -22,6 +22,20 @@ def test_classify_fatal():
 
 @patch("src.saenggibu.gemini_client._client")
 @patch("src.saenggibu.gemini_client._throttle")
+def test_generate_text_uses_fast_tier(mock_throttle: MagicMock, mock_client: MagicMock, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("GEMINI_MODEL_FAST", "flash-test")
+    api = mock_client.return_value
+    response = MagicMock()
+    response.text = "ok"
+    api.models.generate_content.return_value = response
+
+    text = gc.generate_text(system="s", user="u", tier="fast")
+    assert text == "ok"
+    assert api.models.generate_content.call_args.kwargs["model"] == "flash-test"
+
+
+@patch("src.saenggibu.gemini_client._client")
+@patch("src.saenggibu.gemini_client._throttle")
 def test_no_retry_on_rate_limit(mock_throttle: MagicMock, mock_client: MagicMock, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("GEMINI_MAX_RETRIES", "2")
     api = mock_client.return_value

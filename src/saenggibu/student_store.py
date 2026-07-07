@@ -6,6 +6,8 @@ import shutil
 from io import BytesIO
 from pathlib import Path
 
+from cryptography.exceptions import InvalidTag
+
 from .config import OUTPUTS_DIR, STUDENTS_DIR, ensure_data_dirs
 from .data_crypto import ENC_MARKER
 from .io_utils import read_table_file
@@ -21,7 +23,7 @@ def _student_path(student_id: str) -> Path:
 def _read_file_data(path: Path) -> dict | None:
     try:
         data = load_secure_json(path)
-    except (OSError, ValueError, json.JSONDecodeError, RuntimeError):
+    except (OSError, ValueError, json.JSONDecodeError, RuntimeError, InvalidTag):
         return None
     if isinstance(data, dict) and data.get(ENC_MARKER):
         return None
@@ -94,8 +96,6 @@ def reconcile_students(*, remove_ghosts: bool = True) -> dict[str, list[str]]:
     for path in sorted(STUDENTS_DIR.glob("*.json")):
         student = _load_student_from_path(path)
         if student is None:
-            path.unlink(missing_ok=True)
-            removed.append(path.name)
             continue
         if remove_ghosts and _is_ghost_student(student):
             path.unlink(missing_ok=True)

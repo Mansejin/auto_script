@@ -1519,6 +1519,46 @@ body.admin-guide-open {
   text-align: center;
 }
 
+.admin-changelog-toc {
+  margin-bottom: 16px;
+}
+
+.admin-changelog-toc-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  margin-bottom: 10px;
+}
+
+.admin-changelog-toc-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.admin-changelog-toc-list a {
+  color: var(--blue);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.admin-changelog-toc-list a:hover {
+  text-decoration: underline;
+}
+
+.admin-changelog-release-muted {
+  opacity: 0.92;
+}
+
+.admin-changelog-note {
+  margin-top: 10px;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
 .admin-version-link {
   color: var(--text-tertiary);
   text-decoration: none;

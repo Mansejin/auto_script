@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from enum import Enum
 from typing import Any
 
 from google import genai
@@ -14,27 +15,30 @@ from .pii_mask import mask_for_ai
 
 logger = logging.getLogger(__name__)
 
-_RETRYABLE_MARKERS = (
-    "503",
-    "429",
-    "unavailable",
-    "resource_exhausted",
-    "high demand",
-    "rate limit",
-    "capacity",
-    "deadline",
-    "timeout",
-)
-
 _last_call_at = 0.0
 
 
+class _ErrorKind(Enum):
+    RATE_LIMIT = "rate_limit"
+    TRANSIENT = "transient"
+    FATAL = "fatal"
+
+
 def _min_interval_sec() -> float:
-    raw = os.getenv("GEMINI_MIN_INTERVAL_SEC", "2").strip()
+    raw = os.getenv("GEMINI_MIN_INTERVAL_SEC", "3").strip()
     try:
         return max(0.0, float(raw))
     except ValueError:
-        return 2.0
+        return 3.0
+
+
+def _max_retries() -> int:
+    """Extra attempts after the first call. Default 0 — no automatic retries."""
+    raw = os.getenv("GEMINI_MAX_RETRIES", "0").strip()
+    try:
+        return max(0, min(2, int(raw)))
+    except ValueError:
+        return 0
 
 
 def _throttle() -> None:
@@ -49,20 +53,50 @@ def _throttle() -> None:
     _last_call_at = time.monotonic()
 
 
-def _retry_sleep(attempt: int, exc: BaseException) -> float:
+def _classify_error(exc: BaseException) -> _ErrorKind:
     text = str(exc).lower()
-    if "429" in text or "rate limit" in text or "resource_exhausted" in text:
-        return min(30.0, 5.0 * attempt)
-    return min(12.0, 2.0 ** attempt)
+    if any(
+        marker in text
+        for marker in (
+            "429",
+            "resource_exhausted",
+            "resource has been exhausted",
+            "rate limit",
+            "ratelimitexceeded",
+            "quota",
+            "capacity",
+            "per minute",
+            "tokens per minute",
+        )
+    ):
+        return _ErrorKind.RATE_LIMIT
+    if any(
+        marker in text
+        for marker in (
+            "503",
+            "unavailable",
+            "high demand",
+            "deadline",
+            "timeout",
+            "timed out",
+        )
+    ):
+        return _ErrorKind.TRANSIENT
+    return _ErrorKind.FATAL
+
+
+def _retry_sleep(exc: BaseException) -> float:
+    text = str(exc).lower()
+    import re
+
+    reset = re.search(r"reset after ([0-9]+)s", text, re.I)
+    if reset:
+        return min(60.0, max(8.0, float(reset.group(1))))
+    return 8.0
 
 
 def _client() -> genai.Client:
     return genai.Client(api_key=get_gemini_api_key())
-
-
-def _is_retryable(exc: BaseException) -> bool:
-    text = str(exc).lower()
-    return any(marker in text for marker in _RETRYABLE_MARKERS)
 
 
 def generate_text(
@@ -71,12 +105,12 @@ def generate_text(
     user: str,
     temperature: float = 0.4,
     student_names: list[str] | None = None,
-    max_attempts: int = 4,
 ) -> str:
     client = _client()
     safe_user = mask_for_ai(user, student_names=student_names)
     safe_system = mask_for_ai(system, student_names=student_names)
     last_exc: BaseException | None = None
+    max_attempts = 1 + _max_retries()
 
     for attempt in range(1, max_attempts + 1):
         _throttle()
@@ -95,16 +129,23 @@ def generate_text(
             return text
         except Exception as exc:
             last_exc = exc
+            kind = _classify_error(exc)
             logger.warning(
-                "Gemini call failed (attempt %s/%s, model=%s): %s",
+                "Gemini call failed (attempt %s/%s, kind=%s, model=%s): %s",
                 attempt,
                 max_attempts,
+                kind.value,
                 get_gemini_model(),
                 exc,
             )
-            if attempt >= max_attempts or not _is_retryable(exc):
+            if attempt >= max_attempts:
                 break
-            time.sleep(_retry_sleep(attempt, exc))
+            if kind is _ErrorKind.RATE_LIMIT:
+                # 재시도는 RPM만 더 소모함 — 즉시 실패
+                break
+            if kind is not _ErrorKind.TRANSIENT:
+                break
+            time.sleep(_retry_sleep(exc))
 
     assert last_exc is not None
     raise RuntimeError(friendly_api_error(last_exc)) from last_exc

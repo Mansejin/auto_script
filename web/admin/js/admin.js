@@ -463,6 +463,7 @@
     const textarea = document.querySelector(`#detailEditor .detail-field[data-key="${CSS.escape(fieldKey)}"]`);
     if (!textarea) return;
     const label = FIELD_EDIT_LABELS[action] || "처리";
+    await ensureModelInfo();
     const stop = startBusy(`AI ${label}`, fieldKey, "잠시만 기다려 주세요.");
     try {
       const body = { field_key: fieldKey, action, text: textarea.value };
@@ -511,7 +512,7 @@
 
   let busyTimer = null;
   let busyStartedAt = 0;
-  let systemInfo = { gemini_model: "—" };
+  let systemInfo = { gemini_model: "" };
   let privacySettings = { store_generated: false, encrypt_data: true, mask_pii: true };
   let usageLine = "";
   const writingTipsCache = new Map();
@@ -532,8 +533,17 @@
     if (lowered.includes("high demand") || lowered.includes("과부하")) {
       return "AI 모델이 일시적으로 과부하 상태입니다. 1~2분 후 다시 시도해 주세요.";
     }
-    if (lowered.includes("quota") || lowered.includes("resource_exhausted") || lowered.includes("한도")) {
-      return "AI 사용 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.";
+    if (lowered.includes("분당") || lowered.includes("per minute") || lowered.includes("too many requests")) {
+      return "요청이 너무 빠릅니다 (분당 호출 제한). 1~2분 후 다시 시도해 주세요.";
+    }
+    if (lowered.includes("resource_exhausted") || lowered.includes("resource has been exhausted")) {
+      return "Gemini API 일시 제한입니다. 대시보드 한도와 무관할 수 있습니다. 잠시 후 다시 시도해 주세요.";
+    }
+    if (lowered.includes("quota") && (lowered.includes("월간") || lowered.includes("monthly"))) {
+      return "Gemini 월간·일일 한도에 도달했을 수 있습니다. AI Studio 사용량을 확인해 주세요.";
+    }
+    if (lowered.includes("이번 달 무료 작성 한도")) {
+      return raw;
     }
     if (lowered.includes("503") || lowered.includes("unavailable")) {
       return "AI 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.";
@@ -574,6 +584,24 @@
     }, 4500);
   }
 
+  function applyGeminiModel(model) {
+    if (!model || model === "—") return;
+    systemInfo.gemini_model = model;
+    refreshBusyModelDisplay();
+  }
+
+  function refreshBusyModelDisplay() {
+    if (!busyModel || busyModel.hidden) return;
+    const model = systemInfo.gemini_model;
+    busyModel.textContent = model ? `사용 모델 · ${model}` : "사용 모델 · 확인 중…";
+  }
+
+  async function ensureModelInfo() {
+    if (systemInfo.gemini_model) return systemInfo.gemini_model;
+    await loadSystemInfo().catch(() => null);
+    return systemInfo.gemini_model;
+  }
+
   function setBusy(active, title = "AI 처리 중", message = "잠시만 기다려 주세요", hint = "", options = {}) {
     const { showModel = true, showInspectChecklist = false } = options;
     if (active) {
@@ -584,7 +612,10 @@
       if (busyHint) busyHint.textContent = hint;
       if (busyModel) {
         busyModel.hidden = !showModel;
-        busyModel.textContent = `사용 모델 · ${systemInfo.gemini_model || "—"}`;
+        refreshBusyModelDisplay();
+        if (showModel && !systemInfo.gemini_model) {
+          ensureModelInfo();
+        }
       }
       const busyChecklist = document.getElementById("busyChecklist");
       if (busyChecklist && !showInspectChecklist) {
@@ -686,6 +717,7 @@
   function updateBusyFromJob(job) {
     const message = formatJobProgress(job);
     if (busyMessage) busyMessage.textContent = message;
+    if (job.gemini_model) applyGeminiModel(job.gemini_model);
     const { phase } = parseJobMessage(job.message || "");
     if (busyTitle) {
       busyTitle.textContent = phase === "proofread" ? "AI 맞춤법 검사" : "AI 작성 중";
@@ -708,10 +740,11 @@
   }
 
   async function withAsyncRun(title, message, hint, payload) {
-    await loadSystemInfo().catch(() => null);
+    await ensureModelInfo();
     const stop = startBusy(title || "AI 작성 중", message, hint, { showModel: true });
     try {
       const started = await api("/api/run/async", { method: "POST", body: payload });
+      if (started.gemini_model) applyGeminiModel(started.gemini_model);
       const job = await pollRunJob(started.job_id);
       if (job.status === "error") {
         throw new Error(job.message || "작성 중 오류가 발생했습니다.");
@@ -733,7 +766,7 @@
   async function loadSystemInfo() {
     try {
       const data = await api("/api/auth/me");
-      if (data.gemini_model) systemInfo.gemini_model = data.gemini_model;
+      if (data.gemini_model) applyGeminiModel(data.gemini_model);
       if (data.privacy) {
         privacySettings = {
           store_generated: Boolean(data.privacy.store_generated),

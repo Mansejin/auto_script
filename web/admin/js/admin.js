@@ -524,11 +524,54 @@
   const busyHint = document.getElementById("busyHint");
   const busyElapsed = document.getElementById("busyElapsed");
 
+  function formatUserError(error) {
+    const raw = String(error?.message || error || "").trim();
+    if (!raw) return "요청 처리 중 오류가 발생했습니다.";
+
+    const lowered = raw.toLowerCase();
+    if (lowered.includes("high demand") || lowered.includes("과부하")) {
+      return "AI 모델이 일시적으로 과부하 상태입니다. 1~2분 후 다시 시도해 주세요.";
+    }
+    if (lowered.includes("quota") || lowered.includes("resource_exhausted") || lowered.includes("한도")) {
+      return "AI 사용 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.";
+    }
+    if (lowered.includes("503") || lowered.includes("unavailable")) {
+      return "AI 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+    }
+    if (lowered.includes("429") || lowered.includes("too many requests")) {
+      return "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
+    }
+    if (lowered.includes("timeout") || lowered.includes("timed out") || lowered.includes("초과")) {
+      return "AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.";
+    }
+    if (lowered.includes("연결할 수 없습니다") || lowered.includes("failed to fetch")) {
+      return raw;
+    }
+    if (raw.length > 120 || raw.includes("{") || raw.includes("error")) {
+      console.warn("[sgb] API error:", raw);
+      return "작성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+    }
+    return raw;
+  }
+
+  let toastTimer = null;
+
   function showToast(message) {
     if (!toast) return;
-    toast.textContent = message;
+    const text = formatUserError(message);
+    if (toastTimer) {
+      clearTimeout(toastTimer);
+      toastTimer = null;
+    }
+    toast.textContent = text;
     toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 3200);
+    toastTimer = setTimeout(() => {
+      toast.classList.remove("show");
+      toastTimer = setTimeout(() => {
+        toast.textContent = "";
+        toastTimer = null;
+      }, 400);
+    }, 4500);
   }
 
   function setBusy(active, title = "AI 처리 중", message = "잠시만 기다려 주세요", hint = "", options = {}) {
@@ -675,6 +718,12 @@
       }
       const result = job.result || {};
       persistRunResponse(result);
+      const errors = job.errors?.length ? job.errors : result.errors || [];
+      if (errors.length) {
+        const first = formatUserError(errors[0]?.error || errors[0]?.message || "");
+        const suffix = errors.length > 1 ? ` 외 ${errors.length - 1}건` : "";
+        return { ...result, message: job.message, partialErrors: `${first}${suffix}` };
+      }
       return { ...result, message: job.message };
     } finally {
       stop();
@@ -935,7 +984,7 @@
         return api(path, options, false);
       }
       const message = data?.detail || data?.message || `요청 실패 (${response.status})`;
-      const error = new Error(typeof message === "string" ? message : JSON.stringify(message));
+      const error = new Error(formatUserError(typeof message === "string" ? message : JSON.stringify(message)));
       error.status = response.status;
       throw error;
     }
@@ -2128,13 +2177,13 @@
       const sectionLabel = WRITE_SECTION_LABELS[section] || section;
       const runTitle = section === "전체" ? "전체 항목 작성" : `${section} 작성`;
       try {
-        await withAsyncRun(
+        const data = await withAsyncRun(
           runTitle,
           `${studentName} · ${sectionLabel}`,
           "진행 상황을 표시합니다. 창을 닫지 마세요.",
           buildRunPayload({ studentId: id })
         );
-        showToast("작성 완료");
+        showToast(data.partialErrors ? `작성 실패: ${data.partialErrors}` : "작성 완료");
         await Promise.all([loadStudents(), loadReviewList(), loadUsage()]);
       } catch (error) {
         showToast(error.message);
@@ -2652,7 +2701,9 @@
         buildRunPayload({ limit })
       );
       const errCount = (data.errors || []).length;
-      const msg = data.message || `완료 ${data.processed || 0}명${errCount ? `, 오류 ${errCount}건` : ""}`;
+      const msg = data.partialErrors
+        ? `일부 실패: ${data.partialErrors}`
+        : data.message || `완료 ${data.processed || 0}명${errCount ? `, 오류 ${errCount}건` : ""}`;
       showToast(msg);
       document.getElementById("runLog").textContent = JSON.stringify(data, null, 2);
       await Promise.all([loadStudents(), loadReviewList(), loadUsage()]);

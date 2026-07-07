@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .api_errors import friendly_api_error
 from .config import JOBS_DIR, ensure_data_dirs
 from .generator import generate_for_student
 from .io_utils import save_json
@@ -210,7 +211,7 @@ def execute_run_job(job_id: str) -> RunJob:
                 )
                 results.append(_batch_result_item(updated))
             except Exception as exc:
-                errors.append({"id": student.id, "name": student.display_name, "error": str(exc)})
+                errors.append({"id": student.id, "name": student.display_name, "error": friendly_api_error(exc)})
 
         job.status = "done"
         job.processed = len(results)
@@ -226,8 +227,8 @@ def execute_run_job(job_id: str) -> RunJob:
         return save_job(job)
     except Exception as exc:
         job.status = "error"
-        job.message = str(exc)
-        job.errors.append({"id": job.id, "error": str(exc)})
+        job.message = friendly_api_error(exc)
+        job.errors.append({"id": job.id, "error": friendly_api_error(exc)})
         return save_job(job)
 
 
@@ -321,7 +322,7 @@ def _execute_all_targets_job(job: RunJob) -> RunJob:
             )
             results_by_id[updated.id] = _batch_result_item(updated)
         except Exception as exc:
-            errors.append({"id": student.id, "name": student.display_name, "error": str(exc)})
+            errors.append({"id": student.id, "name": student.display_name, "error": friendly_api_error(exc)})
         job.processed = index
         save_job(job)
 

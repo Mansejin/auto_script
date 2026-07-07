@@ -740,7 +740,6 @@
     }
     const { phase } = parseJobMessage(job.message || "");
     refreshBusyModelDisplay(phase === "proofread" ? "fast" : "pro");
-    const { phase } = parseJobMessage(job.message || "");
     if (busyTitle) {
       busyTitle.textContent = phase === "proofread" ? "AI 맞춤법 검사" : "AI 작성 중";
     }

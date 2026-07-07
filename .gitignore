@@ -1,6 +1,7 @@
 .env
 config/nas-pc.local.env
 credentials/*.json
+credentials/oauth-pending.json
 __pycache__/
 *.pyc
 .venv/

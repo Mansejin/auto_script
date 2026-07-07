@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 from .config import OUTPUTS_DIR, ensure_data_dirs
 from .curriculum import find_relevant_standards, format_curriculum_context
+from .api_errors import friendly_api_error
 from .gemini_client import generate_text
 from .spell_check import proofread_text
 from .subject_info import format_setuk_prompt_context
@@ -199,7 +200,7 @@ def generate_for_student(
         return student
     except Exception as exc:
         student.status = "error"
-        student.error_message = str(exc)
+        student.error_message = friendly_api_error(exc)
         if store_generated_on_server():
             student.generated = generated
         else:

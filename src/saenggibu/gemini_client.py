@@ -1,16 +1,34 @@
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from google import genai
 from google.genai import types
 
+from .api_errors import friendly_api_error
 from .config import get_gemini_api_key, get_gemini_model
 from .pii_mask import mask_for_ai
+
+_RETRYABLE_MARKERS = (
+    "503",
+    "429",
+    "unavailable",
+    "resource_exhausted",
+    "high demand",
+    "rate limit",
+    "deadline",
+    "timeout",
+)
 
 
 def _client() -> genai.Client:
     return genai.Client(api_key=get_gemini_api_key())
+
+
+def _is_retryable(exc: BaseException) -> bool:
+    text = str(exc).lower()
+    return any(marker in text for marker in _RETRYABLE_MARKERS)
 
 
 def generate_text(
@@ -19,22 +37,35 @@ def generate_text(
     user: str,
     temperature: float = 0.4,
     student_names: list[str] | None = None,
+    max_attempts: int = 3,
 ) -> str:
     client = _client()
     safe_user = mask_for_ai(user, student_names=student_names)
     safe_system = mask_for_ai(system, student_names=student_names)
-    response = client.models.generate_content(
-        model=get_gemini_model(),
-        contents=safe_user,
-        config=types.GenerateContentConfig(
-            system_instruction=safe_system,
-            temperature=temperature,
-        ),
-    )
-    text = (response.text or "").strip()
-    if not text:
-        raise RuntimeError("Gemini가 빈 응답을 반환했습니다.")
-    return text
+    last_exc: BaseException | None = None
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = client.models.generate_content(
+                model=get_gemini_model(),
+                contents=safe_user,
+                config=types.GenerateContentConfig(
+                    system_instruction=safe_system,
+                    temperature=temperature,
+                ),
+            )
+            text = (response.text or "").strip()
+            if not text:
+                raise RuntimeError("Gemini가 빈 응답을 반환했습니다.")
+            return text
+        except Exception as exc:
+            last_exc = exc
+            if attempt >= max_attempts or not _is_retryable(exc):
+                break
+            time.sleep(min(2 ** attempt, 8))
+
+    assert last_exc is not None
+    raise RuntimeError(friendly_api_error(last_exc)) from last_exc
 
 
 def refine_style_guide(patterns: dict[str, Any], draft_guide: str) -> str:

@@ -48,3 +48,5 @@ def test_auth_me_returns_gemini_model(client: TestClient) -> None:
     assert res.status_code == 200
     data = res.json()
     assert data["gemini_model"] == "gemini-test-model"
+    assert data["gemini_model_pro"] == "gemini-test-model"
+    assert data["gemini_model_fast"] == "gemini-2.5-flash"

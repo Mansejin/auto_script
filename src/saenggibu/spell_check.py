@@ -19,4 +19,4 @@ def proofread_text(text: str) -> str:
         "내용 추가·삭제·재작성은 하지 마세요.\n\n"
         f"{body}"
     )
-    return generate_text(system=_SYSTEM, user=user, temperature=0.1)
+    return generate_text(system=_SYSTEM, user=user, temperature=0.1, tier="fast")

@@ -106,7 +106,7 @@ def parse_text_to_student(raw_text: str) -> StudentInput:
     if len(raw_text) < 20:
         raise ValueError("내용이 너무 짧습니다. 학생 이름·활동·수행평가 메모를 조금 더 적어 주세요.")
 
-    response = generate_text(system=_system_prompt(), user=_user_prompt(raw_text), temperature=0.1)
+    response = generate_text(system=_system_prompt(), user=_user_prompt(raw_text), temperature=0.1, tier="fast")
     data = _extract_json(response)
     student = _to_student(data)
     if not student.name:

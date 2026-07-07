@@ -463,8 +463,9 @@
     const textarea = document.querySelector(`#detailEditor .detail-field[data-key="${CSS.escape(fieldKey)}"]`);
     if (!textarea) return;
     const label = FIELD_EDIT_LABELS[action] || "처리";
+    const modelTier = action === "regenerate" ? "pro" : "fast";
     await ensureModelInfo();
-    const stop = startBusy(`AI ${label}`, fieldKey, "잠시만 기다려 주세요.");
+    const stop = startBusy(`AI ${label}`, fieldKey, "잠시만 기다려 주세요.", { modelTier });
     try {
       const body = { field_key: fieldKey, action, text: textarea.value };
       if (issues?.length) body.issues = issues;
@@ -512,7 +513,7 @@
 
   let busyTimer = null;
   let busyStartedAt = 0;
-  let systemInfo = { gemini_model: "" };
+  let systemInfo = { gemini_model: "", gemini_model_pro: "", gemini_model_fast: "" };
   let privacySettings = { store_generated: false, encrypt_data: true, mask_pii: true };
   let usageLine = "";
   const writingTipsCache = new Map();
@@ -584,26 +585,43 @@
     }, 4500);
   }
 
-  function applyGeminiModel(model) {
-    if (!model || model === "—") return;
-    systemInfo.gemini_model = model;
+  function applyGeminiModels(data) {
+    if (typeof data === "string") {
+      if (data && data !== "—") systemInfo.gemini_model_pro = data;
+    } else if (data && typeof data === "object") {
+      if (data.gemini_model_pro) systemInfo.gemini_model_pro = data.gemini_model_pro;
+      if (data.gemini_model_fast) systemInfo.gemini_model_fast = data.gemini_model_fast;
+      if (data.gemini_model && !data.gemini_model_pro) systemInfo.gemini_model_pro = data.gemini_model;
+    }
+    systemInfo.gemini_model = systemInfo.gemini_model_pro || systemInfo.gemini_model;
     refreshBusyModelDisplay();
   }
 
-  function refreshBusyModelDisplay() {
+  function modelLineText(activeTier = null) {
+    const pro = systemInfo.gemini_model_pro;
+    const fast = systemInfo.gemini_model_fast;
+    if (activeTier === "fast" && fast) return `사용 모델 · ${fast}`;
+    if (activeTier === "pro" && pro) return `사용 모델 · ${pro}`;
+    if (pro && fast) return `작성 ${pro} · 맞춤법·편집 ${fast}`;
+    if (pro) return `사용 모델 · ${pro}`;
+    return "사용 모델 · 확인 중…";
+  }
+
+  function refreshBusyModelDisplay(activeTier = null) {
     if (!busyModel || busyModel.hidden) return;
-    const model = systemInfo.gemini_model;
-    busyModel.textContent = model ? `사용 모델 · ${model}` : "사용 모델 · 확인 중…";
+    busyModel.textContent = modelLineText(activeTier);
   }
 
   async function ensureModelInfo() {
-    if (systemInfo.gemini_model) return systemInfo.gemini_model;
+    if (systemInfo.gemini_model_pro && systemInfo.gemini_model_fast) {
+      return systemInfo.gemini_model_pro;
+    }
     await loadSystemInfo().catch(() => null);
-    return systemInfo.gemini_model;
+    return systemInfo.gemini_model_pro;
   }
 
   function setBusy(active, title = "AI 처리 중", message = "잠시만 기다려 주세요", hint = "", options = {}) {
-    const { showModel = true, showInspectChecklist = false } = options;
+    const { showModel = true, showInspectChecklist = false, modelTier = null } = options;
     if (active) {
       document.body.classList.add("admin-is-busy");
       if (busyOverlay) busyOverlay.hidden = false;
@@ -612,8 +630,8 @@
       if (busyHint) busyHint.textContent = hint;
       if (busyModel) {
         busyModel.hidden = !showModel;
-        refreshBusyModelDisplay();
-        if (showModel && !systemInfo.gemini_model) {
+        refreshBusyModelDisplay(modelTier);
+        if (showModel && (!systemInfo.gemini_model_pro || !systemInfo.gemini_model_fast)) {
           ensureModelInfo();
         }
       }
@@ -717,7 +735,11 @@
   function updateBusyFromJob(job) {
     const message = formatJobProgress(job);
     if (busyMessage) busyMessage.textContent = message;
-    if (job.gemini_model) applyGeminiModel(job.gemini_model);
+    if (job.gemini_model_pro || job.gemini_model_fast || job.gemini_model) {
+      applyGeminiModels(job);
+    }
+    const { phase } = parseJobMessage(job.message || "");
+    refreshBusyModelDisplay(phase === "proofread" ? "fast" : "pro");
     const { phase } = parseJobMessage(job.message || "");
     if (busyTitle) {
       busyTitle.textContent = phase === "proofread" ? "AI 맞춤법 검사" : "AI 작성 중";
@@ -744,7 +766,9 @@
     const stop = startBusy(title || "AI 작성 중", message, hint, { showModel: true });
     try {
       const started = await api("/api/run/async", { method: "POST", body: payload });
-      if (started.gemini_model) applyGeminiModel(started.gemini_model);
+      if (started.gemini_model_pro || started.gemini_model_fast || started.gemini_model) {
+        applyGeminiModels(started);
+      }
       const job = await pollRunJob(started.job_id);
       if (job.status === "error") {
         throw new Error(job.message || "작성 중 오류가 발생했습니다.");
@@ -766,7 +790,7 @@
   async function loadSystemInfo() {
     try {
       const data = await api("/api/auth/me");
-      if (data.gemini_model) applyGeminiModel(data.gemini_model);
+      applyGeminiModels(data);
       if (data.privacy) {
         privacySettings = {
           store_generated: Boolean(data.privacy.store_generated),

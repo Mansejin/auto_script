@@ -4,16 +4,18 @@ import logging
 import os
 import time
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from google import genai
 from google.genai import types
 
 from .api_errors import friendly_api_error
-from .config import get_gemini_api_key, get_gemini_model
+from .config import get_gemini_api_key, get_gemini_model_fast, get_gemini_model_pro
 from .pii_mask import mask_for_ai
 
 logger = logging.getLogger(__name__)
+
+ModelTier = Literal["pro", "fast"]
 
 _last_call_at = 0.0
 
@@ -99,14 +101,22 @@ def _client() -> genai.Client:
     return genai.Client(api_key=get_gemini_api_key())
 
 
+def _resolve_model(tier: ModelTier) -> str:
+    if tier == "fast":
+        return get_gemini_model_fast()
+    return get_gemini_model_pro()
+
+
 def generate_text(
     *,
     system: str,
     user: str,
     temperature: float = 0.4,
     student_names: list[str] | None = None,
+    tier: ModelTier = "pro",
 ) -> str:
     client = _client()
+    model = _resolve_model(tier)
     safe_user = mask_for_ai(user, student_names=student_names)
     safe_system = mask_for_ai(system, student_names=student_names)
     last_exc: BaseException | None = None
@@ -116,7 +126,7 @@ def generate_text(
         _throttle()
         try:
             response = client.models.generate_content(
-                model=get_gemini_model(),
+                model=model,
                 contents=safe_user,
                 config=types.GenerateContentConfig(
                     system_instruction=safe_system,
@@ -131,11 +141,12 @@ def generate_text(
             last_exc = exc
             kind = _classify_error(exc)
             logger.warning(
-                "Gemini call failed (attempt %s/%s, kind=%s, model=%s): %s",
+                "Gemini call failed (attempt %s/%s, kind=%s, tier=%s, model=%s): %s",
                 attempt,
                 max_attempts,
                 kind.value,
-                get_gemini_model(),
+                tier,
+                model,
                 exc,
             )
             if attempt >= max_attempts:

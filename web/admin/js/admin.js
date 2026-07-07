@@ -263,7 +263,7 @@
       ? `<ul class="admin-inspect-issues">${report.issues
           .map((issue) => {
             const detail = issue.detail ? ` <span class="admin-muted">(${escapeHtml(issue.detail)})</span>` : "";
-            return `<li class="${inspectIssueClass(issue.severity)}">
+            return `<li class="${inspectIssueClass(issue.severity)} inspect-issue-jump" role="button" tabindex="0" data-section="${escapeAttr(issue.section)}" data-offset="${issue.offset ?? ""}" data-detail="${escapeAttr(issue.detail || "")}">
           <span class="issue-section">${escapeHtml(issue.section)}</span>${escapeHtml(issue.message)}${detail}
         </li>`;
           })
@@ -273,6 +273,16 @@
       <h3>검사 결과 ${inspectBadgeHtml(report.student_id, report)}</h3>
       ${checklistHtml}
       ${issuesHtml}`;
+    box.querySelectorAll(".inspect-issue-jump").forEach((item) => {
+      item.addEventListener("click", () => {
+        const section = item.dataset.section;
+        const issue = {
+          offset: item.dataset.offset ? Number(item.dataset.offset) : null,
+          detail: item.dataset.detail || "",
+        };
+        focusInspectField(section, issue);
+      });
+    });
   }
 
   function renderFieldIssues(report) {
@@ -284,6 +294,10 @@
     document.querySelectorAll(".inspect-field-issues").forEach((list) => {
       const section = list.dataset.for;
       const issues = bySection.get(section) || [];
+      const fixBtn = document.querySelector(
+        `.detail-field-toolbar[data-field-key="${CSS.escape(section)}"] .detail-field-fix-btn`
+      );
+      if (fixBtn) fixBtn.hidden = !issues.length;
       if (!issues.length) {
         list.innerHTML = "";
         return;
@@ -291,9 +305,18 @@
       list.innerHTML = issues
         .map(
           (issue) =>
-            `<li class="${inspectIssueClass(issue.severity)}">${escapeHtml(issue.message)}</li>`
+            `<li class="${inspectIssueClass(issue.severity)} inspect-issue-clickable" role="button" tabindex="0" data-section="${escapeAttr(section)}" data-offset="${issue.offset ?? ""}" data-detail="${escapeAttr(issue.detail || "")}">${escapeHtml(issue.message)}</li>`
         )
         .join("");
+      list.querySelectorAll(".inspect-issue-clickable").forEach((item) => {
+        item.addEventListener("click", () => {
+          const issue = {
+            offset: item.dataset.offset ? Number(item.dataset.offset) : null,
+            detail: item.dataset.detail || "",
+          };
+          focusInspectField(section, issue);
+        });
+      });
     });
   }
 
@@ -396,6 +419,94 @@
   function sectionSubjectFromKey(key) {
     const colon = key.indexOf(":");
     return colon >= 0 ? key.slice(colon + 1) : key;
+  }
+
+  const FIELD_EDIT_LABELS = {
+    regenerate: "다시 쓰기",
+    proofread: "맞춤법 검사",
+    adjust_volume: "분량 맞추기",
+    fix_issues: "검사 반영 수정",
+  };
+
+  function detailFieldToolbarHtml(fieldKey) {
+    return `
+      <div class="detail-field-toolbar" data-field-key="${escapeAttr(fieldKey)}">
+        <button type="button" class="admin-btn secondary admin-btn-sm detail-field-action" data-action="regenerate">다시 쓰기</button>
+        <button type="button" class="admin-btn secondary admin-btn-sm detail-field-action" data-action="proofread">맞춤법</button>
+        <button type="button" class="admin-btn secondary admin-btn-sm detail-field-action" data-action="adjust_volume">분량 맞추기</button>
+        <button type="button" class="admin-btn secondary admin-btn-sm detail-field-action detail-field-fix-btn" data-action="fix_issues" hidden>AI 수정</button>
+      </div>`;
+  }
+
+  function focusInspectField(sectionKey, issue = null) {
+    const field = document.querySelector(`#detailEditor .inspect-field[data-field-key="${CSS.escape(sectionKey)}"]`);
+    const textarea = field?.querySelector(".detail-field");
+    if (!field || !textarea) return;
+    document.querySelectorAll("#detailEditor .inspect-field").forEach((el) => el.classList.remove("inspect-field-active"));
+    field.classList.add("inspect-field-active", "inspect-field-highlight");
+    field.scrollIntoView({ behavior: "smooth", block: "center" });
+    textarea.focus();
+    if (issue?.offset != null && issue.detail) {
+      const start = Number(issue.offset);
+      const len = String(issue.detail).length || 8;
+      try {
+        textarea.setSelectionRange(start, start + len);
+      } catch {
+        /* ignore */
+      }
+    }
+    window.setTimeout(() => field.classList.remove("inspect-field-highlight"), 1400);
+  }
+
+  async function applyFieldEdit(fieldKey, action, { issues = null } = {}) {
+    if (!currentStudentId) return;
+    const textarea = document.querySelector(`#detailEditor .detail-field[data-key="${CSS.escape(fieldKey)}"]`);
+    if (!textarea) return;
+    const label = FIELD_EDIT_LABELS[action] || "처리";
+    const stop = startBusy(`AI ${label}`, fieldKey, "잠시만 기다려 주세요.");
+    try {
+      const body = { field_key: fieldKey, action, text: textarea.value };
+      if (issues?.length) body.issues = issues;
+      const result = await api(`/api/students/${currentStudentId}/fields/edit`, { method: "POST", body });
+      textarea.value = result.text || "";
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      showToast(`${label} 완료 — 저장을 눌러 반영하세요`);
+      currentInspectReport = await inspectCurrentStudent();
+      const privacyNote = privacySettings.store_generated
+        ? ""
+        : ' <span class="admin-muted">· 작성본은 이 브라우저에만 저장됩니다</span>';
+      document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(currentStudentData?.status || "pending")}${privacyNote} ${inspectBadgeHtml(
+        currentStudentId,
+        currentInspectReport
+      )}`;
+      renderInspectSummary(currentInspectReport);
+      renderFieldIssues(currentInspectReport);
+      updateDetailCharCounts(currentInspectReport);
+    } catch (error) {
+      showToast(error.message || `${label} 실패`);
+    } finally {
+      stop();
+    }
+  }
+
+  function bindDetailEditorFieldActions() {
+    const editor = document.getElementById("detailEditor");
+    if (!editor || editor.dataset.fieldActionsBound === "1") return;
+    editor.dataset.fieldActionsBound = "1";
+    editor.addEventListener("click", async (event) => {
+      const btn = event.target.closest(".detail-field-action");
+      if (!btn || btn.disabled) return;
+      const toolbar = btn.closest(".detail-field-toolbar");
+      const fieldKey = toolbar?.dataset.fieldKey;
+      const action = btn.dataset.action;
+      if (!fieldKey || !action) return;
+      if (action === "fix_issues") {
+        const issues = (currentInspectReport?.issues || []).filter((issue) => issue.section === fieldKey);
+        await applyFieldEdit(fieldKey, action, { issues });
+        return;
+      }
+      await applyFieldEdit(fieldKey, action);
+    });
   }
 
   let busyTimer = null;
@@ -1255,38 +1366,6 @@
     return { notes, subjects, changche };
   }
 
-  function applyParsedToMemoForm(parsed) {
-    if (parsed.notes) {
-      if (parsed.notes.행발) {
-        const el = document.getElementById("memoEditHaengbal");
-        if (el) el.value = parsed.notes.행발;
-      }
-      if (Array.isArray(parsed.notes.write_targets)) {
-        document.querySelectorAll(".memo-edit-target").forEach((box) => {
-          box.checked = parsed.notes.write_targets.includes(box.value);
-        });
-        updateMemoEditPanels();
-      }
-    }
-    if (parsed.subjects && Object.keys(parsed.subjects).length) {
-      const container = document.getElementById("memoEditSubjects");
-      if (container) {
-        container.innerHTML = Object.entries(parsed.subjects)
-          .map(([subject, info]) => buildMemoEditSubjectBlock(subject, info))
-          .join("");
-        container.querySelectorAll(".memo-remove-subject").forEach((btn) => {
-          btn.addEventListener("click", () => btn.closest(".memo-edit-subject")?.remove());
-        });
-      }
-    }
-    if (parsed.changche) {
-      Object.entries(parsed.changche).forEach(([key, value]) => {
-        const el = document.querySelector(`.memo-edit-changche[data-key="${key}"]`);
-        if (el) el.value = value;
-      });
-    }
-  }
-
   async function openMemoEditModal(studentId) {
     const modal = document.getElementById("memoEditModal");
     if (!modal) return;
@@ -1295,7 +1374,6 @@
     memoEditStudentData = student;
     document.getElementById("memoEditTitle").textContent = "입력 메모 수정";
     document.getElementById("memoEditSubtitle").textContent = studentLabel(student);
-    document.getElementById("neisPasteInput").value = "";
     buildMemoEditForm(student);
     modal.hidden = false;
     document.body.classList.add("admin-guide-open");
@@ -1861,12 +1939,13 @@
 
     if (generated.행발) {
       parts.push(`
-        <div class="admin-field inspect-field">
+        <div class="admin-field inspect-field" data-field-key="행발">
           <div class="admin-field-head">
             <label>행동특성 및 종합의견</label>
             <span class="inspect-char-count" data-for="행발">0자</span>
           </div>
           <textarea class="admin-textarea detail-field" data-key="행발" rows="6">${escapeHtml(generated.행발)}</textarea>
+          ${detailFieldToolbarHtml("행발")}
           <ul class="inspect-field-issues" data-for="행발"></ul>
         </div>`);
     }
@@ -1875,12 +1954,13 @@
     for (const [subject, text] of Object.entries(setuk)) {
       const key = `세특:${subject}`;
       parts.push(`
-        <div class="admin-field inspect-field">
+        <div class="admin-field inspect-field" data-field-key="${escapeAttr(key)}">
           <div class="admin-field-head">
             <label>세특 · ${escapeHtml(subject)}</label>
             <span class="inspect-char-count" data-for="${escapeAttr(key)}">0자</span>
           </div>
           <textarea class="admin-textarea detail-field" data-key="${escapeAttr(key)}" rows="5">${escapeHtml(text)}</textarea>
+          ${detailFieldToolbarHtml(key)}
           <ul class="inspect-field-issues" data-for="${escapeAttr(key)}"></ul>
         </div>`);
     }
@@ -1889,12 +1969,13 @@
     for (const [keyName, text] of Object.entries(changche)) {
       const key = `창체:${keyName}`;
       parts.push(`
-        <div class="admin-field inspect-field">
+        <div class="admin-field inspect-field" data-field-key="${escapeAttr(key)}">
           <div class="admin-field-head">
             <label>창체 · ${escapeHtml(keyName)}</label>
             <span class="inspect-char-count" data-for="${escapeAttr(key)}">0자</span>
           </div>
           <textarea class="admin-textarea detail-field" data-key="${escapeAttr(key)}" rows="4">${escapeHtml(text)}</textarea>
+          ${detailFieldToolbarHtml(key)}
           <ul class="inspect-field-issues" data-for="${escapeAttr(key)}"></ul>
         </div>`);
     }
@@ -1904,7 +1985,9 @@
       return;
     }
     editor.innerHTML = parts.join("");
+    editor.dataset.fieldActionsBound = "0";
     bindDetailEditorInspectEvents();
+    bindDetailEditorFieldActions();
     updateDetailCharCounts(currentInspectReport);
     renderFieldIssues(currentInspectReport);
   }
@@ -2287,21 +2370,6 @@
       showToast(error.message);
     }
   });
-  document.getElementById("neisPasteApplyBtn")?.addEventListener("click", async () => {
-    const text = document.getElementById("neisPasteInput")?.value.trim();
-    if (!text) {
-      showToast("붙여넣을 내용을 입력하세요.");
-      return;
-    }
-    try {
-      const parsed = await api("/api/neis/parse", { method: "POST", body: { text } });
-      applyParsedToMemoForm(parsed);
-      showToast("붙여넣기 내용을 반영했습니다. 저장을 눌러 주세요.");
-    } catch (error) {
-      showToast(error.message);
-    }
-  });
-
   document.getElementById("saveStyleBtn")?.addEventListener("click", async () => {
     const style_guide = document.getElementById("styleGuideEditor").value;
     try {

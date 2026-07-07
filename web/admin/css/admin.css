@@ -1568,3 +1568,54 @@ body.admin-guide-open {
 .admin-version-link:hover {
   color: var(--blue);
 }
+
+/* 상세 편집 — 항목별 AI 도구 */
+.detail-field-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.detail-field-action[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.inspect-field-issues li.inspect-issue-clickable {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 2px;
+}
+
+.inspect-field-issues li.inspect-issue-clickable:hover {
+  opacity: 0.85;
+}
+
+.detail-field.inspect-field-active textarea {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 18%, transparent);
+}
+
+.inspect-field-highlight textarea {
+  animation: inspect-field-pulse 1.2s ease;
+}
+
+@keyframes inspect-field-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--blue) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 22%, transparent);
+  }
+}
+
+.admin-inspect-issues li.inspect-issue-jump {
+  cursor: pointer;
+}
+
+.admin-inspect-issues li.inspect-issue-jump:hover {
+  opacity: 0.88;
+}

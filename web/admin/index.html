@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708n">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708o">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -27,7 +27,7 @@
           <h1 class="site-title">생기부 작성</h1>
         </div>
         <div class="header-actions">
-          <button id="guideBtn" class="admin-header-btn" type="button" aria-haspopup="dialog">사용법</button>
+          <a class="admin-header-btn" href="/admin/guide">가이드</a>
           <label class="theme-switch">
             <input type="checkbox" class="theme-switch-input" role="switch">
             <span class="theme-switch-track"><span class="theme-switch-thumb"></span></span>
@@ -375,6 +375,8 @@
     <footer id="adminFooter" class="admin-page-footer" hidden>
       <p id="storageNote" class="admin-storage-note" hidden></p>
       <div class="admin-page-footer-links">
+        <a class="admin-footer-link" href="/admin/guide">가이드</a>
+        <span class="admin-footer-sep" aria-hidden="true">·</span>
         <button id="privacyBtn" class="admin-footer-link" type="button">개인정보</button>
         <span class="admin-footer-sep" aria-hidden="true">·</span>
         <a class="admin-footer-link" href="https://github.com/Mansejin/auto_script/issues/new" target="_blank" rel="noopener noreferrer">버그 신고</a>
@@ -416,53 +418,6 @@
     </div>
   </div>
 
-  <div id="guideModal" class="admin-guide-backdrop" hidden role="dialog" aria-labelledby="guideTitle" aria-modal="true">
-    <div class="admin-guide-card">
-      <div class="admin-guide-header">
-        <h2 id="guideTitle">사용 방법</h2>
-        <button id="guideCloseBtn" class="admin-guide-close" type="button" aria-label="닫기">×</button>
-      </div>
-      <div class="admin-guide-flow">
-        <div class="admin-guide-step">
-          <span class="admin-guide-step-num" aria-hidden="true">1</span>
-          <div class="admin-guide-step-body">
-            <strong>스타일 학습</strong>
-            <p>예전 생기부 샘플 업로드 → <em>분석 시작</em></p>
-          </div>
-        </div>
-        <div class="admin-guide-step">
-          <span class="admin-guide-step-num" aria-hidden="true">2</span>
-          <div class="admin-guide-step-body">
-            <strong>스타일 설정</strong>
-            <p>분석된 문체 확인·수정</p>
-          </div>
-        </div>
-        <div class="admin-guide-step">
-          <span class="admin-guide-step-num" aria-hidden="true">3</span>
-          <div class="admin-guide-step-body">
-            <strong>학생 등록</strong>
-            <p>작성 항목 선택 → 학생 정보·메모 입력 → <em>학생 추가</em></p>
-          </div>
-        </div>
-        <div class="admin-guide-step">
-          <span class="admin-guide-step-num" aria-hidden="true">4</span>
-          <div class="admin-guide-step-body">
-            <strong>작성·검토</strong>
-            <p>영역 선택 → <em>AI 일괄 작성</em> → 열기·수정·엑셀 추출</p>
-          </div>
-        </div>
-      </div>
-      <div class="admin-guide-notes">
-        <p class="admin-guide-notes-title">알아두세요</p>
-        <ul class="admin-guide-notes-list">
-          <li><strong>행발·세특</strong>은 ④에서 영역을 바꿔 각각 실행하세요.</li>
-          <li><strong>세특</strong>은 과목명이 필수입니다.</li>
-          <li>작성본은 기본적으로 <strong>이 브라우저에만</strong> 보관됩니다. 탭을 닫기 전 엑셀로 백업하세요.</li>
-          <li>학생 메모는 서버에 암호화 저장됩니다. 자세한 내용은 하단 <strong>개인정보</strong>를 참고하세요.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
 
   <div id="privacyModal" class="admin-guide-backdrop" hidden role="dialog" aria-labelledby="privacyTitle" aria-modal="true">
     <div class="admin-guide-card admin-privacy-card">
@@ -519,6 +474,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260708n"></script>
+  <script src="/admin-static/js/admin.js?v=20260708o"></script>
 </body>
 </html>

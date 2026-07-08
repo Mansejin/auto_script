@@ -1634,13 +1634,13 @@ body.admin-guide-open {
 }
 
 .admin-guide-card {
-  width: min(520px, 100%);
-  max-height: min(80vh, 640px);
+  width: min(480px, 100%);
+  max-height: min(85vh, 560px);
   overflow: auto;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 20px 22px;
+  padding: 20px 22px 22px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
 }
 
@@ -1649,7 +1649,7 @@ body.admin-guide-open {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .admin-guide-header h2 {
@@ -1672,6 +1672,95 @@ body.admin-guide-open {
 .admin-guide-close:hover {
   color: var(--text);
   background: color-mix(in srgb, var(--border) 40%, var(--bg));
+}
+
+.admin-guide-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 16px;
+}
+
+.admin-guide-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-guide-step:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.admin-guide-step-num {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--blue) 14%, var(--card));
+  color: var(--blue);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.admin-guide-step-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-guide-step-body strong {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.admin-guide-step-body p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.admin-guide-step-body em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--blue);
+}
+
+.admin-guide-notes {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.admin-guide-notes-title {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.admin-guide-notes-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.admin-guide-notes-list li + li {
+  margin-top: 6px;
 }
 
 .admin-guide-steps {

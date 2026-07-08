@@ -170,6 +170,54 @@
   justify-content: flex-end;
 }
 
+.admin-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.admin-section-head h2 {
+  margin: 0;
+}
+
+.admin-inline-meta {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+.admin-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-toolbar-row .admin-file-name {
+  flex: 1 1 12rem;
+  min-width: 0;
+  margin: 0;
+}
+
+.admin-write-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-write-toolbar .admin-write-mode {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.admin-write-toolbar > .admin-btn {
+  flex: 0 0 auto;
+}
+
 .admin-btn {
   appearance: none;
   border: none;

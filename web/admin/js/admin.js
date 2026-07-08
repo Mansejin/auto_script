@@ -62,6 +62,12 @@
     return ASSETS_BASE ? `${ASSETS_BASE}/${clean}` : clean;
   }
 
+  function filePickerEmptyLabel(inputId) {
+    if (inputId === "samplesFile") return "xlsx, docx, tsv · 여러 파일 선택 가능";
+    const rule = FILE_RULES[inputId];
+    return rule ? `${rule.label} · 파일 선택` : "선택된 파일 없음";
+  }
+
   function setupFilePickers() {
     document.querySelectorAll("[data-file-trigger]").forEach((btn) => {
       const inputId = btn.getAttribute("data-file-trigger");
@@ -76,7 +82,7 @@
         if (!nameEl) return;
 
         if (!files.length) {
-          nameEl.textContent = "선택된 파일 없음";
+          nameEl.textContent = filePickerEmptyLabel(inputId);
           nameEl.classList.remove("has-file", "is-invalid");
           return;
         }
@@ -1769,7 +1775,7 @@
           <td>${inspectBadgeHtml(s.id)}</td>
           <td class="admin-row-actions">
             <button class="admin-btn secondary admin-btn-sm" data-action="review" data-id="${s.id}">열기</button>
-            <button class="admin-btn danger admin-btn-sm" type="button" data-action="reset-generated" data-id="${s.id}" data-label="${escapeAttr(studentLabel(s))}">작성 삭제</button>
+            <button class="admin-btn danger admin-btn-sm" type="button" data-action="reset-generated" data-id="${s.id}" data-label="${escapeAttr(studentLabel(s))}">삭제</button>
           </td>
         </tr>`;
       })
@@ -1787,23 +1793,17 @@
     const countBadge = document.getElementById("reviewCountBadge");
     const countEl = document.getElementById("reviewSelectedCount");
     const resetSelectedBtn = document.getElementById("resetSelectedReviewBtn");
-    const selectAll = document.getElementById("reviewSelectAll");
-    const boxes = [...document.querySelectorAll(".review-select")];
-    const checkedCount = boxes.filter((box) => box.checked).length;
-    const total = totalCount ?? boxes.length;
+    const checkedCount = selectedReviewIds.size;
+    const total = totalCount ?? document.querySelectorAll(".review-select").length;
 
     if (countBadge) countBadge.textContent = `${total}명`;
     if (countEl) countEl.textContent = checkedCount ? `${checkedCount}명 선택됨` : "";
     if (resetSelectedBtn) resetSelectedBtn.disabled = checkedCount === 0;
-    if (selectAll && boxes.length) {
-      selectAll.checked = checkedCount > 0 && checkedCount === boxes.length;
-      selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
-    }
     if (toolbar) toolbar.hidden = total === 0;
   }
 
   function getSelectedReviewIds() {
-    return [...document.querySelectorAll(".review-select:checked")].map((box) => box.dataset.id);
+    return [...selectedReviewIds];
   }
 
   async function resetGeneratedByIds(ids, confirmMessage) {
@@ -2446,16 +2446,6 @@
     updateReviewSelectionUi();
   });
 
-  document.getElementById("reviewSelectAll")?.addEventListener("change", (event) => {
-    const checked = event.target.checked;
-    document.querySelectorAll(".review-select").forEach((box) => {
-      box.checked = checked;
-      if (checked) selectedReviewIds.add(box.dataset.id);
-      else selectedReviewIds.delete(box.dataset.id);
-    });
-    updateReviewSelectionUi();
-  });
-
   document.getElementById("resetSelectedReviewBtn")?.addEventListener("click", async () => {
     const ids = getSelectedReviewIds();
     await resetGeneratedByIds(ids, `선택한 ${ids.length}명의 작성본을 삭제할까요?\n학생 메모는 유지됩니다.`);
@@ -2829,20 +2819,19 @@
     event.target.reset();
     const nameEl = document.getElementById("samplesFileName");
     if (nameEl) {
-      nameEl.textContent = "선택된 파일 없음";
+      nameEl.textContent = filePickerEmptyLabel("samplesFile");
       nameEl.classList.remove("has-file");
     }
   });
 
   document.getElementById("analyzeBtn")?.addEventListener("click", async () => {
-    const useGemini = document.getElementById("analyzeGemini").checked;
     try {
       await withBusy(
         "문체·분량 분석",
-        useGemini ? "AI가 스타일 가이드를 정리하고 있습니다." : "샘플 문체·분량을 계산하고 있습니다.",
-        useGemini ? "샘플 수에 따라 1~3분 걸릴 수 있습니다." : "곧 완료됩니다.",
-        () => api(`/api/analyze?use_gemini=${useGemini}`, { method: "POST" }),
-        useGemini ? { modelTier: "pro" } : { showModel: false }
+        "샘플 문체·분량을 분석하고 있습니다.",
+        "샘플 수에 따라 1~3분 걸릴 수 있습니다.",
+        () => api("/api/analyze?use_gemini=true", { method: "POST" }),
+        { modelTier: "pro" }
       );
       showToast("분석 완료 · ② 스타일 설정에서 확인하세요");
       await loadStyleGuide();
@@ -2852,7 +2841,6 @@
   });
 
   document.getElementById("runBatchBtn")?.addEventListener("click", async () => {
-    const limit = Number(document.getElementById("runLimit").value || 0) || null;
     let section;
     try {
       section = getSelectedWriteSection();
@@ -2861,14 +2849,13 @@
       return;
     }
     const sectionLabel = WRITE_SECTION_LABELS[section] || section;
-    const limitText = limit ? `${limit}명` : "미작성 전원";
     const runTitle = "AI 일괄 작성";
     try {
       const data = await withAsyncRun(
         runTitle,
-        `${limitText} · ${sectionLabel}`,
+        `${sectionLabel} · 미작성 전원`,
         "진행 상황을 표시합니다. 창을 닫지 마세요.",
-        buildRunPayload({ limit })
+        buildRunPayload()
       );
       const errCount = (data.errors || []).length;
       const msg = data.partialErrors

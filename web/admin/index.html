@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708e">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708f">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -66,38 +66,18 @@
 
       <div id="panelLearn" class="admin-panel">
         <div class="admin-card">
-          <h2>과거 생기부 올리기</h2>
-          <p class="admin-muted">예전에 쓴 생기부 파일을 그대로 올리세요. 엑셀·워드·한글 복사본 모두 됩니다.</p>
+          <h2>스타일 학습</h2>
+          <p class="admin-muted">예전 생기부 샘플을 올리고 문체·분량을 분석합니다.</p>
           <form id="importSamplesForm">
-            <div class="admin-file-picker">
-              <div class="admin-file-picker-row">
-                <input id="samplesFile" class="admin-file-input" type="file" multiple accept="*/*">
-                <button class="admin-btn secondary" type="button" data-file-trigger="samplesFile">파일 선택</button>
-                <span class="admin-file-name" id="samplesFileName">선택된 파일 없음</span>
-              </div>
-            </div>
-            <div class="admin-actions admin-actions-end">
-              <button class="admin-btn" type="submit">업로드</button>
+            <div class="admin-toolbar-row">
+              <input id="samplesFile" class="admin-file-input" type="file" multiple accept="*/*">
+              <button class="admin-btn secondary admin-btn-sm" type="button" data-file-trigger="samplesFile">파일 선택</button>
+              <span class="admin-file-name" id="samplesFileName">xlsx, docx, tsv · 여러 파일 선택 가능</span>
+              <button class="admin-btn secondary admin-btn-sm" type="submit">업로드</button>
+              <button id="analyzeBtn" class="admin-btn admin-btn-sm" type="button">문체·분량 분석 시작</button>
             </div>
             <pre id="samplesUploadLog" class="admin-output admin-upload-log" hidden></pre>
-            <div class="admin-help">
-              xlsx, docx, tsv 등 · 여러 파일 한 번에 선택 가능
-            </div>
           </form>
-        </div>
-        <div class="admin-card" style="margin-top:16px">
-          <h2>문체·분량 분석</h2>
-          <p class="admin-muted">올린 샘플에서 선생님 스타일을 자동으로 읽어 냅니다.</p>
-          <label class="admin-option" for="analyzeGemini">
-            <input id="analyzeGemini" type="checkbox" checked>
-            <span class="admin-option-text">
-              <strong>AI로 스타일 가이드 정리</strong>
-              <span>더 정확한 문체 요약 (권장)</span>
-            </span>
-          </label>
-          <div class="admin-actions admin-actions-end">
-            <button id="analyzeBtn" class="admin-btn" type="button">분석 시작</button>
-          </div>
         </div>
         <div class="admin-card" style="margin-top:16px;padding:16px;background:var(--bg)">
           <h3 style="font-size:1rem;margin-bottom:8px">올린 샘플 목록</h3>
@@ -291,39 +271,36 @@
 
       <div id="panelReview" class="admin-panel" hidden>
         <div class="admin-card">
-          <h2>일괄 AI 작성</h2>
-          <p class="admin-muted" id="usageText">무료 플랜: 이번 달 작성 가능 횟수를 확인하세요.</p>
-          <h3 class="admin-subheading">이번에 작성할 영역</h3>
-          <div class="admin-write-mode admin-write-mode--row" id="writeSectionChoices">
-            <label class="admin-option admin-option-radio">
-              <input type="radio" name="writeSection" value="행발" checked>
-              <span class="admin-option-text"><strong>행발</strong></span>
-            </label>
-            <label class="admin-option admin-option-radio">
-              <input type="radio" name="writeSection" value="세특">
-              <span class="admin-option-text"><strong>세특</strong></span>
-            </label>
-            <label class="admin-option admin-option-radio">
-              <input type="radio" name="writeSection" value="자율">
-              <span class="admin-option-text"><strong>자율</strong></span>
-            </label>
-            <label class="admin-option admin-option-radio">
-              <input type="radio" name="writeSection" value="동아리">
-              <span class="admin-option-text"><strong>동아리</strong></span>
-            </label>
-            <label class="admin-option admin-option-radio">
-              <input type="radio" name="writeSection" value="진로">
-              <span class="admin-option-text"><strong>진로</strong></span>
-            </label>
+          <div class="admin-section-head">
+            <h2>일괄 AI 작성</h2>
+            <span id="usageText" class="admin-inline-meta">이번 달 작성 횟수 확인 중…</span>
           </div>
-          <div class="admin-field" style="margin-top:16px">
-            <label for="runLimit">인원 제한 (비우면 전원)</label>
-            <input id="runLimit" type="number" min="1" placeholder="예: 5">
+          <div class="admin-write-toolbar">
+            <div class="admin-write-mode admin-write-mode--row" id="writeSectionChoices">
+              <label class="admin-option admin-option-radio">
+                <input type="radio" name="writeSection" value="행발" checked>
+                <span class="admin-option-text"><strong>행발</strong></span>
+              </label>
+              <label class="admin-option admin-option-radio">
+                <input type="radio" name="writeSection" value="세특">
+                <span class="admin-option-text"><strong>세특</strong></span>
+              </label>
+              <label class="admin-option admin-option-radio">
+                <input type="radio" name="writeSection" value="자율">
+                <span class="admin-option-text"><strong>자율</strong></span>
+              </label>
+              <label class="admin-option admin-option-radio">
+                <input type="radio" name="writeSection" value="동아리">
+                <span class="admin-option-text"><strong>동아리</strong></span>
+              </label>
+              <label class="admin-option admin-option-radio">
+                <input type="radio" name="writeSection" value="진로">
+                <span class="admin-option-text"><strong>진로</strong></span>
+              </label>
+            </div>
+            <button id="runBatchBtn" class="admin-btn admin-btn-sm" type="button">AI 일괄 작성</button>
           </div>
-          <div class="admin-actions admin-actions-end">
-            <button id="runBatchBtn" class="admin-btn" type="button">AI 일괄 작성</button>
-          </div>
-          <pre id="runLog" class="admin-output admin-dev-only" hidden style="margin-top:16px"></pre>
+          <pre id="runLog" class="admin-output admin-dev-only" hidden style="margin-top:12px"></pre>
         </div>
         <div class="admin-card" style="margin-top:16px">
           <h2>검토 목록</h2>
@@ -336,11 +313,6 @@
             <div class="admin-samples-toolbar-right">
               <button id="inspectAllReviewBtn" class="admin-btn secondary admin-btn-sm" type="button">전체 검사</button>
               <button id="exportReviewExcelBtn" class="admin-btn secondary admin-btn-sm" type="button">엑셀 추출</button>
-              <label class="admin-check">
-                <input id="reviewSelectAll" type="checkbox" class="admin-check-input">
-                <span class="admin-check-box" aria-hidden="true"></span>
-                <span class="admin-check-text">전체 선택</span>
-              </label>
               <button id="resetSelectedReviewBtn" class="admin-btn danger admin-btn-sm" type="button" disabled>선택 삭제</button>
               <button id="resetAllReviewBtn" class="admin-btn danger admin-btn-sm" type="button">전체 초기화</button>
             </div>
@@ -471,6 +443,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260708e"></script>
+  <script src="/admin-static/js/admin.js?v=20260708f"></script>
 </body>
 </html>

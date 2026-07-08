@@ -425,9 +425,22 @@
   function detailFieldToolbarHtml(fieldKey) {
     return `
       <div class="detail-field-toolbar" data-field-key="${escapeAttr(fieldKey)}">
+        <label class="admin-muted" style="display:inline-flex;gap:6px;align-items:center;font-size:0.85rem">
+          모델
+          <select class="detail-regen-model" aria-label="다시 쓰기 모델">
+            <option value="fast" selected>2.5 Flash</option>
+            <option value="pro">3.1 Pro</option>
+          </select>
+        </label>
         <button type="button" class="admin-btn secondary admin-btn-sm detail-field-action" data-action="regenerate">다시 쓰기</button>
         <button type="button" class="admin-btn secondary admin-btn-sm detail-field-action" data-action="proofread">맞춤법</button>
       </div>`;
+  }
+
+  function getRegenModelTier(fieldKey) {
+    const toolbar = document.querySelector(`.detail-field-toolbar[data-field-key="${CSS.escape(fieldKey)}"]`);
+    const select = toolbar?.querySelector(".detail-regen-model");
+    return select?.value === "pro" ? "pro" : "fast";
   }
 
   function focusInspectField(sectionKey, issue = null) {
@@ -455,11 +468,12 @@
     const textarea = document.querySelector(`#detailEditor .detail-field[data-key="${CSS.escape(fieldKey)}"]`);
     if (!textarea) return;
     const label = FIELD_EDIT_LABELS[action] || "처리";
-    const modelTier = action === "regenerate" ? "pro" : "fast";
+    const modelTier = action === "regenerate" ? getRegenModelTier(fieldKey) : "fast";
     await ensureModelInfo();
     const stop = startBusy(`AI ${label}`, fieldKey, "잠시만 기다려 주세요.", { modelTier });
     try {
       const body = { field_key: fieldKey, action, text: textarea.value };
+      if (action === "regenerate") body.model_tier = modelTier;
       const result = await api(`/api/students/${currentStudentId}/fields/edit`, { method: "POST", body });
       textarea.value = result.text || "";
       textarea.dispatchEvent(new Event("input", { bubbles: true }));
@@ -503,9 +517,7 @@
     gemini_model: "",
     gemini_model_pro: "",
     gemini_model_fast: "",
-    gemini_model_profile: "split",
-    gemini_skip_proofread: false,
-    dev_mode: false,
+    gemini_model_default: "fast",
   };
   let privacySettings = { store_generated: false, encrypt_data: true, mask_pii: true };
   let usageLine = "";
@@ -580,100 +592,23 @@
 
   function applyGeminiModels(data) {
     if (typeof data === "string") {
-      if (data && data !== "—") systemInfo.gemini_model_pro = data;
+      if (data && data !== "—") systemInfo.gemini_model_fast = data;
     } else if (data && typeof data === "object") {
       if (data.gemini_model_pro) systemInfo.gemini_model_pro = data.gemini_model_pro;
       if (data.gemini_model_fast) systemInfo.gemini_model_fast = data.gemini_model_fast;
-      if (data.gemini_model && !data.gemini_model_pro) systemInfo.gemini_model_pro = data.gemini_model;
-      if (data.gemini_model_profile) systemInfo.gemini_model_profile = data.gemini_model_profile;
-      if (typeof data.gemini_skip_proofread === "boolean") {
-        systemInfo.gemini_skip_proofread = data.gemini_skip_proofread;
-      }
-      if (typeof data.dev_mode === "boolean") systemInfo.dev_mode = data.dev_mode;
+      if (data.gemini_model) systemInfo.gemini_model = data.gemini_model;
+      if (data.gemini_model_default) systemInfo.gemini_model_default = data.gemini_model_default;
     }
-    systemInfo.gemini_model = systemInfo.gemini_model_pro || systemInfo.gemini_model;
+    systemInfo.gemini_model = systemInfo.gemini_model || systemInfo.gemini_model_fast;
     refreshBusyModelDisplay();
-    syncDevGeminiPanel(data);
-  }
-
-  function syncDevGeminiPanel(data) {
-    const panel = document.getElementById("devGeminiPanel");
-    const profileSelect = document.getElementById("devGeminiProfile");
-    const skipBox = document.getElementById("devSkipProofread");
-    const status = document.getElementById("devGeminiStatus");
-    if (!panel || !profileSelect || !skipBox) return;
-
-    const devMode = Boolean(data?.dev_mode ?? systemInfo.dev_mode);
-    panel.hidden = !devMode;
-    if (!devMode) return;
-
-    const profile = data?.gemini_model_profile || systemInfo.gemini_model_profile || "split";
-    const skip = Boolean(
-      typeof data?.gemini_skip_proofread === "boolean"
-        ? data.gemini_skip_proofread
-        : systemInfo.gemini_skip_proofread,
-    );
-    profileSelect.value = profile;
-    skipBox.checked = skip;
-
-    if (status) {
-      const pro = data?.gemini_model_pro || systemInfo.gemini_model_pro;
-      const fast = data?.gemini_model_fast || systemInfo.gemini_model_fast;
-      const envProfile = data?.env_profile;
-      const envSkip = data?.env_skip_proofread;
-      const overridden = data?.profile_overridden || data?.skip_proofread_overridden;
-      let line = `적용 중 · 프로필 ${profile}`;
-      if (skip) line += " · 자동 맞춤법 OFF";
-      if (pro && fast) line += ` · 작성 ${pro} · 보조 ${fast}`;
-      if (overridden && envProfile !== undefined) {
-        line += ` (.env: ${envProfile}${envSkip ? ", 맞춤법 OFF" : ""})`;
-      }
-      status.textContent = line;
-    }
-  }
-
-  let devGeminiSaveTimer = null;
-
-  async function saveDevGeminiSettings({ reset = false } = {}) {
-    if (!systemInfo.dev_mode) return;
-    const profileSelect = document.getElementById("devGeminiProfile");
-    const skipBox = document.getElementById("devSkipProofread");
-    if (!profileSelect || !skipBox) return;
-    const body = reset
-      ? { reset: true }
-      : { profile: profileSelect.value, skip_proofread: skipBox.checked };
-    const data = await api("/api/dev/gemini-settings", { method: "PUT", body });
-    applyGeminiModels(data);
-    showToast(reset ? "Gemini 설정을 .env 기본값으로 되돌렸습니다." : "Gemini 테스트 설정을 적용했습니다.");
-  }
-
-  function scheduleDevGeminiSave() {
-    if (!systemInfo.dev_mode) return;
-    if (devGeminiSaveTimer) clearTimeout(devGeminiSaveTimer);
-    devGeminiSaveTimer = setTimeout(() => {
-      devGeminiSaveTimer = null;
-      saveDevGeminiSettings().catch((error) => showToast(error.message || "설정 저장 실패"));
-    }, 250);
   }
 
   function modelLineText(activeTier = null) {
     const pro = systemInfo.gemini_model_pro;
     const fast = systemInfo.gemini_model_fast;
-    const profile = systemInfo.gemini_model_profile;
-    const skip = systemInfo.gemini_skip_proofread;
-    if (profile === "flash") {
-      const model = fast || pro;
-      return `전부 Flash · ${model || "2.5"}${skip ? " · 맞춤법 OFF" : ""}`;
-    }
-    if (profile === "pro") {
-      return `전부 Pro · ${pro || "Pro"}${skip ? " · 맞춤법 OFF" : ""}`;
-    }
-    if (activeTier === "fast" && fast) return `사용 모델 · ${fast}`;
     if (activeTier === "pro" && pro) return `사용 모델 · ${pro}`;
-    if (pro && fast) {
-      return `작성 ${pro} · 맞춤법·편집 ${fast}${skip ? " · 자동 맞춤법 OFF" : ""}`;
-    }
-    if (pro) return `사용 모델 · ${pro}`;
+    if (activeTier === "fast" && fast) return `사용 모델 · ${fast}`;
+    if (fast) return `기본 작성 · ${fast}`;
     return "사용 모델 · 확인 중…";
   }
 
@@ -809,7 +744,7 @@
       applyGeminiModels(job);
     }
     const { phase } = parseJobMessage(job.message || "");
-    refreshBusyModelDisplay(phase === "proofread" ? "fast" : "pro");
+    refreshBusyModelDisplay(phase === "proofread" ? "fast" : "fast");
     if (busyTitle) {
       busyTitle.textContent = phase === "proofread" ? "AI 맞춤법 검사" : "AI 작성 중";
     }
@@ -832,7 +767,7 @@
 
   async function withAsyncRun(title, message, hint, payload) {
     await ensureModelInfo();
-    const stop = startBusy(title || "AI 작성 중", message, hint, { showModel: true });
+    const stop = startBusy(title || "AI 작성 중", message, hint, { showModel: true, modelTier: "fast" });
     try {
       const started = await api("/api/run/async", { method: "POST", body: payload });
       if (started.gemini_model_pro || started.gemini_model_fast || started.gemini_model) {
@@ -2808,7 +2743,8 @@
         "문체·분량 분석",
         useGemini ? "AI가 스타일 가이드를 정리하고 있습니다." : "샘플 문체·분량을 계산하고 있습니다.",
         useGemini ? "샘플 수에 따라 1~3분 걸릴 수 있습니다." : "곧 완료됩니다.",
-        () => api(`/api/analyze?use_gemini=${useGemini}`, { method: "POST" })
+        () => api(`/api/analyze?use_gemini=${useGemini}`, { method: "POST" }),
+        useGemini ? { modelTier: "pro" } : { showModel: false }
       );
       showToast("분석 완료 · ② 스타일 설정에서 확인하세요");
       await loadStyleGuide();
@@ -2914,12 +2850,6 @@
       }
       updateStudentMemoPanels();
     }
-  });
-
-  document.getElementById("devGeminiProfile")?.addEventListener("change", scheduleDevGeminiSave);
-  document.getElementById("devSkipProofread")?.addEventListener("change", scheduleDevGeminiSave);
-  document.getElementById("devGeminiReset")?.addEventListener("click", () => {
-    saveDevGeminiSettings({ reset: true }).catch((error) => showToast(error.message || "초기화 실패"));
   });
 
   async function bootstrap() {

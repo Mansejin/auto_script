@@ -1,9 +1,4 @@
-from src.saenggibu.config import (
-    gemini_models_for_api,
-    get_gemini_model_fast,
-    get_gemini_model_profile,
-    get_gemini_model_pro,
-)
+from src.saenggibu.config import gemini_models_for_api, get_gemini_model_fast, get_gemini_model_pro
 
 
 def test_gemini_model_pro_default(monkeypatch):
@@ -26,21 +21,8 @@ def test_gemini_model_fast_default(monkeypatch):
 def test_gemini_models_for_api(monkeypatch):
     monkeypatch.setenv("GEMINI_MODEL_PRO", "pro-model")
     monkeypatch.setenv("GEMINI_MODEL_FAST", "flash-model")
-    monkeypatch.setenv("GEMINI_MODEL_PROFILE", "flash")
     models = gemini_models_for_api()
-    assert models["gemini_model"] == "pro-model"
+    assert models["gemini_model"] == "flash-model"
     assert models["gemini_model_pro"] == "pro-model"
     assert models["gemini_model_fast"] == "flash-model"
-    assert models["gemini_model_profile"] == "flash"
-
-
-def test_dev_mode_profile_override(monkeypatch):
-    from src.saenggibu.dev_runtime import reset_overrides, set_profile_override
-
-    monkeypatch.setenv("SGB_DEV_MODE", "1")
-    monkeypatch.setenv("GEMINI_MODEL_PROFILE", "split")
-    reset_overrides()
-    set_profile_override("flash")
-    assert get_gemini_model_profile() == "flash"
-    reset_overrides()
-    assert get_gemini_model_profile() == "split"
+    assert models["gemini_model_default"] == "fast"

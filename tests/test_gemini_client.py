@@ -46,12 +46,22 @@ def test_generate_text_records_usage(mock_throttle: MagicMock, mock_client: Magi
 
 @patch("src.saenggibu.gemini_client._client")
 @patch("src.saenggibu.gemini_client._throttle")
-def test_generate_text_profile_flash_uses_fast_for_pro_tier(
-    mock_throttle: MagicMock, mock_client: MagicMock, monkeypatch: pytest.MonkeyPatch
-):
-    monkeypatch.setenv("GEMINI_MODEL_PROFILE", "flash")
-    monkeypatch.setenv("GEMINI_MODEL_FAST", "flash-all")
-    monkeypatch.setenv("GEMINI_MODEL_PRO", "pro-ignored")
+def test_generate_text_default_uses_fast(mock_throttle: MagicMock, mock_client: MagicMock, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("GEMINI_MODEL_FAST", raising=False)
+    api = mock_client.return_value
+    response = MagicMock()
+    response.text = "ok"
+    api.models.generate_content.return_value = response
+
+    text = gc.generate_text(system="s", user="u")
+    assert text == "ok"
+    assert api.models.generate_content.call_args.kwargs["model"] == "gemini-2.5-flash"
+
+
+@patch("src.saenggibu.gemini_client._client")
+@patch("src.saenggibu.gemini_client._throttle")
+def test_generate_text_pro_tier(mock_throttle: MagicMock, mock_client: MagicMock, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("GEMINI_MODEL_PRO", "pro-test")
     api = mock_client.return_value
     response = MagicMock()
     response.text = "ok"
@@ -59,7 +69,21 @@ def test_generate_text_profile_flash_uses_fast_for_pro_tier(
 
     text = gc.generate_text(system="s", user="u", tier="pro")
     assert text == "ok"
-    assert api.models.generate_content.call_args.kwargs["model"] == "flash-all"
+    assert api.models.generate_content.call_args.kwargs["model"] == "pro-test"
+
+
+@patch("src.saenggibu.gemini_client._client")
+@patch("src.saenggibu.gemini_client._throttle")
+def test_refine_style_guide_uses_pro(mock_throttle: MagicMock, mock_client: MagicMock, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("GEMINI_MODEL_PRO", "pro-style")
+    api = mock_client.return_value
+    response = MagicMock()
+    response.text = "guide"
+    api.models.generate_content.return_value = response
+
+    text = gc.refine_style_guide({}, "draft")
+    assert text == "guide"
+    assert api.models.generate_content.call_args.kwargs["model"] == "pro-style"
 
 
 @patch("src.saenggibu.gemini_client._client")

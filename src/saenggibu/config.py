@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 load_dotenv(ROOT / ".env")
-# Local experiments (model profile, skip proofread) — not for NAS production
 load_dotenv(ROOT / ".env.local", override=True)
 
 DATA_DIR = ROOT / "data" / "saenggibu"
@@ -17,8 +16,6 @@ OUTPUTS_DIR = DATA_DIR / "outputs"
 JOBS_DIR = DATA_DIR / "jobs"
 PATTERNS_PATH = DATA_DIR / "patterns.json"
 PROMPT_PATH = ROOT / "prompts" / "saenggibu.md"
-
-from .dev_runtime import dev_mode_enabled, get_profile_override, get_skip_proofread_override
 
 CHANGCHE_SUBSECTIONS = ("자율", "동아리", "봉사", "진로")
 
@@ -34,6 +31,7 @@ def get_gemini_api_key() -> str:
 
 
 def get_gemini_model_pro() -> str:
+    """샘플 분석·다시 쓰기(Pro 선택)용."""
     explicit = os.getenv("GEMINI_MODEL_PRO", "").strip()
     if explicit:
         return explicit
@@ -42,56 +40,21 @@ def get_gemini_model_pro() -> str:
 
 
 def get_gemini_model_fast() -> str:
+    """일괄 작성·맞춤법·메모 파싱 기본 모델."""
     return os.getenv("GEMINI_MODEL_FAST", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
 
 
-def _normalize_profile(raw: str) -> str:
-    value = raw.strip().lower()
-    if value in ("flash", "all-flash", "fast"):
-        return "flash"
-    if value in ("pro", "all-pro"):
-        return "pro"
-    return "split"
-
-
-def env_gemini_model_profile() -> str:
-    """Profile from .env / .env.local only."""
-    return _normalize_profile(os.getenv("GEMINI_MODEL_PROFILE", "split"))
-
-
-def get_gemini_model_profile() -> str:
-    """split (default) | flash | pro — see docs/model-cost-local.md"""
-    override = get_profile_override()
-    if override is not None:
-        return override
-    return env_gemini_model_profile()
-
-
-def env_skip_gemini_proofread() -> bool:
-    return os.getenv("GEMINI_SKIP_PROOFREAD", "").strip().lower() in ("1", "true", "yes")
-
-
-def skip_gemini_proofread() -> bool:
-    override = get_skip_proofread_override()
-    if override is not None:
-        return override
-    return env_skip_gemini_proofread()
-
-
 def get_gemini_model() -> str:
-    """Primary writing model (backward compatible alias for pro)."""
-    return get_gemini_model_pro()
+    """기본 작성 모델 (Flash)."""
+    return get_gemini_model_fast()
 
 
-def gemini_models_for_api() -> dict[str, str | bool]:
-    profile = get_gemini_model_profile()
+def gemini_models_for_api() -> dict[str, str]:
     return {
-        "gemini_model": get_gemini_model_pro(),
+        "gemini_model": get_gemini_model_fast(),
         "gemini_model_pro": get_gemini_model_pro(),
         "gemini_model_fast": get_gemini_model_fast(),
-        "gemini_model_profile": profile,
-        "gemini_skip_proofread": skip_gemini_proofread(),
-        "dev_mode": dev_mode_enabled(),
+        "gemini_model_default": "fast",
     }
 
 

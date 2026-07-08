@@ -5,11 +5,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from .config import skip_gemini_proofread
+from .config import OUTPUTS_DIR, ensure_data_dirs
 from .curriculum import find_relevant_standards, format_curriculum_context
 from .api_errors import friendly_api_error
-from .gemini_client import generate_text
-from .spell_check import proofread_text
+from .gemini_client import ModelTier, generate_text
 from .subject_info import format_setuk_prompt_context
 from .storage_policy import store_generated_on_server
 from .io_utils import save_json
@@ -21,46 +20,6 @@ from .write_sections import normalize_write_sections, student_sections_complete
 
 
 ProgressCallback = Callable[[str, str], None]
-
-WrittenField = tuple[str, str, str | None]  # notify_section, kind, key (세특/창체 과목·영역)
-
-
-def _read_generated_field(generated: dict[str, Any], kind: str, key: str | None) -> str:
-    if kind == "행발":
-        return str(generated.get("행발") or "")
-    if kind == "세특" and key:
-        return str((generated.get("세특") or {}).get(key) or "")
-    if kind == "창체" and key:
-        return str((generated.get("창체") or {}).get(key) or "")
-    return ""
-
-
-def _write_generated_field(generated: dict[str, Any], kind: str, key: str | None, value: str) -> None:
-    if kind == "행발":
-        generated["행발"] = value
-        return
-    if kind == "세특" and key:
-        generated.setdefault("세특", {})
-        generated["세특"][key] = value
-        return
-    if kind == "창체" and key:
-        generated.setdefault("창체", {})
-        generated["창체"][key] = value
-
-
-def _proofread_new_fields(
-    generated: dict[str, Any],
-    fields: list[WrittenField],
-    notify: ProgressCallback,
-) -> None:
-    for section, kind, key in fields:
-        label = key or section
-        notify(section, f"proofread:{label}")
-        check_generation_allowed()
-        current = _read_generated_field(generated, kind, key)
-        corrected = proofread_text(current)
-        _write_generated_field(generated, kind, key, corrected)
-        record_generation()
 
 
 def _default_progress(section: str, message: str) -> None:
@@ -89,7 +48,7 @@ def _student_names(student: StudentInput) -> list[str]:
     return [student.name] if student.name.strip() else []
 
 
-def _generate_haengbal(student: StudentInput, style_guide: str) -> str:
+def _generate_haengbal(student: StudentInput, style_guide: str, *, tier: ModelTier = "fast") -> str:
     keywords = student.notes.get("keywords") or []
     notes = student.notes.get("행발") or student.notes.get("행발_notes") or ""
     user = (
@@ -101,10 +60,22 @@ def _generate_haengbal(student: StudentInput, style_guide: str) -> str:
         f"- 핵심 키워드: {', '.join(keywords) if keywords else '없음'}\n\n"
         "위 정보를 바탕으로 **행동특성 및 종합의견** 한 편을 작성하세요."
     )
-    return generate_text(system=_system_prompt(), user=user, student_names=_student_names(student))
+    return generate_text(
+        system=_system_prompt(),
+        user=user,
+        student_names=_student_names(student),
+        tier=tier,
+    )
 
 
-def _generate_setuk(student: StudentInput, subject: str, info: dict[str, Any], style_guide: str) -> str:
+def _generate_setuk(
+    student: StudentInput,
+    subject: str,
+    info: dict[str, Any],
+    style_guide: str,
+    *,
+    tier: ModelTier = "fast",
+) -> str:
     context = format_setuk_prompt_context(subject, info)
     standards = find_relevant_standards(subject, info, limit=3)
     curriculum_block = format_curriculum_context(standards)
@@ -118,7 +89,12 @@ def _generate_setuk(student: StudentInput, subject: str, info: dict[str, Any], s
         f"위 정보를 바탕으로 **{subject} 세부능력 및 특기사항**을 작성하세요. "
         "비어 있는 항목(진로·수행평가 형식·주제)은 언급하지 마세요."
     )
-    return generate_text(system=_system_prompt(), user=user, student_names=_student_names(student))
+    return generate_text(
+        system=_system_prompt(),
+        user=user,
+        student_names=_student_names(student),
+        tier=tier,
+    )
 
 
 def _generate_changche(
@@ -126,6 +102,8 @@ def _generate_changche(
     subsection: str,
     notes: str,
     style_guide: str,
+    *,
+    tier: ModelTier = "fast",
 ) -> str:
     user = (
         f"## 스타일 가이드\n{style_guide}\n\n"
@@ -135,7 +113,12 @@ def _generate_changche(
         f"- 활동 메모: {notes or '없음'}\n\n"
         f"위 정보를 바탕으로 **창의적 체험활동({subsection})** 기록을 작성하세요."
     )
-    return generate_text(system=_system_prompt(), user=user, student_names=_student_names(student))
+    return generate_text(
+        system=_system_prompt(),
+        user=user,
+        student_names=_student_names(student),
+        tier=tier,
+    )
 
 
 def generate_for_student(
@@ -154,7 +137,6 @@ def generate_for_student(
     save_student(student)
 
     generated: dict[str, Any] = dict(student.generated or {})
-    newly_written: list[WrittenField] = []
 
     try:
         section = target_sections[0]
@@ -164,7 +146,6 @@ def generate_for_student(
             else:
                 notify("행발", f"{student.display_name} 작성 중...")
                 generated["행발"] = _generate_haengbal(student, style_guide)
-                newly_written.append(("행발", "행발", None))
         elif section == "세특":
             if not student.subjects:
                 raise ValueError(f"{student.display_name}: 세특 작성에 필요한 과목 정보가 없습니다.")
@@ -175,7 +156,6 @@ def generate_for_student(
                     continue
                 notify("세특", f"{student.display_name} · {subject}")
                 generated["세특"][subject] = _generate_setuk(student, subject, info, style_guide)
-                newly_written.append(("세특", "세특", subject))
         elif section in ("자율", "동아리", "봉사", "진로"):
             notes = str(student.changche.get(section) or "").strip()
             if not notes:
@@ -186,13 +166,6 @@ def generate_for_student(
             else:
                 notify("창체", f"{student.display_name} · {section}")
                 generated["창체"][section] = _generate_changche(student, section, notes, style_guide)
-                newly_written.append(("창체", "창체", section))
-
-        if newly_written:
-            if skip_gemini_proofread():
-                pass
-            else:
-                _proofread_new_fields(generated, newly_written, notify)
 
         student.generated = generated
         student.status = "done" if student_sections_complete(student) else "partial"

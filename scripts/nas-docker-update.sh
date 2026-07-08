@@ -150,18 +150,28 @@ git_sync_deploy() {
   log "==> git at $short"
 }
 
-git_current_rev() {
+git_in_repo() {
   GIT=$(resolve_git)
   if [ -n "$GIT" ]; then
-    "$GIT" -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || true
-    return
+    "$GIT" -C "$REPO_DIR" "$@"
+    return $?
   fi
   $DOCKER run --rm \
     --entrypoint git \
     -v "$REPO_DIR:/git" \
     -w /git \
     "$GIT_IMAGE" \
-    -C /git rev-parse HEAD 2>/dev/null || true
+    -C /git "$@"
+}
+
+git_current_rev() {
+  git_in_repo rev-parse HEAD 2>/dev/null || true
+}
+
+git_diff_name_only() {
+  old_rev="$1"
+  new_rev="$2"
+  git_in_repo diff --name-only "$old_rev" "$new_rev" 2>/dev/null || true
 }
 
 classify_deploy_changes() {
@@ -176,9 +186,9 @@ classify_deploy_changes() {
     return
   fi
 
-  files=$(git -C "$REPO_DIR" diff --name-only "$old_rev" "$new_rev" 2>/dev/null || true)
+  files=$(git_diff_name_only "$old_rev" "$new_rev")
   if [ -z "$files" ]; then
-    echo "none"
+    echo "rebuild"
     return
   fi
 

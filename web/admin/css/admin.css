@@ -955,9 +955,11 @@ body.admin-is-busy .admin-tab {
 }
 
 .inspect-char-count {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--text-secondary);
-  white-space: nowrap;
+  text-align: right;
+  line-height: 1.35;
+  max-width: min(100%, 420px);
 }
 
 .inspect-char-count.is-warn {
@@ -1007,6 +1009,89 @@ body.admin-is-busy .admin-tab {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg);
+}
+
+.admin-inspect-summary--compact {
+  margin-top: 12px;
+  margin-bottom: 0;
+  padding: 10px 12px;
+}
+
+.admin-inspect-summary-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.admin-inspect-summary-bar h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+  flex: 0 0 auto;
+}
+
+.admin-inspect-pills {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 auto;
+}
+
+.admin-inspect-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text-secondary);
+}
+
+.admin-inspect-pill .admin-inspect-check-icon {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  font-size: 0.625rem;
+}
+
+.admin-inspect-pill.status-pass .admin-inspect-check-icon {
+  background: #e8f7ee;
+  color: #1f7a3f;
+}
+
+.admin-inspect-pill.status-warn .admin-inspect-check-icon {
+  background: #fff6e8;
+  color: #a05a00;
+}
+
+.admin-inspect-pill.status-fail .admin-inspect-check-icon {
+  background: #fdecec;
+  color: #b42318;
+}
+
+.admin-inspect-pill.status-skip .admin-inspect-check-icon,
+.admin-inspect-pill.status-pending .admin-inspect-check-icon {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.admin-inspect-ok-note {
+  margin: 8px 0 0;
+  font-size: 0.8125rem;
+}
+
+#panelDetail #detailWritingTips {
+  margin-bottom: 12px;
+}
+
+#panelDetail #detailEditor {
+  margin-bottom: 0;
 }
 
 .admin-inspect-summary h3 {
@@ -1092,6 +1177,15 @@ body.admin-is-busy .admin-tab {
 .admin-busy-check-item.status-active {
   border-color: var(--blue);
   box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15);
+}
+
+.admin-inspect-summary--compact .admin-inspect-issues {
+  margin-top: 8px;
+}
+
+.admin-inspect-summary--compact .admin-inspect-issues li {
+  padding: 4px 0;
+  font-size: 0.8125rem;
 }
 
 .admin-inspect-issues {
@@ -1376,6 +1470,7 @@ body.admin-guide-open {
 
 .admin-writing-tips {
   margin-top: 12px;
+  margin-bottom: 0;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   background: var(--bg);

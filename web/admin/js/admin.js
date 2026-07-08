@@ -128,7 +128,7 @@
   const NEIS_GENERAL_SPECIAL = /[\{\}\[\]\/?.,;:|\)*~`!^\-_+<>@\#$%&\\\=\(\'\"]/g;
   const NEIS_HANGUL = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/g;
 
-  function neisCounterByteLen(text) {
+  function neisCounterNormalize(text) {
     let content = String(text ?? "");
     if (content === "\n" && content.startsWith("\n")) {
       content = content.slice(1);
@@ -136,7 +136,11 @@
     if (content !== "\n" && content.endsWith("\n")) {
       content = content.slice(0, -1);
     }
+    return content;
+  }
 
+  function neisCounterByteLen(text) {
+    const content = neisCounterNormalize(text);
     const english = content
       .replace(NEIS_HANGUL, "")
       .replace(/[0-9]/g, "")
@@ -206,6 +210,15 @@
     );
   }
 
+  function neisCounterStats(text) {
+    const content = neisCounterNormalize(text);
+    return {
+      withoutSpaces: content.replace(/(\r\n\t|\n|\r\t)/g, "").replace(/ /g, "").length,
+      withSpaces: content.length,
+      bytes: neisCounterByteLen(text),
+    };
+  }
+
   function fieldByteLimits(sectionKey) {
     if (sectionKey === "행발") return NEIS_BYTE_LIMITS.행발;
     if (sectionKey.startsWith("세특:")) return NEIS_BYTE_LIMITS.세특;
@@ -215,12 +228,11 @@
 
   function measureFieldVolume(text, sectionKey) {
     void sectionKey;
-    return neisCounterByteLen(text);
+    return neisCounterStats(text).bytes;
   }
 
-  function formatFieldVolume(value, sectionKey) {
-    void sectionKey;
-    return `${value}byte`;
+  function formatFieldVolume(stats) {
+    return `공백 제외 ${stats.withoutSpaces}자, 공백 포함 ${stats.withSpaces}자, ${stats.bytes}바이트`;
   }
 
   function inspectBadgeHtml(studentId, report = null) {
@@ -255,21 +267,14 @@
     if (!checklist?.length) return "";
     const items = checklist
       .map((item) => {
-        const count =
-          item.issue_count > 0
-            ? ` <span class="admin-muted">(${item.issue_count}건)</span>`
-            : "";
-        return `<li class="admin-inspect-check-item status-${item.status}">
+        const title = item.issue_count > 0 ? `${item.label}: ${item.message}` : item.label;
+        return `<li class="admin-inspect-pill status-${item.status}" title="${escapeAttr(title)}">
           <span class="admin-inspect-check-icon" aria-hidden="true">${inspectChecklistIcon(item.status)}</span>
-          <div class="admin-inspect-check-body">
-            <strong>${escapeHtml(item.label)}</strong>${count}
-            <span class="admin-muted">${escapeHtml(item.description)}</span>
-            <div>${escapeHtml(item.message)}</div>
-          </div>
+          <span>${escapeHtml(item.label)}</span>
         </li>`;
       })
       .join("");
-    return `<ul class="admin-inspect-checklist" aria-label="검사 항목">${items}</ul>`;
+    return `<ul class="admin-inspect-pills" aria-label="검사 항목">${items}</ul>`;
   }
 
   const INSPECT_BUSY_LABELS = [
@@ -352,10 +357,12 @@
         </li>`;
           })
           .join("")}</ul>`
-      : `<p class="admin-muted">세부 지적 사항이 없습니다. 위 항목을 모두 통과했습니다.</p>`;
+      : `<p class="admin-muted admin-inspect-ok-note">세부 검토 사항이 없습니다. 위 항목을 모두 통과했습니다.</p>`;
     box.innerHTML = `
-      <h3>검사 결과 ${inspectBadgeHtml(report.student_id, report)}</h3>
-      ${checklistHtml}
+      <div class="admin-inspect-summary-bar">
+        <h3>검사 결과 ${inspectBadgeHtml(report.student_id, report)}</h3>
+        ${checklistHtml}
+      </div>
       ${issuesHtml}`;
     box.querySelectorAll(".inspect-issue-jump").forEach((item) => {
       item.addEventListener("click", () => {
@@ -406,8 +413,8 @@
       if (!section) return;
       const counter = document.querySelector(`.inspect-char-count[data-for="${CSS.escape(section)}"]`);
       if (!counter) return;
-      const volume = measureFieldVolume(textarea.value, section);
-      counter.textContent = formatFieldVolume(volume, section);
+      const stats = neisCounterStats(textarea.value);
+      counter.textContent = formatFieldVolume(stats);
       counter.classList.remove("is-warn", "is-error");
       const sectionIssues = (report?.issues || []).filter((issue) => issue.section === section);
       if (sectionIssues.some((issue) => issue.severity === "error")) {
@@ -416,8 +423,8 @@
         counter.classList.add("is-warn");
       } else {
         const limits = fieldByteLimits(section);
-        if (volume > limits.hardMax) counter.classList.add("is-error");
-        else if (volume > limits.warnMax) counter.classList.add("is-warn");
+        if (stats.bytes > limits.hardMax) counter.classList.add("is-error");
+        else if (stats.bytes > limits.warnMax) counter.classList.add("is-warn");
       }
     });
   }
@@ -2053,7 +2060,7 @@
         <div class="admin-field inspect-field" data-field-key="행발">
           <div class="admin-field-head">
             <label>행동특성 및 종합의견</label>
-            <span class="inspect-char-count" data-for="행발">0자</span>
+            <span class="inspect-char-count" data-for="행발">공백 제외 0자, 공백 포함 0자, 0바이트</span>
           </div>
           <textarea class="admin-textarea detail-field" data-key="행발" rows="6">${escapeHtml(generated.행발)}</textarea>
           <ul class="inspect-field-issues" data-for="행발"></ul>
@@ -2067,7 +2074,7 @@
         <div class="admin-field inspect-field" data-field-key="${escapeAttr(key)}">
           <div class="admin-field-head">
             <label>세특 · ${escapeHtml(subject)}</label>
-            <span class="inspect-char-count" data-for="${escapeAttr(key)}">0자</span>
+            <span class="inspect-char-count" data-for="${escapeAttr(key)}">공백 제외 0자, 공백 포함 0자, 0바이트</span>
           </div>
           <textarea class="admin-textarea detail-field" data-key="${escapeAttr(key)}" rows="5">${escapeHtml(text)}</textarea>
           <ul class="inspect-field-issues" data-for="${escapeAttr(key)}"></ul>
@@ -2081,7 +2088,7 @@
         <div class="admin-field inspect-field" data-field-key="${escapeAttr(key)}">
           <div class="admin-field-head">
             <label>창체 · ${escapeHtml(keyName)}</label>
-            <span class="inspect-char-count" data-for="${escapeAttr(key)}">0자</span>
+            <span class="inspect-char-count" data-for="${escapeAttr(key)}">공백 제외 0자, 공백 포함 0자, 0바이트</span>
           </div>
           <textarea class="admin-textarea detail-field" data-key="${escapeAttr(key)}" rows="4">${escapeHtml(text)}</textarea>
           <ul class="inspect-field-issues" data-for="${escapeAttr(key)}"></ul>

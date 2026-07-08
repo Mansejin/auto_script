@@ -1027,6 +1027,11 @@ body.admin-is-busy .admin-tab {
 .admin-inspect-summary-bar h3 {
   margin: 0;
   font-size: 0.9375rem;
+  line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
   flex: 0 0 auto;
 }
 
@@ -1036,6 +1041,7 @@ body.admin-is-busy .admin-tab {
   padding: 0;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   flex: 1 1 auto;
 }
@@ -1092,11 +1098,6 @@ body.admin-is-busy .admin-tab {
 
 #panelDetail #detailEditor {
   margin-bottom: 0;
-}
-
-.admin-inspect-summary h3 {
-  margin: 0 0 10px;
-  font-size: 1rem;
 }
 
 .admin-inspect-checklist {

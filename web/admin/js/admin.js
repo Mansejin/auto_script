@@ -2074,7 +2074,7 @@
             <label>행동특성 및 종합의견</label>
             <span class="inspect-char-count" data-for="행발">공백 제외 0자, 공백 포함 0자, 0바이트</span>
           </div>
-          <textarea class="admin-textarea detail-field" data-key="행발" rows="6">${escapeHtml(generated.행발)}</textarea>
+          <textarea class="admin-textarea detail-field" data-key="행발" rows="10">${escapeHtml(generated.행발)}</textarea>
           <ul class="inspect-field-issues" data-for="행발"></ul>
         </div>`);
     }
@@ -2088,7 +2088,7 @@
             <label>세특 · ${escapeHtml(subject)}</label>
             <span class="inspect-char-count" data-for="${escapeAttr(key)}">공백 제외 0자, 공백 포함 0자, 0바이트</span>
           </div>
-          <textarea class="admin-textarea detail-field" data-key="${escapeAttr(key)}" rows="5">${escapeHtml(text)}</textarea>
+          <textarea class="admin-textarea detail-field" data-key="${escapeAttr(key)}" rows="10">${escapeHtml(text)}</textarea>
           <ul class="inspect-field-issues" data-for="${escapeAttr(key)}"></ul>
         </div>`);
     }
@@ -2102,7 +2102,7 @@
             <label>창체 · ${escapeHtml(keyName)}</label>
             <span class="inspect-char-count" data-for="${escapeAttr(key)}">공백 제외 0자, 공백 포함 0자, 0바이트</span>
           </div>
-          <textarea class="admin-textarea detail-field" data-key="${escapeAttr(key)}" rows="4">${escapeHtml(text)}</textarea>
+          <textarea class="admin-textarea detail-field" data-key="${escapeAttr(key)}" rows="10">${escapeHtml(text)}</textarea>
           <ul class="inspect-field-issues" data-for="${escapeAttr(key)}"></ul>
         </div>`);
     }

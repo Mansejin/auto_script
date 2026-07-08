@@ -6,12 +6,16 @@ import json
 import time
 from pathlib import Path
 
+import os
+
 from playwright.sync_api import sync_playwright
 
-SHEET_URL = (
-    "https://docs.google.com/spreadsheets/d/"
-    "19XxPdDT3ezxriN5hVgXUZ4z4dYxIxU-fNblS1pOtR0A/edit"
-)
+
+def _sheet_url() -> str:
+    sheet_id = os.getenv("SPREADSHEET_ID", "").strip()
+    if not sheet_id:
+        raise RuntimeError("SPREADSHEET_ID 환경 변수를 설정하세요 (.env 참고)")
+    return f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit"
 PROFILE = Path.home() / ".config/google-chrome"
 
 
@@ -25,7 +29,7 @@ def main() -> None:
             args=["--no-sandbox"],
         )
         page = context.pages[0] if context.pages else context.new_page()
-        page.goto(SHEET_URL, wait_until="networkidle", timeout=120_000)
+        page.goto(_sheet_url(), wait_until="networkidle", timeout=120_000)
         title = page.title()
         print("title:", title)
         if "Sign in" in title or "로그인" in page.content():

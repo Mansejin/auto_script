@@ -50,7 +50,7 @@ SGB_DOCKER_SUDO=1
 ### 이후
 
 ```
-코드 수정 → git push → (최대 10분) → sgb.mansejin.com 반영
+코드 수정 → git push → (최대 10분) → 운영 사이트 반영
 ```
 
 로그: `/volume1/docker/saenggibu/logs/scheduled-pull.log`  
@@ -81,18 +81,18 @@ SGB_DOCKER_SUDO=1
 | Secret | 값 |
 |--------|-----|
 | `TAILSCALE_AUTHKEY` | 위에서 복사한 키 |
-| `NAS_SSH_HOST` | 나스 **Tailscale IP** (`100.72.192.38` 등) |
-| `NAS_SSH_USER` | `ohola` |
+| `NAS_SSH_HOST` | 나스 **Tailscale IP** (`100.x.x.x` — Tailscale 관리 콘솔에서 복사) |
+| `NAS_SSH_USER` | DSM SSH 사용자명 |
 | `NAS_SSH_KEY` | `id_ed25519` 파일 **전체** 내용 |
 | `NAS_REPO_PATH` | (선택) `/volume1/docker/saenggibu` |
 
-**쓰면 안 되는 주소:** `169.254.158.191` (집 안에서만 됨)
+**쓰면 안 되는 주소:** `169.254.x.x` 등 집 LAN 전용 IP (GitHub Actions에서 닿지 않음)
 
 ### B-3. 나스 쪽 확인
 
 - DSM **SSH** 켜짐
 - 나스에 **Tailscale** 설치·로그인·Online
-- PC에서 `ssh ohola@100.x.x.x` 되면 Actions도 같은 IP 사용
+- PC에서 `ssh <사용자>@<Tailscale IP>` 되면 Actions도 같은 IP 사용
 
 ### B-4. 테스트
 
@@ -118,7 +118,7 @@ Actions → **Deploy to NAS** → **Run workflow**
 |------|------|
 | `Cannot reach NAS ... :22` | 아래 **SSH 22 안 될 때** 체크리스트 |
 | Actions Skip | Secrets 4개 모두 등록 |
-| `cannot access docker daemon` | **A)** PC `config/nas-pc.local.env`에 `NAS_SUDO_PASSWORD=ohola비밀번호` 추가 후 deploy 재실행. **B)** 나스에서 root로 1회: `sh scripts/nas-setup-docker-sudo.sh` (DSM 작업 스케줄러). **C)** 스케줄러 사용자 **root** |
+| `cannot access docker daemon` | **A)** PC `config/nas-pc.local.env`에 `NAS_SUDO_PASSWORD=<DSM 비밀번호>` 추가 후 deploy 재실행. **B)** 나스에서 root로 1회: `sh scripts/nas-setup-docker-sudo.sh` (DSM 작업 스케줄러). **C)** 스케줄러 사용자 **root** |
 | `git: command not found` (NAS SSH) | 정상. 나스에 Git 패키지 없음. deploy는 **docker로 git sync** (최신 스크립트 필요). `git pull` 수동 명령은 안 됨 |
 | 10분 지나도 안 바뀜 | `scheduled-pull.log`, `deploy.log` 확인 |
 
@@ -127,15 +127,15 @@ Actions → **Deploy to NAS** → **Run workflow**
 Tailscale 연결은 됐는데 SSH만 실패하는 경우입니다. **PC에서 먼저** 같은 주소로 접속해 보세요.
 
 ```bash
-ssh ohola@100.x.x.x
+ssh <NAS_SSH_USER>@<Tailscale IP>
 ```
 
 PC에서도 안 되면 GitHub Actions도 안 됩니다. 아래를 순서대로 확인하세요.
 
 1. **`NAS_SSH_HOST` 값**
-   - ✅ `100.72.192.38` 같은 **나스 Tailscale IP**
+   - ✅ Tailscale 관리 콘솔에 표시된 **나스 100.x.x.x IP**
    - ❌ `169.254.x.x` (집 LAN 전용)
-   - ❌ `ohola.synology.me` (공인 DDNS — Actions에서 막힘)
+   - ❌ 공인 DDNS 호스트명 (Actions에서 막히는 경우 많음)
    - IP 확인: https://login.tailscale.com/admin/machines → 나스 기기 옆 IP 복사 → Secret에 **그대로** 붙여넣기 (앞뒤 공백 없이)
 
 2. **나스 Tailscale Online**

@@ -384,7 +384,7 @@
   border-bottom: 1px solid var(--border);
   padding: 12px 8px;
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .admin-table th {
@@ -1197,12 +1197,20 @@ body.admin-is-busy .admin-tab {
 .admin-row-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   justify-content: flex-end;
 }
 
 .admin-student-table .sample-select-cell {
   width: 42px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.admin-student-table .sample-select-cell .admin-check-row {
+  display: inline-flex;
+  vertical-align: middle;
 }
 
 .admin-sample-list li {

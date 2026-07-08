@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 load_dotenv(ROOT / ".env")
+# Local experiments (model profile, skip proofread) — not for NAS production
+load_dotenv(ROOT / ".env.local", override=True)
 
 DATA_DIR = ROOT / "data" / "saenggibu"
 SAMPLES_DIR = DATA_DIR / "samples"
@@ -17,6 +19,8 @@ PATTERNS_PATH = DATA_DIR / "patterns.json"
 PROMPT_PATH = ROOT / "prompts" / "saenggibu.md"
 
 CHANGCHE_SUBSECTIONS = ("자율", "동아리", "봉사", "진로")
+
+
 def get_gemini_api_key() -> str:
     key = os.getenv("GEMINI_API_KEY", "").strip()
     if not key:
@@ -39,16 +43,32 @@ def get_gemini_model_fast() -> str:
     return os.getenv("GEMINI_MODEL_FAST", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
 
 
+def get_gemini_model_profile() -> str:
+    """split (default) | flash | pro — see docs/model-cost-local.md"""
+    raw = os.getenv("GEMINI_MODEL_PROFILE", "split").strip().lower()
+    if raw in ("flash", "all-flash", "fast"):
+        return "flash"
+    if raw in ("pro", "all-pro"):
+        return "pro"
+    return "split"
+
+
+def skip_gemini_proofread() -> bool:
+    return os.getenv("GEMINI_SKIP_PROOFREAD", "").strip().lower() in ("1", "true", "yes")
+
+
 def get_gemini_model() -> str:
     """Primary writing model (backward compatible alias for pro)."""
     return get_gemini_model_pro()
 
 
 def gemini_models_for_api() -> dict[str, str]:
+    profile = get_gemini_model_profile()
     return {
         "gemini_model": get_gemini_model_pro(),
         "gemini_model_pro": get_gemini_model_pro(),
         "gemini_model_fast": get_gemini_model_fast(),
+        "gemini_model_profile": profile,
     }
 
 

@@ -22,6 +22,24 @@ def test_classify_fatal():
 
 @patch("src.saenggibu.gemini_client._client")
 @patch("src.saenggibu.gemini_client._throttle")
+def test_generate_text_profile_flash_uses_fast_for_pro_tier(
+    mock_throttle: MagicMock, mock_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("GEMINI_MODEL_PROFILE", "flash")
+    monkeypatch.setenv("GEMINI_MODEL_FAST", "flash-all")
+    monkeypatch.setenv("GEMINI_MODEL_PRO", "pro-ignored")
+    api = mock_client.return_value
+    response = MagicMock()
+    response.text = "ok"
+    api.models.generate_content.return_value = response
+
+    text = gc.generate_text(system="s", user="u", tier="pro")
+    assert text == "ok"
+    assert api.models.generate_content.call_args.kwargs["model"] == "flash-all"
+
+
+@patch("src.saenggibu.gemini_client._client")
+@patch("src.saenggibu.gemini_client._throttle")
 def test_generate_text_uses_fast_tier(mock_throttle: MagicMock, mock_client: MagicMock, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("GEMINI_MODEL_FAST", "flash-test")
     api = mock_client.return_value

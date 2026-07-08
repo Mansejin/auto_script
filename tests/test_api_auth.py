@@ -51,3 +51,5 @@ def test_auth_me_returns_gemini_model(client: TestClient) -> None:
     assert data["gemini_model_pro"] == "gemini-test-model"
     assert data["gemini_model_fast"] == "gemini-2.5-flash"
     assert data["gemini_model_profile"] == "split"
+    assert data["gemini_skip_proofread"] is False
+    assert data["dev_mode"] is False

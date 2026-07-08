@@ -513,7 +513,14 @@
 
   let busyTimer = null;
   let busyStartedAt = 0;
-  let systemInfo = { gemini_model: "", gemini_model_pro: "", gemini_model_fast: "" };
+  let systemInfo = {
+    gemini_model: "",
+    gemini_model_pro: "",
+    gemini_model_fast: "",
+    gemini_model_profile: "split",
+    gemini_skip_proofread: false,
+    dev_mode: false,
+  };
   let privacySettings = { store_generated: false, encrypt_data: true, mask_pii: true };
   let usageLine = "";
   const writingTipsCache = new Map();
@@ -592,17 +599,94 @@
       if (data.gemini_model_pro) systemInfo.gemini_model_pro = data.gemini_model_pro;
       if (data.gemini_model_fast) systemInfo.gemini_model_fast = data.gemini_model_fast;
       if (data.gemini_model && !data.gemini_model_pro) systemInfo.gemini_model_pro = data.gemini_model;
+      if (data.gemini_model_profile) systemInfo.gemini_model_profile = data.gemini_model_profile;
+      if (typeof data.gemini_skip_proofread === "boolean") {
+        systemInfo.gemini_skip_proofread = data.gemini_skip_proofread;
+      }
+      if (typeof data.dev_mode === "boolean") systemInfo.dev_mode = data.dev_mode;
     }
     systemInfo.gemini_model = systemInfo.gemini_model_pro || systemInfo.gemini_model;
     refreshBusyModelDisplay();
+    syncDevGeminiPanel(data);
+  }
+
+  function syncDevGeminiPanel(data) {
+    const panel = document.getElementById("devGeminiPanel");
+    const profileSelect = document.getElementById("devGeminiProfile");
+    const skipBox = document.getElementById("devSkipProofread");
+    const status = document.getElementById("devGeminiStatus");
+    if (!panel || !profileSelect || !skipBox) return;
+
+    const devMode = Boolean(data?.dev_mode ?? systemInfo.dev_mode);
+    panel.hidden = !devMode;
+    if (!devMode) return;
+
+    const profile = data?.gemini_model_profile || systemInfo.gemini_model_profile || "split";
+    const skip = Boolean(
+      typeof data?.gemini_skip_proofread === "boolean"
+        ? data.gemini_skip_proofread
+        : systemInfo.gemini_skip_proofread,
+    );
+    profileSelect.value = profile;
+    skipBox.checked = skip;
+
+    if (status) {
+      const pro = data?.gemini_model_pro || systemInfo.gemini_model_pro;
+      const fast = data?.gemini_model_fast || systemInfo.gemini_model_fast;
+      const envProfile = data?.env_profile;
+      const envSkip = data?.env_skip_proofread;
+      const overridden = data?.profile_overridden || data?.skip_proofread_overridden;
+      let line = `적용 중 · 프로필 ${profile}`;
+      if (skip) line += " · 자동 맞춤법 OFF";
+      if (pro && fast) line += ` · 작성 ${pro} · 보조 ${fast}`;
+      if (overridden && envProfile !== undefined) {
+        line += ` (.env: ${envProfile}${envSkip ? ", 맞춤법 OFF" : ""})`;
+      }
+      status.textContent = line;
+    }
+  }
+
+  let devGeminiSaveTimer = null;
+
+  async function saveDevGeminiSettings({ reset = false } = {}) {
+    if (!systemInfo.dev_mode) return;
+    const profileSelect = document.getElementById("devGeminiProfile");
+    const skipBox = document.getElementById("devSkipProofread");
+    if (!profileSelect || !skipBox) return;
+    const body = reset
+      ? { reset: true }
+      : { profile: profileSelect.value, skip_proofread: skipBox.checked };
+    const data = await api("/api/dev/gemini-settings", { method: "PUT", body });
+    applyGeminiModels(data);
+    showToast(reset ? "Gemini 설정을 .env 기본값으로 되돌렸습니다." : "Gemini 테스트 설정을 적용했습니다.");
+  }
+
+  function scheduleDevGeminiSave() {
+    if (!systemInfo.dev_mode) return;
+    if (devGeminiSaveTimer) clearTimeout(devGeminiSaveTimer);
+    devGeminiSaveTimer = setTimeout(() => {
+      devGeminiSaveTimer = null;
+      saveDevGeminiSettings().catch((error) => showToast(error.message || "설정 저장 실패"));
+    }, 250);
   }
 
   function modelLineText(activeTier = null) {
     const pro = systemInfo.gemini_model_pro;
     const fast = systemInfo.gemini_model_fast;
+    const profile = systemInfo.gemini_model_profile;
+    const skip = systemInfo.gemini_skip_proofread;
+    if (profile === "flash") {
+      const model = fast || pro;
+      return `전부 Flash · ${model || "2.5"}${skip ? " · 맞춤법 OFF" : ""}`;
+    }
+    if (profile === "pro") {
+      return `전부 Pro · ${pro || "Pro"}${skip ? " · 맞춤법 OFF" : ""}`;
+    }
     if (activeTier === "fast" && fast) return `사용 모델 · ${fast}`;
     if (activeTier === "pro" && pro) return `사용 모델 · ${pro}`;
-    if (pro && fast) return `작성 ${pro} · 맞춤법·편집 ${fast}`;
+    if (pro && fast) {
+      return `작성 ${pro} · 맞춤법·편집 ${fast}${skip ? " · 자동 맞춤법 OFF" : ""}`;
+    }
     if (pro) return `사용 모델 · ${pro}`;
     return "사용 모델 · 확인 중…";
   }
@@ -2844,6 +2928,12 @@
       }
       updateStudentMemoPanels();
     }
+  });
+
+  document.getElementById("devGeminiProfile")?.addEventListener("change", scheduleDevGeminiSave);
+  document.getElementById("devSkipProofread")?.addEventListener("change", scheduleDevGeminiSave);
+  document.getElementById("devGeminiReset")?.addEventListener("click", () => {
+    saveDevGeminiSettings({ reset: true }).catch((error) => showToast(error.message || "초기화 실패"));
   });
 
   async function bootstrap() {

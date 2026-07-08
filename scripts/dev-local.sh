@@ -61,6 +61,7 @@ export SGB_HOST=127.0.0.1
 export SGB_PORT="${SGB_PORT:-8787}"
 export SGB_RELOAD=0
 export SGB_PLAN=admin
+export SGB_DEV_MODE=1
 export SGB_ALLOWED_ORIGINS="${SGB_ALLOWED_ORIGINS:-http://127.0.0.1:${SGB_PORT},http://localhost:${SGB_PORT}}"
 
 if ! python3 -c "import fastapi" 2>/dev/null; then
@@ -74,7 +75,7 @@ echo "  Admin UI: http://127.0.0.1:${SGB_PORT}/admin/saenggibu"
 echo "  Health:   http://127.0.0.1:${SGB_PORT}/health"
 echo ""
 echo "  Login password (local): dev-local"
-echo "  Model experiments: .env.local + python3 scripts/model_compare.py plan"
+echo "  Model experiments: 상단 Gemini 패널 또는 python3 scripts/model_compare.py plan"
 echo "· Python API 수정 → 자동 재시작 (SGB_RELOAD=1)"
 echo "· NAS 배포는 기능 확인 후 하루 1~2회만"
 echo ""

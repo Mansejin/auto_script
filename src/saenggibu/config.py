@@ -18,6 +18,8 @@ JOBS_DIR = DATA_DIR / "jobs"
 PATTERNS_PATH = DATA_DIR / "patterns.json"
 PROMPT_PATH = ROOT / "prompts" / "saenggibu.md"
 
+from .dev_runtime import dev_mode_enabled, get_profile_override, get_skip_proofread_override
+
 CHANGCHE_SUBSECTIONS = ("자율", "동아리", "봉사", "진로")
 
 
@@ -43,18 +45,37 @@ def get_gemini_model_fast() -> str:
     return os.getenv("GEMINI_MODEL_FAST", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
 
 
-def get_gemini_model_profile() -> str:
-    """split (default) | flash | pro — see docs/model-cost-local.md"""
-    raw = os.getenv("GEMINI_MODEL_PROFILE", "split").strip().lower()
-    if raw in ("flash", "all-flash", "fast"):
+def _normalize_profile(raw: str) -> str:
+    value = raw.strip().lower()
+    if value in ("flash", "all-flash", "fast"):
         return "flash"
-    if raw in ("pro", "all-pro"):
+    if value in ("pro", "all-pro"):
         return "pro"
     return "split"
 
 
-def skip_gemini_proofread() -> bool:
+def env_gemini_model_profile() -> str:
+    """Profile from .env / .env.local only."""
+    return _normalize_profile(os.getenv("GEMINI_MODEL_PROFILE", "split"))
+
+
+def get_gemini_model_profile() -> str:
+    """split (default) | flash | pro — see docs/model-cost-local.md"""
+    override = get_profile_override()
+    if override is not None:
+        return override
+    return env_gemini_model_profile()
+
+
+def env_skip_gemini_proofread() -> bool:
     return os.getenv("GEMINI_SKIP_PROOFREAD", "").strip().lower() in ("1", "true", "yes")
+
+
+def skip_gemini_proofread() -> bool:
+    override = get_skip_proofread_override()
+    if override is not None:
+        return override
+    return env_skip_gemini_proofread()
 
 
 def get_gemini_model() -> str:
@@ -62,13 +83,15 @@ def get_gemini_model() -> str:
     return get_gemini_model_pro()
 
 
-def gemini_models_for_api() -> dict[str, str]:
+def gemini_models_for_api() -> dict[str, str | bool]:
     profile = get_gemini_model_profile()
     return {
         "gemini_model": get_gemini_model_pro(),
         "gemini_model_pro": get_gemini_model_pro(),
         "gemini_model_fast": get_gemini_model_fast(),
         "gemini_model_profile": profile,
+        "gemini_skip_proofread": skip_gemini_proofread(),
+        "dev_mode": dev_mode_enabled(),
     }
 
 

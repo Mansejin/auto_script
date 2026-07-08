@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.saenggibu.config import ensure_data_dirs
+from src.saenggibu.dev_seed import seed_dev_demo_student
 from src.web.routes import router
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -25,6 +26,7 @@ def _allowed_origins() -> list[str]:
 
 def create_app() -> FastAPI:
     ensure_data_dirs()
+    seed_dev_demo_student()
 
     app = FastAPI(title="생기부 작성 머신", docs_url=None, redoc_url=None)
     app.add_middleware(

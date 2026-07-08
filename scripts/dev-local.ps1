@@ -173,6 +173,8 @@ $env:SGB_PORT = "$Port"
 # Windows reload subprocess often breaks; UI edits only need browser refresh anyway.
 $env:SGB_RELOAD = if ($Reload) { "1" } else { "0" }
 $env:SGB_PLAN = "admin"
+$env:SGB_DEV = "1"
+$env:SGB_STORE_GENERATED = "1"
 $env:SGB_ALLOWED_ORIGINS = "http://127.0.0.1:$Port,http://localhost:$Port"
 
 $adminUrl = "http://127.0.0.1:$Port/admin/saenggibu"

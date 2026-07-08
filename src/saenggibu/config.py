@@ -58,6 +58,10 @@ def gemini_models_for_api() -> dict[str, str]:
     }
 
 
+def is_dev_mode() -> bool:
+    return os.getenv("SGB_DEV", "").strip().lower() in ("1", "true", "yes")
+
+
 def ensure_data_dirs() -> None:
     for path in (SAMPLES_DIR, STUDENTS_DIR, OUTPUTS_DIR, JOBS_DIR):
         path.mkdir(parents=True, exist_ok=True)

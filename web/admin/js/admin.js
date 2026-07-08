@@ -1562,22 +1562,6 @@
     }
   }
 
-  function openGuideModal() {
-    const modal = document.getElementById("guideModal");
-    if (!modal) return;
-    modal.hidden = false;
-    document.body.classList.add("admin-guide-open");
-    document.getElementById("guideCloseBtn")?.focus();
-  }
-
-  function closeGuideModal() {
-    const modal = document.getElementById("guideModal");
-    if (!modal) return;
-    modal.hidden = true;
-    document.body.classList.remove("admin-guide-open");
-    document.getElementById("guideBtn")?.focus();
-  }
-
   function openPrivacyModal() {
     const modal = document.getElementById("privacyModal");
     if (!modal) return;
@@ -3050,11 +3034,6 @@
     setStudentGrade(btn.dataset.grade);
   });
 
-  document.getElementById("guideBtn")?.addEventListener("click", openGuideModal);
-  document.getElementById("guideCloseBtn")?.addEventListener("click", closeGuideModal);
-  document.getElementById("guideModal")?.addEventListener("click", (event) => {
-    if (event.target.id === "guideModal") closeGuideModal();
-  });
   document.getElementById("privacyBtn")?.addEventListener("click", openPrivacyModal);
   document.getElementById("privacyCloseBtn")?.addEventListener("click", closePrivacyModal);
   document.getElementById("privacyModal")?.addEventListener("click", (event) => {
@@ -3065,7 +3044,6 @@
       event.preventDefault();
     }
     if (event.key === "Escape") {
-      if (!document.getElementById("guideModal")?.hidden) closeGuideModal();
       if (!document.getElementById("privacyModal")?.hidden) closePrivacyModal();
       if (!document.getElementById("importStudentsModal")?.hidden) closeImportStudentsModal();
     }

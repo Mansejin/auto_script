@@ -294,10 +294,6 @@
     document.querySelectorAll(".inspect-field-issues").forEach((list) => {
       const section = list.dataset.for;
       const issues = bySection.get(section) || [];
-      const fixBtn = document.querySelector(
-        `.detail-field-toolbar[data-field-key="${CSS.escape(section)}"] .detail-field-fix-btn`
-      );
-      if (fixBtn) fixBtn.hidden = !issues.length;
       if (!issues.length) {
         list.innerHTML = "";
         return;
@@ -424,8 +420,6 @@
   const FIELD_EDIT_LABELS = {
     regenerate: "다시 쓰기",
     proofread: "맞춤법 검사",
-    adjust_volume: "분량 맞추기",
-    fix_issues: "검사 반영 수정",
   };
 
   function detailFieldToolbarHtml(fieldKey) {
@@ -433,8 +427,6 @@
       <div class="detail-field-toolbar" data-field-key="${escapeAttr(fieldKey)}">
         <button type="button" class="admin-btn secondary admin-btn-sm detail-field-action" data-action="regenerate">다시 쓰기</button>
         <button type="button" class="admin-btn secondary admin-btn-sm detail-field-action" data-action="proofread">맞춤법</button>
-        <button type="button" class="admin-btn secondary admin-btn-sm detail-field-action" data-action="adjust_volume">분량 맞추기</button>
-        <button type="button" class="admin-btn secondary admin-btn-sm detail-field-action detail-field-fix-btn" data-action="fix_issues" hidden>AI 수정</button>
       </div>`;
   }
 
@@ -458,7 +450,7 @@
     window.setTimeout(() => field.classList.remove("inspect-field-highlight"), 1400);
   }
 
-  async function applyFieldEdit(fieldKey, action, { issues = null } = {}) {
+  async function applyFieldEdit(fieldKey, action) {
     if (!currentStudentId) return;
     const textarea = document.querySelector(`#detailEditor .detail-field[data-key="${CSS.escape(fieldKey)}"]`);
     if (!textarea) return;
@@ -468,7 +460,6 @@
     const stop = startBusy(`AI ${label}`, fieldKey, "잠시만 기다려 주세요.", { modelTier });
     try {
       const body = { field_key: fieldKey, action, text: textarea.value };
-      if (issues?.length) body.issues = issues;
       const result = await api(`/api/students/${currentStudentId}/fields/edit`, { method: "POST", body });
       textarea.value = result.text || "";
       textarea.dispatchEvent(new Event("input", { bubbles: true }));
@@ -502,11 +493,6 @@
       const fieldKey = toolbar?.dataset.fieldKey;
       const action = btn.dataset.action;
       if (!fieldKey || !action) return;
-      if (action === "fix_issues") {
-        const issues = (currentInspectReport?.issues || []).filter((issue) => issue.section === fieldKey);
-        await applyFieldEdit(fieldKey, action, { issues });
-        return;
-      }
       await applyFieldEdit(fieldKey, action);
     });
   }

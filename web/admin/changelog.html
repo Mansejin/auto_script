@@ -68,7 +68,7 @@
         <ul class="admin-changelog-list">
           <li><strong>NEIS 글자수</strong> — <a href="https://github.com/hjh010501/neis-counter">neis-counter</a> 규칙 적용 (한글 3byte, 엔터 2byte 등). 행발 900B · 세특·창체 1500B</li>
           <li><strong>분량 표시</strong> — 항목 헤더에 <code>공백 제외 N자, 공백 포함 N자, N바이트</code></li>
-          <li><strong>모델 분리</strong> — 일괄·개별 작성은 Flash, 샘플 문체·분량 분석은 Pro</li>
+          <li><strong>AI 모델</strong> — 모든 Gemini 호출(작성·샘플 분석·메모 파싱) Pro 단일 모델</li>
           <li><strong>로컬 개발</strong> — <code>SGB_DEV=1</code> + <code>scripts/dev-local.sh</code> 실행 시 더미 학생(<code>dev-demo</code>, 김테스트) 자동 시드</li>
         </ul>
       </section>
@@ -87,6 +87,7 @@
       <section class="admin-changelog-section">
         <h3>정리</h3>
         <ul class="admin-changelog-list">
+          <li>Flash(보조) 모델·티어 분기 제거 — Pro만 사용</li>
           <li>봉사 활동 UI·일괄 작성 항목에서 제거</li>
           <li>일괄 작성 인원 제한·검토 <code>전체 선택</code>·개발용 runLog 제거</li>
           <li>항목별 <code>다시 쓰기</code>·<code>맞춤법</code>·<code>분량 맞추기</code>·<code>AI 수정</code> 버튼 제거 (v2.2.0에서 추가됐던 항목 편집 액션)</li>

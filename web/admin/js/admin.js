@@ -552,8 +552,6 @@
   let systemInfo = {
     gemini_model: "",
     gemini_model_pro: "",
-    gemini_model_fast: "",
-    gemini_model_default: "pro",
   };
   let privacySettings = { store_generated: false, encrypt_data: true, mask_pii: true };
   let usageLine = "";
@@ -628,32 +626,28 @@
 
   function applyGeminiModels(data) {
     if (typeof data === "string") {
-      if (data && data !== "—") systemInfo.gemini_model_fast = data;
+      if (data && data !== "—") systemInfo.gemini_model = data;
     } else if (data && typeof data === "object") {
       if (data.gemini_model_pro) systemInfo.gemini_model_pro = data.gemini_model_pro;
-      if (data.gemini_model_fast) systemInfo.gemini_model_fast = data.gemini_model_fast;
       if (data.gemini_model) systemInfo.gemini_model = data.gemini_model;
-      if (data.gemini_model_default) systemInfo.gemini_model_default = data.gemini_model_default;
     }
-    systemInfo.gemini_model = systemInfo.gemini_model || systemInfo.gemini_model_fast;
+    systemInfo.gemini_model = systemInfo.gemini_model || systemInfo.gemini_model_pro;
     refreshBusyModelDisplay();
   }
 
-  function modelLineText(activeTier = null) {
-    const pro = systemInfo.gemini_model_pro;
-    const fast = systemInfo.gemini_model_fast;
-    if (activeTier === "fast" && fast) return `보조 · ${fast}`;
+  function modelLineText() {
+    const pro = systemInfo.gemini_model_pro || systemInfo.gemini_model;
     if (pro) return `작성 · ${pro}`;
     return "사용 모델 · 확인 중…";
   }
 
-  function refreshBusyModelDisplay(activeTier = null) {
+  function refreshBusyModelDisplay() {
     if (!busyModel || busyModel.hidden) return;
-    busyModel.textContent = modelLineText(activeTier);
+    busyModel.textContent = modelLineText();
   }
 
   async function ensureModelInfo() {
-    if (systemInfo.gemini_model_pro && systemInfo.gemini_model_fast) {
+    if (systemInfo.gemini_model_pro) {
       return systemInfo.gemini_model_pro;
     }
     await loadSystemInfo().catch(() => null);
@@ -661,7 +655,7 @@
   }
 
   function setBusy(active, title = "AI 처리 중", message = "잠시만 기다려 주세요", hint = "", options = {}) {
-    const { showModel = true, showInspectChecklist = false, modelTier = null } = options;
+    const { showModel = true, showInspectChecklist = false } = options;
     if (active) {
       document.body.classList.add("admin-is-busy");
       if (busyOverlay) busyOverlay.hidden = false;
@@ -670,8 +664,8 @@
       if (busyHint) busyHint.textContent = hint;
       if (busyModel) {
         busyModel.hidden = !showModel;
-        refreshBusyModelDisplay(modelTier);
-        if (showModel && (!systemInfo.gemini_model_pro || !systemInfo.gemini_model_fast)) {
+        refreshBusyModelDisplay();
+        if (showModel && !systemInfo.gemini_model_pro) {
           ensureModelInfo();
         }
       }
@@ -767,11 +761,11 @@
   function updateBusyFromJob(job) {
     const message = formatJobProgress(job);
     if (busyMessage) busyMessage.textContent = message;
-    if (job.gemini_model_pro || job.gemini_model_fast || job.gemini_model) {
+    if (job.gemini_model_pro || job.gemini_model) {
       applyGeminiModels(job);
     }
     const { phase: _phase } = parseJobMessage(job.message || "");
-    refreshBusyModelDisplay("pro");
+    refreshBusyModelDisplay();
     if (busyTitle) {
       busyTitle.textContent = "AI 작성 중";
     }
@@ -792,10 +786,10 @@
 
   async function withAsyncRun(title, message, hint, payload) {
     await ensureModelInfo();
-    const stop = startBusy(title || "AI 작성 중", message, hint, { showModel: true, modelTier: "pro" });
+    const stop = startBusy(title || "AI 작성 중", message, hint, { showModel: true });
     try {
       const started = await api("/api/run/async", { method: "POST", body: payload });
-      if (started.gemini_model_pro || started.gemini_model_fast || started.gemini_model) {
+      if (started.gemini_model_pro || started.gemini_model) {
         applyGeminiModels(started);
       }
       const job = await pollRunJob(started.job_id);
@@ -2830,8 +2824,7 @@
         "문체·분량 분석",
         "샘플 문체·분량을 분석하고 있습니다.",
         "샘플 수에 따라 1~3분 걸릴 수 있습니다.",
-        () => api("/api/analyze?use_gemini=true", { method: "POST" }),
-        { modelTier: "pro" }
+        () => api("/api/analyze?use_gemini=true", { method: "POST" })
       );
       showToast("분석 완료 · ② 스타일 설정에서 확인하세요");
       await loadStyleGuide();

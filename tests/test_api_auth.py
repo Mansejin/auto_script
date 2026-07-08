@@ -49,5 +49,4 @@ def test_auth_me_returns_gemini_model(client: TestClient) -> None:
     data = res.json()
     assert data["gemini_model"] == "gemini-test-model"
     assert data["gemini_model_pro"] == "gemini-test-model"
-    assert data["gemini_model_fast"] == "gemini-2.5-flash"
-    assert data["gemini_model_default"] == "pro"
+    assert "gemini_model_fast" not in data

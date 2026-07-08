@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 SAMPLE_EXTENSIONS = frozenset({".json", ".tsv", ".csv", ".xlsx", ".docx"})
-STUDENT_EXTENSIONS = frozenset({".tsv", ".csv", ".txt"})
+STUDENT_EXTENSIONS = frozenset({".tsv", ".csv", ".txt", ".xlsx"})
 
 
 def check_upload_extension(filename: str | None, allowed: frozenset[str]) -> None:

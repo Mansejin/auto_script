@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708k">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708m">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -241,7 +241,21 @@
           </form>
         </div>
         <div class="admin-card" style="margin-top:16px">
-          <h2>등록된 학생</h2>
+          <div class="admin-section-head">
+            <h2>등록된 학생</h2>
+            <div class="admin-registry-actions">
+              <button id="exportStudentsTsvBtn" class="admin-btn secondary admin-btn-sm" type="button">TSV보내기</button>
+              <button id="exportStudentsRegistryXlsxBtn" class="admin-btn secondary admin-btn-sm" type="button">엑셀보내기</button>
+            </div>
+          </div>
+          <p class="admin-muted admin-registry-note">학생 정보·입력 메모만 보냅니다. 작성 완료본은 ④ 검토 목록의 엑셀 추출을 사용하세요.</p>
+          <form id="importStudentsForm" class="admin-registry-import">
+            <input id="studentsFile" class="admin-file-input" type="file" accept=".tsv,.csv,.xlsx,text/tab-separated-values,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            <button class="admin-btn secondary admin-btn-sm" type="button" data-file-trigger="studentsFile">파일 선택</button>
+            <span class="admin-file-name" id="studentsFileName">tsv, csv, xlsx</span>
+            <button id="importStudentsBtn" class="admin-btn admin-btn-sm" type="submit">가져오기</button>
+          </form>
+          <pre id="studentsUploadLog" class="admin-output admin-upload-log" hidden></pre>
           <div id="studentsBulkActions" class="admin-samples-toolbar" hidden>
             <div class="admin-samples-toolbar-left">
               <span id="studentsCountBadge" class="admin-samples-count">0명</span>
@@ -358,6 +372,36 @@
     </footer>
   </div>
 
+  <div id="importStudentsModal" class="admin-guide-backdrop" hidden role="dialog" aria-labelledby="importStudentsTitle" aria-modal="true">
+    <div class="admin-guide-card admin-import-card">
+      <div class="admin-guide-header">
+        <h2 id="importStudentsTitle">학생 목록 가져오기</h2>
+        <button id="importStudentsCloseBtn" class="admin-guide-close" type="button" aria-label="닫기">×</button>
+      </div>
+      <p id="importStudentsSummary" class="admin-muted"></p>
+      <div id="importStudentsDuplicates" class="admin-import-duplicates" hidden></div>
+      <fieldset class="admin-import-mode">
+        <legend>중복 학생 처리</legend>
+        <label class="admin-import-mode-option">
+          <input type="radio" name="importStudentsMode" value="skip" checked>
+          <span>건너뛰기 — 기존 학생 유지</span>
+        </label>
+        <label class="admin-import-mode-option">
+          <input type="radio" name="importStudentsMode" value="update">
+          <span>덮어쓰기 — 메모·정보 갱신 (작성본 유지)</span>
+        </label>
+        <label class="admin-import-mode-option">
+          <input type="radio" name="importStudentsMode" value="add">
+          <span>새로 추가 — 중복도 별도 등록</span>
+        </label>
+      </fieldset>
+      <div class="admin-actions admin-actions-end" style="margin-top:16px">
+        <button id="importStudentsCancelBtn" class="admin-btn secondary" type="button">취소</button>
+        <button id="importStudentsConfirmBtn" class="admin-btn" type="button">가져오기</button>
+      </div>
+    </div>
+  </div>
+
   <div id="guideModal" class="admin-guide-backdrop" hidden role="dialog" aria-labelledby="guideTitle" aria-modal="true">
     <div class="admin-guide-card">
       <div class="admin-guide-header">
@@ -461,6 +505,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260708j"></script>
+  <script src="/admin-static/js/admin.js?v=20260708m"></script>
 </body>
 </html>

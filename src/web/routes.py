@@ -38,10 +38,13 @@ from src.saenggibu.student_store import (
     delete_all_students,
     delete_student,
     delete_students,
+    export_students_registry_tsv,
+    export_students_registry_xlsx,
     export_students_xlsx,
     get_student,
-    import_students_file,
+    import_students_registry,
     list_students,
+    preview_students_import,
     reset_all_generated,
     reset_generated_for_students,
     reset_student_generated,
@@ -439,6 +442,48 @@ def _build_xlsx_response(students: list[StudentInput]) -> Response:
     )
 
 
+def _build_registry_tsv_response(students: list[StudentInput]) -> Response:
+    from datetime import datetime, timezone
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    content = export_students_registry_tsv(students)
+    filename = f"students_{stamp}.tsv"
+    return Response(
+        content=content,
+        media_type="text/tab-separated-values; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _build_registry_xlsx_response(students: list[StudentInput]) -> Response:
+    from datetime import datetime, timezone
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    content = export_students_registry_xlsx(students)
+    filename = f"students_{stamp}.xlsx"
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/students/export/registry.tsv")
+def api_students_export_registry_tsv(_: AdminSession = Depends(require_admin)) -> Response:
+    students = list_students()
+    if not students:
+        raise HTTPException(status_code=404, detail="보낼 학생이 없습니다.")
+    return _build_registry_tsv_response(students)
+
+
+@router.get("/students/export/registry.xlsx")
+def api_students_export_registry_xlsx(_: AdminSession = Depends(require_admin)) -> Response:
+    students = list_students()
+    if not students:
+        raise HTTPException(status_code=404, detail="보낼 학생이 없습니다.")
+    return _build_registry_xlsx_response(students)
+
+
 @router.post("/students/{student_id}/inspect")
 def api_student_inspect_post(
     student_id: str,
@@ -597,8 +642,8 @@ def api_neis_parse(payload: NeisPasteRequest, _: AdminSession = Depends(require_
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/students/import")
-async def api_students_import(
+@router.post("/students/import/preview")
+async def api_students_import_preview(
     file: UploadFile = File(...),
     _: AdminSession = Depends(require_admin),
 ) -> dict[str, Any]:
@@ -613,8 +658,38 @@ async def api_students_import(
         tmp.write(content)
         tmp_path = Path(tmp.name)
     try:
-        imported = import_students_file(tmp_path)
-        return {"imported": len(imported), "students": [s.to_dict() for s in imported]}
+        return preview_students_import(tmp_path)
+    except ValueError as exc:
+        logger.warning("students import preview failed: %s (%s)", file.filename, exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("students import preview error: %s", file.filename)
+        raise HTTPException(status_code=500, detail=f"서버 오류: {exc}") from exc
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+@router.post("/students/import")
+async def api_students_import(
+    file: UploadFile = File(...),
+    mode: str = "add",
+    _: AdminSession = Depends(require_admin),
+) -> dict[str, Any]:
+    try:
+        check_upload_extension(file.filename, STUDENT_EXTENSIONS)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if mode not in {"add", "skip", "update"}:
+        raise HTTPException(status_code=400, detail="mode는 add, skip, update 중 하나여야 합니다.")
+
+    suffix = Path(file.filename or "upload").suffix.lower() or ".tsv"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+    try:
+        return import_students_registry(tmp_path, mode=mode)
     except ValueError as exc:
         logger.warning("students import failed: %s (%s)", file.filename, exc)
         raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -220,26 +220,98 @@
   line-height: 1.3;
 }
 
-.admin-write-toolbar {
+.admin-write-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
-.admin-write-toolbar .admin-write-mode {
-  margin: 0;
-}
-
-.admin-write-submit {
+.admin-write-card-head {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.admin-write-submit-btn {
-  min-width: min(100%, 280px);
+.admin-write-card-head h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.admin-write-usage {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+.admin-write-segments {
+  display: flex;
   width: 100%;
-  max-width: 320px;
-  padding: 12px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg);
+  isolation: isolate;
+}
+
+.admin-write-seg {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-write-seg input[type="radio"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.admin-write-seg-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 6px;
+  border-right: 1px solid var(--border);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.admin-write-seg:last-child .admin-write-seg-label {
+  border-right: none;
+}
+
+.admin-write-seg:hover .admin-write-seg-label {
+  background: color-mix(in srgb, var(--blue) 6%, var(--bg));
+  color: var(--text);
+}
+
+.admin-write-seg:has(input:checked) .admin-write-seg-label {
+  background: color-mix(in srgb, var(--blue) 18%, var(--card));
+  color: var(--blue);
+}
+
+.admin-write-seg:has(input:focus-visible) .admin-write-seg-label {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+
+.admin-write-cta {
+  width: 100%;
+  padding: 13px 20px;
+  font-size: 0.9375rem;
+  border-radius: var(--radius-sm);
 }
 
 .admin-btn {
@@ -312,7 +384,7 @@
   border-bottom: 1px solid var(--border);
   padding: 12px 8px;
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .admin-table th {
@@ -515,38 +587,6 @@
   margin: 12px 0 4px;
 }
 
-.admin-write-mode--row {
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-}
-
-.admin-write-mode--row .admin-option-radio {
-  flex: 0 1 auto;
-  min-width: 0;
-  width: auto;
-  margin: 0;
-  min-height: 40px;
-  padding: 8px 14px;
-  align-items: center;
-  border-radius: var(--radius-sm);
-}
-
-.admin-write-mode--row .admin-option-radio input[type="radio"] {
-  margin: 0;
-}
-
-.admin-write-mode--row .admin-option-text {
-  align-items: center;
-  text-align: center;
-}
-
-.admin-write-mode--row .admin-option-text strong {
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
 .admin-subheading {
   font-size: 0.95rem;
   margin: 16px 0 8px;
@@ -710,11 +750,15 @@
 
 .admin-student-meta .admin-grade-btn.active {
   z-index: 1;
-  background: color-mix(in srgb, var(--blue) 18%, var(--card));
+  background: color-mix(in srgb, var(--blue) 20%, var(--card));
   color: var(--blue);
   border: none;
   border-right: 1px solid var(--border);
-  box-shadow: inset 0 0 0 2px var(--blue);
+  box-shadow: none;
+}
+
+.admin-student-meta .admin-grade-btn.active:last-child {
+  border-right: none;
 }
 
 .admin-grade-pick {
@@ -1153,12 +1197,20 @@ body.admin-is-busy .admin-tab {
 .admin-row-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   justify-content: flex-end;
 }
 
 .admin-student-table .sample-select-cell {
   width: 42px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.admin-student-table .sample-select-cell .admin-check-row {
+  display: inline-flex;
+  vertical-align: middle;
 }
 
 .admin-sample-list li {

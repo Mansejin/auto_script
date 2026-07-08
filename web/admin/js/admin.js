@@ -2862,10 +2862,6 @@
         ? `일부 실패: ${data.partialErrors}`
         : data.message || `완료 ${data.processed || 0}명${errCount ? `, 오류 ${errCount}건` : ""}`;
       showToast(msg);
-      const runLog = document.getElementById("runLog");
-      if (runLog && !runLog.hidden) {
-        runLog.textContent = JSON.stringify(data, null, 2);
-      }
       await Promise.all([loadStudents(), loadReviewList(), loadUsage()]);
     } catch (error) {
       showToast(error.message);

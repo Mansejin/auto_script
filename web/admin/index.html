@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708g">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708i">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -74,7 +74,7 @@
               <button class="admin-btn secondary admin-btn-sm" type="button" data-file-trigger="samplesFile">파일 선택</button>
               <span class="admin-file-name" id="samplesFileName">xlsx, docx, tsv · 여러 파일 선택 가능</span>
               <button class="admin-btn secondary admin-btn-sm" type="submit">업로드</button>
-              <button id="analyzeBtn" class="admin-btn admin-btn-sm" type="button">문체·분량 분석 시작</button>
+              <button id="analyzeBtn" class="admin-btn admin-btn-sm" type="button">분석 시작</button>
             </div>
             <pre id="samplesUploadLog" class="admin-output admin-upload-log" hidden></pre>
           </form>
@@ -270,39 +270,34 @@
       </div>
 
       <div id="panelReview" class="admin-panel" hidden>
-        <div class="admin-card">
-          <div class="admin-section-head">
+        <div class="admin-card admin-write-card">
+          <div class="admin-write-card-head">
             <h2>일괄 AI 작성</h2>
-            <span id="usageText" class="admin-inline-meta">이번 달 작성 횟수 확인 중…</span>
+            <p id="usageText" class="admin-write-usage">이번 달 작성 횟수 확인 중…</p>
           </div>
-          <div class="admin-write-toolbar">
-            <div class="admin-write-mode admin-write-mode--row" id="writeSectionChoices">
-              <label class="admin-option admin-option-radio">
-                <input type="radio" name="writeSection" value="행발" checked>
-                <span class="admin-option-text"><strong>행발</strong></span>
-              </label>
-              <label class="admin-option admin-option-radio">
-                <input type="radio" name="writeSection" value="세특">
-                <span class="admin-option-text"><strong>세특</strong></span>
-              </label>
-              <label class="admin-option admin-option-radio">
-                <input type="radio" name="writeSection" value="자율">
-                <span class="admin-option-text"><strong>자율</strong></span>
-              </label>
-              <label class="admin-option admin-option-radio">
-                <input type="radio" name="writeSection" value="동아리">
-                <span class="admin-option-text"><strong>동아리</strong></span>
-              </label>
-              <label class="admin-option admin-option-radio">
-                <input type="radio" name="writeSection" value="진로">
-                <span class="admin-option-text"><strong>진로</strong></span>
-              </label>
-            </div>
-            <div class="admin-write-submit">
-              <button id="runBatchBtn" class="admin-btn admin-write-submit-btn" type="button">AI 일괄 작성</button>
-            </div>
+          <div class="admin-write-segments" id="writeSectionChoices" role="radiogroup" aria-label="작성 영역">
+            <label class="admin-write-seg">
+              <input type="radio" name="writeSection" value="행발" checked>
+              <span class="admin-write-seg-label">행발</span>
+            </label>
+            <label class="admin-write-seg">
+              <input type="radio" name="writeSection" value="세특">
+              <span class="admin-write-seg-label">세특</span>
+            </label>
+            <label class="admin-write-seg">
+              <input type="radio" name="writeSection" value="자율">
+              <span class="admin-write-seg-label">자율</span>
+            </label>
+            <label class="admin-write-seg">
+              <input type="radio" name="writeSection" value="동아리">
+              <span class="admin-write-seg-label">동아리</span>
+            </label>
+            <label class="admin-write-seg">
+              <input type="radio" name="writeSection" value="진로">
+              <span class="admin-write-seg-label">진로</span>
+            </label>
           </div>
-          <pre id="runLog" class="admin-output admin-dev-only" hidden style="margin-top:12px"></pre>
+          <button id="runBatchBtn" class="admin-btn admin-write-cta" type="button">AI 일괄 작성</button>
         </div>
         <div class="admin-card" style="margin-top:16px">
           <h2>검토 목록</h2>
@@ -356,7 +351,7 @@
         <span class="admin-footer-sep" aria-hidden="true">·</span>
         <a class="admin-footer-link" href="https://github.com/Mansejin/auto_script/issues/new" target="_blank" rel="noopener noreferrer">버그 신고</a>
         <span class="admin-footer-sep" aria-hidden="true">·</span>
-        <a class="admin-footer-link" href="/admin/changelog">업데이트 기록</a>
+        <a class="admin-footer-link" href="/admin/changelog">패치 노트</a>
         <span class="admin-footer-sep" aria-hidden="true">·</span>
         <button id="logoutBtn" class="admin-footer-link" type="button">로그아웃</button>
       </div>
@@ -445,6 +440,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260708f"></script>
+  <script src="/admin-static/js/admin.js?v=20260708h"></script>
 </body>
 </html>

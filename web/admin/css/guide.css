@@ -10,6 +10,18 @@
   padding: 24px 20px 0;
 }
 
+.guide-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.guide-top-bar .header-actions {
+  flex-shrink: 0;
+}
+
 .guide-breadcrumb {
   display: flex;
   flex-wrap: wrap;
@@ -17,7 +29,8 @@
   gap: 6px;
   font-size: 0.8125rem;
   color: var(--text-tertiary);
-  margin-bottom: 20px;
+  margin-bottom: 0;
+  min-width: 0;
 }
 
 .guide-breadcrumb a {
@@ -100,14 +113,13 @@
 
 .guide-toc a {
   display: block;
-  padding: 6px 10px;
+  padding: 6px 10px 6px 14px;
   font-size: 0.875rem;
   color: var(--text-secondary);
   text-decoration: none;
-  border-radius: var(--radius-sm);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   line-height: 1.4;
-  border-left: 2px solid transparent;
-  margin-left: -2px;
+  box-shadow: inset 3px 0 0 transparent;
 }
 
 .guide-toc a:hover {
@@ -118,7 +130,7 @@
 .guide-toc a.is-active {
   color: var(--blue);
   font-weight: 600;
-  border-left-color: var(--blue);
+  box-shadow: inset 3px 0 0 var(--blue);
   background: color-mix(in srgb, var(--blue) 8%, var(--card));
 }
 
@@ -392,6 +404,55 @@
   color: var(--blue);
 }
 
+.guide-style-typewriter-wrap {
+  position: relative;
+}
+
+.guide-style-typewriter {
+  min-height: 11rem;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  background: var(--bg);
+  resize: none;
+}
+
+.guide-style-typewriter.is-typing {
+  color: var(--text);
+}
+
+.guide-style-typewriter-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--blue);
+  animation: guide-cursor-blink 1s step-end infinite;
+}
+
+@keyframes guide-cursor-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.guide-style-typewriter-hint {
+  margin: 8px 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+}
+
+.guide-ui-demo--interactive {
+  pointer-events: auto;
+  user-select: text;
+}
+
+.guide-ui-demo--interactive .admin-btn,
+.guide-ui-demo--interactive textarea {
+  pointer-events: none;
+}
+
 .guide-doc-footer {
   max-width: 1100px;
   margin: 40px auto 0;
@@ -447,10 +508,16 @@
   }
 
   .guide-toc a {
-    border-left: none;
+    border-radius: var(--radius-sm);
+    box-shadow: none;
     border: 1px solid var(--border);
     padding: 6px 10px;
-    font-size: 0.8125rem;
+  }
+
+  .guide-toc a.is-active {
+    border-color: var(--blue);
+    background: color-mix(in srgb, var(--blue) 10%, var(--card));
+    color: var(--blue);
   }
 
   .guide-toc .guide-toc-sub {

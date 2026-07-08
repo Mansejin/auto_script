@@ -15,29 +15,29 @@
   <title>사용자 가이드 · 생기부 작성기</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708o">
-  <link rel="stylesheet" href="/admin-static/css/guide.css?v=20260708o">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708p">
+  <link rel="stylesheet" href="/admin-static/css/guide.css?v=20260708p">
 </head>
 <body data-api-base="" data-assets-base="/admin-static" class="admin-guide-doc-page">
   <div class="page admin-page">
     <header class="guide-doc-header site-header site-header--compact">
-      <nav class="guide-breadcrumb" aria-label="경로">
-        <a href="/admin/saenggibu">생기부 작성</a>
-        <span class="guide-breadcrumb-sep" aria-hidden="true">›</span>
-        <span>사용자 가이드</span>
-      </nav>
-      <div class="header-top">
-        <div class="guide-hero">
-          <h1>생기부 작성기 사용자 가이드</h1>
-          <p class="subtitle">과거 생기부 샘플의 문체를 학습하고, 학생 활동 메모를 바탕으로 행발·세특·창체 초안을 작성·검토하는 도구입니다. 이 문서는 설치부터 일상 사용, 개인정보 관리까지 전 과정을 안내합니다.</p>
-          <p class="guide-meta">문서 버전 v2.3.0 · 2026년 7월</p>
-        </div>
+      <div class="guide-top-bar">
+        <nav class="guide-breadcrumb" aria-label="경로">
+          <a href="/admin/saenggibu">생기부 작성</a>
+          <span class="guide-breadcrumb-sep" aria-hidden="true">›</span>
+          <span>사용자 가이드</span>
+        </nav>
         <div class="header-actions">
-          <label class="theme-switch">
-            <input type="checkbox" class="theme-switch-input" role="switch">
+          <label class="theme-switch" title="라이트/다크 모드">
+            <input type="checkbox" class="theme-switch-input" role="switch" aria-label="다크 모드">
             <span class="theme-switch-track"><span class="theme-switch-thumb"></span></span>
           </label>
         </div>
+      </div>
+      <div class="guide-hero">
+        <h1>생기부 작성기 사용자 가이드</h1>
+        <p class="subtitle">과거 생기부 샘플의 문체를 학습하고, 학생 활동 메모를 바탕으로 행발·세특·창체 초안을 작성·검토하는 도구입니다. 이 문서는 설치부터 일상 사용, 개인정보 관리까지 전 과정을 안내합니다.</p>
+        <p class="guide-meta">문서 버전 v2.3.0 · 2026년 7월</p>
       </div>
     </header>
 
@@ -204,16 +204,23 @@
 
         <section id="step2" class="guide-section">
           <h2>② 스타일 설정</h2>
-          <p>①에서 생성된 <strong>스타일 가이드</strong>를 확인하고, 원하는 톤으로 직접 수정할 수 있습니다. 저장하면 이후 모든 AI 작성에 반영됩니다.</p>
-          <div class="guide-ui-demo" aria-hidden="true">
-            <p class="guide-ui-demo-label">화면 예시 — 스타일 저장</p>
+          <p>①에서 생성된 <strong>스타일 가이드</strong>를 확인하고, 원하는 톤으로 직접 수정할 수 있습니다. 분석이 끝나면 아래처럼 문장 규칙이 자동으로 채워지며, 저장하면 이후 모든 AI 작성 프롬프트에 포함됩니다.</p>
+          <div class="guide-ui-demo guide-ui-demo--interactive" id="guideStyleDemo">
+            <p class="guide-ui-demo-label">화면 예시 — 스타일 가이드 (분석 후 자동 작성)</p>
             <div class="guide-ui-demo-inner">
+              <div class="admin-field">
+                <label for="guideStyleTypewriter">스타일 가이드</label>
+                <div class="guide-style-typewriter-wrap">
+                  <textarea id="guideStyleTypewriter" class="admin-textarea guide-style-typewriter" rows="8" readonly aria-label="스타일 가이드 예시"></textarea>
+                </div>
+                <p class="guide-style-typewriter-hint">※ 실제 화면에서는 ① <strong>분석 시작</strong> 직후 위와 같이 가이드 텍스트가 생성·표시됩니다.</p>
+              </div>
               <div class="admin-actions admin-actions-end">
                 <button class="admin-btn" type="button" tabindex="-1">스타일 저장</button>
               </div>
             </div>
           </div>
-          <p>예: 「존댓말 대신 서술체」, 「활동보다 태도·성장 강조」, 「한 문단 3~4문장」 등 구체적으로 적을수록 결과가 안정적입니다.</p>
+          <p>예시 프롬프트에 자주 들어가는 지시: 「서술체 사용」, 「활동 나열보다 태도·성장 강조」, 「문단당 3~4문장」, 「행발·세특 분량 목표」 등. 구체적으로 적을수록 결과가 안정적입니다.</p>
         </section>
 
         <section id="step3" class="guide-section">
@@ -240,7 +247,18 @@
             <li><strong>행발</strong> — 태도·성품·대인관계 등 관찰 메모를 적습니다.</li>
             <li><strong>창체</strong> — 자율·동아리·진로 활동 메모를 각각 입력합니다.</li>
           </ul>
-          <p>등록된 학생 목록에서 <strong>메모 수정</strong>, <strong>삭제</strong>가 가능합니다.</p>
+          <p>등록된 학생 목록에서 <strong>메모 수정</strong>, <strong>삭제</strong>, <strong>선택 삭제</strong>, <strong>전체 초기화</strong>가 가능합니다.</p>
+          <div class="guide-ui-demo" aria-hidden="true">
+            <p class="guide-ui-demo-label">화면 예시 — 등록된 학생 목록 도구</p>
+            <div class="guide-ui-demo-inner">
+              <div class="admin-samples-toolbar" style="margin:0">
+                <div class="admin-samples-toolbar-right" style="margin-left:auto;display:flex;flex-wrap:wrap;gap:8px">
+                  <button class="admin-btn danger admin-btn-sm" type="button" tabindex="-1">선택 삭제</button>
+                  <button class="admin-btn danger admin-btn-sm" type="button" tabindex="-1">전체 초기화</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section id="excel-io" class="guide-section">
@@ -334,10 +352,11 @@
             <p class="guide-ui-demo-label">화면 예시 — 검토 목록 도구</p>
             <div class="guide-ui-demo-inner">
               <div class="admin-samples-toolbar" style="margin:0">
-                <div class="admin-samples-toolbar-right" style="margin-left:auto">
+                <div class="admin-samples-toolbar-right" style="margin-left:auto;display:flex;flex-wrap:wrap;gap:8px">
                   <button class="admin-btn secondary admin-btn-sm" type="button" tabindex="-1">전체 검사</button>
                   <button class="admin-btn secondary admin-btn-sm" type="button" tabindex="-1">엑셀 추출</button>
                   <button class="admin-btn danger admin-btn-sm" type="button" tabindex="-1">선택 삭제</button>
+                  <button class="admin-btn danger admin-btn-sm" type="button" tabindex="-1">전체 초기화</button>
                 </div>
               </div>
             </div>
@@ -424,7 +443,7 @@
               <tbody>
                 <tr><td>로그인 실패</td><td>관리자 비밀번호 확인. 서버 점검 중이면 잠시 후 재시도</td></tr>
                 <tr><td>분석·작성이 오래 걸림</td><td>학생 수·샘플 수에 비례. 팝업이 떠 있으면 완료까지 대기</td></tr>
-                <tr><td>화면이 예전 그대로</td><td>브라우저에서 <strong>Ctrl+F5</strong> 강력 새로고침</td></tr>
+                <tr><td>화면이 예전 그대로</td><td>브라우저 <strong>캐시 초기화 후 새로고침</strong> (저장된 CSS·JS를 다시 불러옴)</td></tr>
                 <tr><td>작성본이 비어 있음</td><td>③ 메모 입력 여부, ④ 영역 선택, 세특 과목명 확인</td></tr>
                 <tr><td>바이트 초과</td><td>상세 편집에서 분량 확인 후 문장 축약</td></tr>
               </tbody>
@@ -446,6 +465,6 @@
   </div>
 
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/guide.js?v=20260708o"></script>
+  <script src="/admin-static/js/guide.js?v=20260708p"></script>
 </body>
 </html>

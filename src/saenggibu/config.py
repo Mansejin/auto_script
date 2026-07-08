@@ -31,7 +31,7 @@ def get_gemini_api_key() -> str:
 
 
 def get_gemini_model_pro() -> str:
-    """샘플 분석·다시 쓰기(Pro 선택)용."""
+    """생기부 작성·샘플 분석용 (3.1 Pro)."""
     explicit = os.getenv("GEMINI_MODEL_PRO", "").strip()
     if explicit:
         return explicit
@@ -40,21 +40,21 @@ def get_gemini_model_pro() -> str:
 
 
 def get_gemini_model_fast() -> str:
-    """일괄 작성·맞춤법·메모 파싱 기본 모델."""
+    """메모 파싱 등 보조 작업."""
     return os.getenv("GEMINI_MODEL_FAST", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
 
 
 def get_gemini_model() -> str:
-    """기본 작성 모델 (Flash)."""
-    return get_gemini_model_fast()
+    """생기부 작성 모델 (Pro)."""
+    return get_gemini_model_pro()
 
 
 def gemini_models_for_api() -> dict[str, str]:
     return {
-        "gemini_model": get_gemini_model_fast(),
+        "gemini_model": get_gemini_model_pro(),
         "gemini_model_pro": get_gemini_model_pro(),
         "gemini_model_fast": get_gemini_model_fast(),
-        "gemini_model_default": "fast",
+        "gemini_model_default": "pro",
     }
 
 

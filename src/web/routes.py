@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 
 from src.saenggibu.config import gemini_models_for_api
 from src.saenggibu.data_crypto import encrypt_data_enabled
-from src.saenggibu.field_edit import edit_student_field
 from src.saenggibu.storage_policy import draft_map_from_items, store_generated_on_server
 from src.saenggibu.curriculum import find_relevant_standards, resolve_subject_entry
 from src.saenggibu.pii_mask import mask_pii_enabled, mask_student_names_enabled
@@ -151,13 +150,6 @@ class InspectBatchRequest(BaseModel):
 
 class StudentInspectRequest(BaseModel):
     generated: dict[str, Any] | None = None
-
-
-class FieldEditRequest(BaseModel):
-    field_key: str
-    action: str
-    text: str = ""
-    model_tier: str = "fast"
 
 
 def _extract_token(request: Request) -> str:
@@ -595,36 +587,6 @@ def api_student_update(
         if response_generated:
             data["status"] = payload.status or ("done" if response_generated else saved.status)
     return data
-
-
-@router.post("/students/{student_id}/fields/edit")
-def api_student_field_edit(
-    student_id: str,
-    payload: FieldEditRequest,
-    _: AdminSession = Depends(require_admin),
-) -> dict[str, Any]:
-    student = get_student(student_id)
-    if not student:
-        raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
-    action = payload.action.strip()
-    if action not in ("regenerate", "proofread"):
-        raise HTTPException(status_code=400, detail="지원하지 않는 action입니다.")
-    model_tier = payload.model_tier.strip().lower() or "fast"
-    if model_tier not in ("pro", "fast"):
-        raise HTTPException(status_code=400, detail="model_tier는 pro 또는 fast여야 합니다.")
-    try:
-        text = edit_student_field(
-            student,
-            field_key=payload.field_key,
-            action=action,  # type: ignore[arg-type]
-            text=payload.text,
-            model_tier=model_tier,  # type: ignore[arg-type]
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-    return {"field_key": payload.field_key, "action": action, "text": text}
 
 
 @router.post("/neis/parse")

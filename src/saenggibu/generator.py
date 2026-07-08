@@ -8,7 +8,7 @@ from typing import Any, Callable
 from .config import OUTPUTS_DIR, ensure_data_dirs
 from .curriculum import find_relevant_standards, format_curriculum_context
 from .api_errors import friendly_api_error
-from .gemini_client import ModelTier, generate_text
+from .gemini_client import generate_text
 from .subject_info import format_setuk_prompt_context
 from .storage_policy import store_generated_on_server
 from .io_utils import save_json
@@ -48,7 +48,7 @@ def _student_names(student: StudentInput) -> list[str]:
     return [student.name] if student.name.strip() else []
 
 
-def _generate_haengbal(student: StudentInput, style_guide: str, *, tier: ModelTier = "fast") -> str:
+def _generate_haengbal(student: StudentInput, style_guide: str) -> str:
     keywords = student.notes.get("keywords") or []
     notes = student.notes.get("행발") or student.notes.get("행발_notes") or ""
     user = (
@@ -64,7 +64,7 @@ def _generate_haengbal(student: StudentInput, style_guide: str, *, tier: ModelTi
         system=_system_prompt(),
         user=user,
         student_names=_student_names(student),
-        tier=tier,
+        tier="pro",
     )
 
 
@@ -73,8 +73,6 @@ def _generate_setuk(
     subject: str,
     info: dict[str, Any],
     style_guide: str,
-    *,
-    tier: ModelTier = "fast",
 ) -> str:
     context = format_setuk_prompt_context(subject, info)
     standards = find_relevant_standards(subject, info, limit=3)
@@ -93,7 +91,7 @@ def _generate_setuk(
         system=_system_prompt(),
         user=user,
         student_names=_student_names(student),
-        tier=tier,
+        tier="pro",
     )
 
 
@@ -102,8 +100,6 @@ def _generate_changche(
     subsection: str,
     notes: str,
     style_guide: str,
-    *,
-    tier: ModelTier = "fast",
 ) -> str:
     user = (
         f"## 스타일 가이드\n{style_guide}\n\n"
@@ -117,7 +113,7 @@ def _generate_changche(
         system=_system_prompt(),
         user=user,
         student_names=_student_names(student),
-        tier=tier,
+        tier="pro",
     )
 
 

@@ -417,32 +417,6 @@
     return colon >= 0 ? key.slice(colon + 1) : key;
   }
 
-  const FIELD_EDIT_LABELS = {
-    regenerate: "다시 쓰기",
-    proofread: "맞춤법 검사",
-  };
-
-  function detailFieldToolbarHtml(fieldKey) {
-    return `
-      <div class="detail-field-toolbar" data-field-key="${escapeAttr(fieldKey)}">
-        <label class="admin-muted" style="display:inline-flex;gap:6px;align-items:center;font-size:0.85rem">
-          모델
-          <select class="detail-regen-model" aria-label="다시 쓰기 모델">
-            <option value="fast" selected>2.5 Flash</option>
-            <option value="pro">3.1 Pro</option>
-          </select>
-        </label>
-        <button type="button" class="admin-btn secondary admin-btn-sm detail-field-action" data-action="regenerate">다시 쓰기</button>
-        <button type="button" class="admin-btn secondary admin-btn-sm detail-field-action" data-action="proofread">맞춤법</button>
-      </div>`;
-  }
-
-  function getRegenModelTier(fieldKey) {
-    const toolbar = document.querySelector(`.detail-field-toolbar[data-field-key="${CSS.escape(fieldKey)}"]`);
-    const select = toolbar?.querySelector(".detail-regen-model");
-    return select?.value === "pro" ? "pro" : "fast";
-  }
-
   function focusInspectField(sectionKey, issue = null) {
     const field = document.querySelector(`#detailEditor .inspect-field[data-field-key="${CSS.escape(sectionKey)}"]`);
     const textarea = field?.querySelector(".detail-field");
@@ -463,61 +437,13 @@
     window.setTimeout(() => field.classList.remove("inspect-field-highlight"), 1400);
   }
 
-  async function applyFieldEdit(fieldKey, action) {
-    if (!currentStudentId) return;
-    const textarea = document.querySelector(`#detailEditor .detail-field[data-key="${CSS.escape(fieldKey)}"]`);
-    if (!textarea) return;
-    const label = FIELD_EDIT_LABELS[action] || "처리";
-    const modelTier = action === "regenerate" ? getRegenModelTier(fieldKey) : "fast";
-    await ensureModelInfo();
-    const stop = startBusy(`AI ${label}`, fieldKey, "잠시만 기다려 주세요.", { modelTier });
-    try {
-      const body = { field_key: fieldKey, action, text: textarea.value };
-      if (action === "regenerate") body.model_tier = modelTier;
-      const result = await api(`/api/students/${currentStudentId}/fields/edit`, { method: "POST", body });
-      textarea.value = result.text || "";
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
-      showToast(`${label} 완료 — 저장을 눌러 반영하세요`);
-      currentInspectReport = await inspectCurrentStudent();
-      const privacyNote = privacySettings.store_generated
-        ? ""
-        : ' <span class="admin-muted">· 작성본은 이 브라우저에만 저장됩니다</span>';
-      document.getElementById("detailMeta").innerHTML = `상태: ${statusPill(currentStudentData?.status || "pending")}${privacyNote} ${inspectBadgeHtml(
-        currentStudentId,
-        currentInspectReport
-      )}`;
-      renderInspectSummary(currentInspectReport);
-      renderFieldIssues(currentInspectReport);
-      updateDetailCharCounts(currentInspectReport);
-    } catch (error) {
-      showToast(error.message || `${label} 실패`);
-    } finally {
-      stop();
-    }
-  }
-
-  function bindDetailEditorFieldActions() {
-    const editor = document.getElementById("detailEditor");
-    if (!editor || editor.dataset.fieldActionsBound === "1") return;
-    editor.dataset.fieldActionsBound = "1";
-    editor.addEventListener("click", async (event) => {
-      const btn = event.target.closest(".detail-field-action");
-      if (!btn || btn.disabled) return;
-      const toolbar = btn.closest(".detail-field-toolbar");
-      const fieldKey = toolbar?.dataset.fieldKey;
-      const action = btn.dataset.action;
-      if (!fieldKey || !action) return;
-      await applyFieldEdit(fieldKey, action);
-    });
-  }
-
   let busyTimer = null;
   let busyStartedAt = 0;
   let systemInfo = {
     gemini_model: "",
     gemini_model_pro: "",
     gemini_model_fast: "",
-    gemini_model_default: "fast",
+    gemini_model_default: "pro",
   };
   let privacySettings = { store_generated: false, encrypt_data: true, mask_pii: true };
   let usageLine = "";
@@ -606,9 +532,8 @@
   function modelLineText(activeTier = null) {
     const pro = systemInfo.gemini_model_pro;
     const fast = systemInfo.gemini_model_fast;
-    if (activeTier === "pro" && pro) return `사용 모델 · ${pro}`;
-    if (activeTier === "fast" && fast) return `사용 모델 · ${fast}`;
-    if (fast) return `기본 작성 · ${fast}`;
+    if (activeTier === "fast" && fast) return `보조 · ${fast}`;
+    if (pro) return `작성 · ${pro}`;
     return "사용 모델 · 확인 중…";
   }
 
@@ -704,9 +629,6 @@
   }
 
   function parseJobMessage(message = "") {
-    if (message.startsWith("proofread:")) {
-      return { phase: "proofread", detail: message.slice("proofread:".length) };
-    }
     return { phase: "write", detail: message };
   }
 
@@ -715,12 +637,7 @@
     if (job.total) parts.push(`${job.processed || 0}/${job.total}`);
     if (job.current_section) parts.push(job.current_section);
     const label = job.current_label || "";
-    const { phase, detail } = parseJobMessage(job.message || "");
-    if (phase === "proofread") {
-      if (label) parts.push(label);
-      if (detail) parts.push(detail);
-      return parts.join(" · ") || "검사 중...";
-    }
+    const { detail } = parseJobMessage(job.message || "");
     const message = detail;
     if (message && message !== "완료" && message !== "작성을 시작합니다.") {
       if (label && message.includes(label)) {
@@ -743,15 +660,13 @@
     if (job.gemini_model_pro || job.gemini_model_fast || job.gemini_model) {
       applyGeminiModels(job);
     }
-    const { phase } = parseJobMessage(job.message || "");
-    refreshBusyModelDisplay(phase === "proofread" ? "fast" : "fast");
+    const { phase: _phase } = parseJobMessage(job.message || "");
+    refreshBusyModelDisplay("pro");
     if (busyTitle) {
-      busyTitle.textContent = phase === "proofread" ? "AI 맞춤법 검사" : "AI 작성 중";
+      busyTitle.textContent = "AI 작성 중";
     }
     if (busyHint) {
-      busyHint.textContent = phase === "proofread"
-        ? "맞춤법·띄어쓰기를 점검하고 있습니다. 창을 닫지 마세요."
-        : "응답을 기다리는 중입니다. 창을 닫지 마세요.";
+      busyHint.textContent = "응답을 기다리는 중입니다. 창을 닫지 마세요.";
     }
   }
 
@@ -767,7 +682,7 @@
 
   async function withAsyncRun(title, message, hint, payload) {
     await ensureModelInfo();
-    const stop = startBusy(title || "AI 작성 중", message, hint, { showModel: true, modelTier: "fast" });
+    const stop = startBusy(title || "AI 작성 중", message, hint, { showModel: true, modelTier: "pro" });
     try {
       const started = await api("/api/run/async", { method: "POST", body: payload });
       if (started.gemini_model_pro || started.gemini_model_fast || started.gemini_model) {
@@ -2056,7 +1971,6 @@
             <span class="inspect-char-count" data-for="행발">0자</span>
           </div>
           <textarea class="admin-textarea detail-field" data-key="행발" rows="6">${escapeHtml(generated.행발)}</textarea>
-          ${detailFieldToolbarHtml("행발")}
           <ul class="inspect-field-issues" data-for="행발"></ul>
         </div>`);
     }
@@ -2071,7 +1985,6 @@
             <span class="inspect-char-count" data-for="${escapeAttr(key)}">0자</span>
           </div>
           <textarea class="admin-textarea detail-field" data-key="${escapeAttr(key)}" rows="5">${escapeHtml(text)}</textarea>
-          ${detailFieldToolbarHtml(key)}
           <ul class="inspect-field-issues" data-for="${escapeAttr(key)}"></ul>
         </div>`);
     }
@@ -2086,7 +1999,6 @@
             <span class="inspect-char-count" data-for="${escapeAttr(key)}">0자</span>
           </div>
           <textarea class="admin-textarea detail-field" data-key="${escapeAttr(key)}" rows="4">${escapeHtml(text)}</textarea>
-          ${detailFieldToolbarHtml(key)}
           <ul class="inspect-field-issues" data-for="${escapeAttr(key)}"></ul>
         </div>`);
     }
@@ -2098,7 +2010,6 @@
     editor.innerHTML = parts.join("");
     editor.dataset.fieldActionsBound = "0";
     bindDetailEditorInspectEvents();
-    bindDetailEditorFieldActions();
     updateDetailCharCounts(currentInspectReport);
     renderFieldIssues(currentInspectReport);
   }

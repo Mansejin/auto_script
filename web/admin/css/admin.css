@@ -170,6 +170,82 @@
   justify-content: flex-end;
 }
 
+.admin-registry-note {
+  margin: -4px 0 12px;
+}
+
+.admin-registry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-registry-import {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.admin-registry-import .admin-file-name {
+  flex: 1 1 12rem;
+  min-width: 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.admin-import-card {
+  width: min(480px, 100%);
+}
+
+.admin-import-duplicates {
+  margin: 12px 0;
+  padding: 10px 12px;
+  max-height: 160px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.admin-import-mode {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-import-mode legend {
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.admin-import-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.admin-import-mode-option input {
+  margin-top: 3px;
+  accent-color: var(--blue);
+}
+
 .admin-section-head {
   display: flex;
   flex-wrap: wrap;

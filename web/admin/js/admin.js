@@ -13,8 +13,8 @@
       label: "xlsx, docx, tsv, csv, json",
     },
     studentsFile: {
-      exts: [".tsv", ".csv", ".txt"],
-      label: "tsv, csv, txt",
+      exts: [".tsv", ".csv", ".txt", ".xlsx"],
+      label: "tsv, csv, xlsx",
     },
     aiStudentFile: {
       exts: [".txt", ".tsv", ".csv", ".docx", ".xlsx", ".pdf", ".hwp"],
@@ -64,6 +64,7 @@
 
   function filePickerEmptyLabel(inputId) {
     if (inputId === "samplesFile") return "xlsx, docx, tsv · 여러 파일 선택 가능";
+    if (inputId === "studentsFile") return "tsv, csv, xlsx";
     const rule = FILE_RULES[inputId];
     return rule ? `${rule.label} · 파일 선택` : "선택된 파일 없음";
   }
@@ -1825,6 +1826,140 @@
     }
   }
 
+  let pendingImportStudentFile = null;
+
+  async function downloadRegistryFile(path, fallbackName) {
+    const token = getToken();
+    const response = await fetch(`${API_BASE}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: "include",
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      let detail = "다운로드 실패";
+      try {
+        detail = JSON.parse(text).detail || detail;
+      } catch {
+        detail = text || detail;
+      }
+      throw new Error(detail);
+    }
+    const blob = await response.blob();
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const match = disposition.match(/filename=\"?([^\";]+)/i);
+    const filename = match?.[1] || `${fallbackName}_${stamp}`;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function downloadStudentsRegistryTsv() {
+    await downloadRegistryFile("/api/students/export/registry.tsv", "students.tsv");
+  }
+
+  async function downloadStudentsRegistryXlsx() {
+    await downloadRegistryFile("/api/students/export/registry.xlsx", "students.xlsx");
+  }
+
+  function closeImportStudentsModal() {
+    const modal = document.getElementById("importStudentsModal");
+    if (modal) modal.hidden = true;
+    document.body.classList.remove("admin-guide-open");
+    pendingImportStudentFile = null;
+  }
+
+  function openImportStudentsModal(preview, file) {
+    pendingImportStudentFile = file;
+    const modal = document.getElementById("importStudentsModal");
+    const summary = document.getElementById("importStudentsSummary");
+    const duplicatesBox = document.getElementById("importStudentsDuplicates");
+    if (!modal || !summary) return;
+
+    const errorText = (preview.errors || []).length
+      ? ` · 오류 ${preview.errors.length}행`
+      : "";
+    summary.textContent = `총 ${preview.total}행 · 신규 ${preview.new_count}명 · 중복 ${preview.duplicate_count}명${errorText}`;
+
+    if (duplicatesBox) {
+      const duplicates = preview.duplicates || [];
+      if (duplicates.length) {
+        duplicatesBox.hidden = false;
+        duplicatesBox.innerHTML = duplicates
+          .slice(0, 12)
+          .map(
+            (item) =>
+              `${item.grade}-${item.class_num} ${item.number}번 ${escapeHtml(item.name)}`
+          )
+          .join("<br>");
+        if (duplicates.length > 12) {
+          duplicatesBox.innerHTML += `<br>외 ${duplicates.length - 12}명`;
+        }
+      } else {
+        duplicatesBox.hidden = true;
+        duplicatesBox.textContent = "";
+      }
+    }
+
+    const defaultMode = preview.duplicate_count > 0 ? "skip" : "add";
+    document
+      .querySelectorAll('input[name="importStudentsMode"]')
+      .forEach((input) => {
+        input.checked = input.value === defaultMode;
+      });
+
+    modal.hidden = false;
+    document.body.classList.add("admin-guide-open");
+    document.getElementById("importStudentsConfirmBtn")?.focus();
+  }
+
+  async function confirmImportStudents() {
+    if (!pendingImportStudentFile) {
+      closeImportStudentsModal();
+      return;
+    }
+    const mode =
+      document.querySelector('input[name="importStudentsMode"]:checked')?.value || "skip";
+    const form = new FormData();
+    form.append("file", pendingImportStudentFile);
+    closeImportStudentsModal();
+    try {
+      const data = await api(`/api/students/import?mode=${encodeURIComponent(mode)}`, {
+        method: "POST",
+        body: form,
+      });
+      const errors = data.errors || [];
+      const parts = [];
+      if (data.imported) parts.push(`신규 ${data.imported}명`);
+      if (data.updated) parts.push(`갱신 ${data.updated}명`);
+      if (data.skipped) parts.push(`건너뜀 ${data.skipped}명`);
+      if (errors.length) {
+        showUploadLog("studentsUploadLog", errors);
+        showToast(`${parts.join(" · ") || "완료"} · 오류 ${errors.length}행`);
+      } else {
+        showUploadLog("studentsUploadLog", []);
+        showToast(parts.join(" · ") || "가져오기 완료");
+      }
+      await loadStudents();
+      const input = document.getElementById("studentsFile");
+      const formEl = document.getElementById("importStudentsForm");
+      if (formEl) formEl.reset();
+      if (input) input.value = "";
+      const nameEl = document.getElementById("studentsFileName");
+      if (nameEl) {
+        nameEl.textContent = filePickerEmptyLabel("studentsFile");
+        nameEl.classList.remove("has-file");
+      }
+    } catch (error) {
+      showToast(error.message);
+    }
+  }
+
   async function downloadStudentsExcel() {
     const token = getToken();
     let response;
@@ -2734,46 +2869,57 @@
     }
   });
 
+  document.getElementById("exportStudentsTsvBtn")?.addEventListener("click", async () => {
+    try {
+      await downloadStudentsRegistryTsv();
+      showToast("학생 목록 TSV를 받았습니다.");
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+
+  document.getElementById("exportStudentsRegistryXlsxBtn")?.addEventListener("click", async () => {
+    try {
+      await downloadStudentsRegistryXlsx();
+      showToast("학생 목록 엑셀을 받았습니다.");
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+
   document.getElementById("importStudentsForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const input = document.getElementById("studentsFile");
-    const files = [...(input.files || [])];
-    if (!files.length) {
+    const file = input?.files?.[0];
+    if (!file) {
       showToast("파일을 선택하세요.");
       return;
     }
-    const check = validateFiles(files, "studentsFile");
+    const check = validateFiles([file], "studentsFile");
     if (!check.ok) {
       showToast(`지원하지 않는 형식: ${formatRejectedNames(check.rejected)}`);
       return;
     }
-    showToast(`${files.length}개 파일 업로드 중…`);
-    let imported = 0;
-    const errors = [];
-    for (const file of files) {
-      const form = new FormData();
-      form.append("file", file);
-      try {
-        const data = await api("/api/students/import", { method: "POST", body: form });
-        imported += data.imported || 0;
-      } catch (error) {
-        errors.push(`${file.name}: ${error.message}`);
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const preview = await api("/api/students/import/preview", { method: "POST", body: form });
+      if ((preview.errors || []).length && !preview.valid_count) {
+        showUploadLog("studentsUploadLog", preview.errors);
+        showToast("가져올 수 있는 행이 없습니다.");
+        return;
       }
+      openImportStudentsModal(preview, file);
+    } catch (error) {
+      showToast(error.message);
     }
-    if (errors.length) {
-      showUploadLog("studentsUploadLog", errors);
-      showToast(`등록 ${imported}명 · 실패 ${errors.length}건`);
-    } else {
-      showUploadLog("studentsUploadLog", []);
-      showToast(`${imported}명 등록됨`);
-    }
-    await loadStudents();
-    event.target.reset();
-    const nameEl = document.getElementById("studentsFileName");
-    if (nameEl) {
-      nameEl.textContent = "선택된 파일 없음";
-      nameEl.classList.remove("has-file");
-    }
+  });
+
+  document.getElementById("importStudentsConfirmBtn")?.addEventListener("click", confirmImportStudents);
+  document.getElementById("importStudentsCancelBtn")?.addEventListener("click", closeImportStudentsModal);
+  document.getElementById("importStudentsCloseBtn")?.addEventListener("click", closeImportStudentsModal);
+  document.getElementById("importStudentsModal")?.addEventListener("click", (event) => {
+    if (event.target.id === "importStudentsModal") closeImportStudentsModal();
   });
 
   document.getElementById("importSamplesForm")?.addEventListener("submit", async (event) => {
@@ -2907,6 +3053,7 @@
     if (event.key === "Escape") {
       if (!document.getElementById("guideModal")?.hidden) closeGuideModal();
       if (!document.getElementById("privacyModal")?.hidden) closePrivacyModal();
+      if (!document.getElementById("importStudentsModal")?.hidden) closeImportStudentsModal();
     }
   });
 

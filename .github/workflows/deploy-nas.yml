@@ -62,16 +62,34 @@ jobs:
           host="${{ secrets.NAS_SSH_HOST }}"
           port="${{ secrets.NAS_SSH_PORT }}"
           port="${port:-22}"
+          host="${host//[[:space:]]/}"
+
+          echo "==> Tailscale peers (first 20 lines)"
+          tailscale status 2>/dev/null | head -20 || true
+
+          if [[ ! "$host" =~ ^100\. ]]; then
+            echo "::warning::NAS_SSH_HOST should be a Tailscale IP (100.x.x.x), not LAN/public DNS."
+          fi
+
           echo "Checking ${host}:${port} ..."
           for i in $(seq 1 30); do
-            if timeout 2 bash -c "cat < /dev/null > /dev/tcp/${host}/${port}" 2>/dev/null; then
+            if tailscale ping -c 1 -timeout 2s "$host" >/dev/null 2>&1; then
+              echo "Tailscale ping OK (attempt $i)"
+            else
+              echo "Tailscale ping failed (attempt $i)"
+            fi
+            if timeout 3 bash -c "cat < /dev/null > /dev/tcp/${host}/${port}" 2>/dev/null; then
               echo "NAS SSH port open"
               exit 0
             fi
             sleep 2
           done
+
           echo "::error::Cannot reach NAS at ${host}:${port} even via Tailscale."
-          echo "::error::Check NAS_SSH_HOST is Tailscale IP (100.x.x.x), DSM SSH enabled, Tailscale on NAS online."
+          echo "::error::1) NAS_SSH_HOST = 나스 Tailscale IP (100.x.x.x) — https://login.tailscale.com/admin/machines"
+          echo "::error::2) PC에서 Tailscale 켠 뒤: ssh ${{ secrets.NAS_SSH_USER }}@${host}"
+          echo "::error::3) DSM SSH 켜기 + 방화벽에서 Tailscale(100.64.0.0/10) 허용"
+          echo "::error::4) Tailscale ACL이 있으면 CI(ephemeral) 노드 → 나스:22 허용"
           exit 1
 
       - name: Deploy via SSH

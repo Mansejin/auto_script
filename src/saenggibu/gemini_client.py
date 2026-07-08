@@ -11,7 +11,7 @@ from google import genai
 from google.genai import types
 
 from .api_errors import friendly_api_error
-from .config import get_gemini_api_key, get_gemini_model_fast, get_gemini_model_profile, get_gemini_model_pro
+from .config import get_gemini_api_key, get_gemini_model_fast, get_gemini_model_pro
 from .pii_mask import mask_for_ai
 
 logger = logging.getLogger(__name__)
@@ -176,14 +176,9 @@ def _client() -> genai.Client:
 
 
 def _resolve_model(tier: ModelTier) -> str:
-    profile = get_gemini_model_profile()
-    if profile == "flash":
-        return get_gemini_model_fast()
-    if profile == "pro":
+    if tier == "pro":
         return get_gemini_model_pro()
-    if tier == "fast":
-        return get_gemini_model_fast()
-    return get_gemini_model_pro()
+    return get_gemini_model_fast()
 
 
 def generate_text(
@@ -192,7 +187,7 @@ def generate_text(
     user: str,
     temperature: float = 0.4,
     student_names: list[str] | None = None,
-    tier: ModelTier = "pro",
+    tier: ModelTier = "fast",
 ) -> str:
     client = _client()
     model = _resolve_model(tier)
@@ -254,4 +249,4 @@ def refine_style_guide(patterns: dict[str, Any], draft_guide: str) -> str:
         f"## 초안 가이드\n{draft_guide}\n\n"
         "위 내용을 하나의 실행 가능한 스타일 가이드로 다듬어 주세요."
     )
-    return generate_text(system=system, user=user, temperature=0.2)
+    return generate_text(system=system, user=user, temperature=0.2, tier="pro")

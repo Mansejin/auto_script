@@ -10,11 +10,9 @@ from src.saenggibu.models import StudentInput
 @patch("src.saenggibu.generator.check_generation_allowed")
 @patch("src.saenggibu.generator.save_student", side_effect=lambda student: student)
 @patch("src.saenggibu.generator.record_generation")
-@patch("src.saenggibu.generator.proofread_text", return_value="교정된 본문")
 @patch("src.saenggibu.generator.generate_text", return_value="초안 본문")
-def test_generate_runs_proofread_for_new_haengbal(
-    _generate,
-    mock_proofread,
+def test_generate_writes_without_auto_proofread(
+    mock_generate,
     mock_record,
     _save,
     _check,
@@ -30,6 +28,6 @@ def test_generate_runs_proofread_for_new_haengbal(
         status="pending",
     )
     updated = generate_for_student(student, sections=["행발"])
-    assert updated.generated["행발"] == "교정된 본문"
-    mock_proofread.assert_called_once_with("초안 본문")
-    assert mock_record.call_count == 2
+    assert updated.generated["행발"] == "초안 본문"
+    mock_generate.assert_called_once()
+    assert mock_record.call_count == 1

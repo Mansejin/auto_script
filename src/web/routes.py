@@ -10,19 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Re
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
-from src.saenggibu.config import (
-    env_gemini_model_profile,
-    env_skip_gemini_proofread,
-    gemini_models_for_api,
-)
-from src.saenggibu.dev_runtime import (
-    dev_mode_enabled,
-    get_profile_override,
-    get_skip_proofread_override,
-    reset_overrides,
-    set_profile_override,
-    set_skip_proofread_override,
-)
+from src.saenggibu.config import gemini_models_for_api
 from src.saenggibu.data_crypto import encrypt_data_enabled
 from src.saenggibu.field_edit import edit_student_field
 from src.saenggibu.storage_policy import draft_map_from_items, store_generated_on_server
@@ -169,12 +157,7 @@ class FieldEditRequest(BaseModel):
     field_key: str
     action: str
     text: str = ""
-
-
-class DevGeminiSettingsUpdate(BaseModel):
-    profile: str | None = None
-    skip_proofread: bool | None = None
-    reset: bool = False
+    model_tier: str = "fast"
 
 
 def _extract_token(request: Request) -> str:
@@ -267,43 +250,6 @@ def auth_me(session: AdminSession = Depends(require_admin)) -> dict[str, Any]:
 @router.get("/usage")
 def api_usage(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
     return usage_summary()
-
-
-def _dev_gemini_settings_payload() -> dict[str, Any]:
-    return {
-        **gemini_models_for_api(),
-        "env_profile": env_gemini_model_profile(),
-        "env_skip_proofread": env_skip_gemini_proofread(),
-        "profile_overridden": get_profile_override() is not None,
-        "skip_proofread_overridden": get_skip_proofread_override() is not None,
-    }
-
-
-@router.get("/dev/gemini-settings")
-def api_dev_gemini_settings_get(_: AdminSession = Depends(require_admin)) -> dict[str, Any]:
-    if not dev_mode_enabled():
-        raise HTTPException(status_code=404, detail="로컬 개발 모드에서만 사용할 수 있습니다.")
-    return _dev_gemini_settings_payload()
-
-
-@router.put("/dev/gemini-settings")
-def api_dev_gemini_settings_put(
-    payload: DevGeminiSettingsUpdate,
-    _: AdminSession = Depends(require_admin),
-) -> dict[str, Any]:
-    if not dev_mode_enabled():
-        raise HTTPException(status_code=404, detail="로컬 개발 모드에서만 사용할 수 있습니다.")
-    if payload.reset:
-        reset_overrides()
-    else:
-        if payload.profile is not None:
-            profile = payload.profile.strip().lower()
-            if profile not in ("split", "flash", "pro"):
-                raise HTTPException(status_code=400, detail="profile은 split, flash, pro 중 하나여야 합니다.")
-            set_profile_override(profile)
-        if payload.skip_proofread is not None:
-            set_skip_proofread_override(bool(payload.skip_proofread))
-    return _dev_gemini_settings_payload()
 
 
 @router.get("/curriculum/standards")
@@ -663,12 +609,16 @@ def api_student_field_edit(
     action = payload.action.strip()
     if action not in ("regenerate", "proofread"):
         raise HTTPException(status_code=400, detail="지원하지 않는 action입니다.")
+    model_tier = payload.model_tier.strip().lower() or "fast"
+    if model_tier not in ("pro", "fast"):
+        raise HTTPException(status_code=400, detail="model_tier는 pro 또는 fast여야 합니다.")
     try:
         text = edit_student_field(
             student,
             field_key=payload.field_key,
             action=action,  # type: ignore[arg-type]
             text=payload.text,
+            model_tier=model_tier,  # type: ignore[arg-type]
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

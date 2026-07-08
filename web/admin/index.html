@@ -62,26 +62,6 @@
         <button id="logoutBtn" class="admin-logout" type="button">로그아웃</button>
       </div>
 
-      <div id="devGeminiPanel" class="admin-card" hidden style="margin-bottom:12px;padding:12px">
-        <strong>로컬 테스트 · Gemini</strong>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:8px">
-          <label>
-            프로필
-            <select id="devGeminiProfile">
-              <option value="split">split (작성 Pro · 맞춤법 2.5)</option>
-              <option value="flash">flash (전부 2.5)</option>
-              <option value="pro">pro (전부 Pro)</option>
-            </select>
-          </label>
-          <label style="display:flex;gap:6px;align-items:center">
-            <input id="devSkipProofread" type="checkbox">
-            작성 후 자동 맞춤법 끄기
-          </label>
-          <button id="devGeminiReset" class="admin-btn secondary admin-btn-sm" type="button">.env 기본값</button>
-        </div>
-        <p class="admin-muted" id="devGeminiStatus" style="margin-top:6px;font-size:0.85rem"></p>
-      </div>
-
       <div class="admin-tabs">
         <button class="admin-tab active" data-tab="learn" type="button">① 스타일 학습</button>
         <button class="admin-tab" data-tab="style" type="button">② 스타일 설정</button>
@@ -455,7 +435,7 @@
         <li>세특 메모는 <strong>과목명 필수</strong>, 진로·수행평가·주제·활동 내용은 비워 두면 없음 처리됩니다.</li>
         <li>③ <strong>등록된 학생</strong>에서 선택 삭제·전체 초기화로 학생 데이터를 지울 수 있습니다.</li>
         <li>④ <strong>검토 목록</strong>에서 작성본만 삭제(초기화)하거나 <strong>엑셀 추출</strong>할 수 있습니다.</li>
-        <li>④ 상세 편집에서 항목별 <strong>다시 쓰기</strong>·<strong>맞춤법</strong>을 사용할 수 있습니다.</li>
+        <li>④ 상세 편집에서 항목별 <strong>다시 쓰기</strong>(모델 선택)와 <strong>맞춤법</strong>을 사용할 수 있습니다.</li>
         <li>④ <strong>검사</strong> 후 지적 사항을 클릭하면 해당 항목으로 이동합니다. 본문은 직접 수정하세요.</li>
         <li>기본 설정에서는 <strong>작성본이 서버에 저장되지 않고</strong> 이 브라우저에만 보관됩니다. 탭을 닫기 전에 엑셀로 백업하세요.</li>
         <li>학생 메모는 서버에 <strong>암호화</strong>되어 저장됩니다. 자세한 내용은 상단 <strong>개인정보</strong>를 참고하세요.</li>

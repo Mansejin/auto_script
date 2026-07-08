@@ -10,7 +10,6 @@ from .rules import (
     EXAGGERATION_THRESHOLD,
     FORBIDDEN_PATTERNS,
     WARNING_PATTERNS,
-    char_len,
     find_pattern_matches,
     get_volume_limits,
     iter_generated_fields,
@@ -187,48 +186,16 @@ def _inspect_field(
         return
 
     limits = get_volume_limits(section_key)
-    unit = limits["unit"]
     length = measure_volume(text, section_key)
 
-    if unit == "byte":
-        if length > limits["hard_max"]:
-            report.issues.append(
-                InspectIssue(
-                    section=section_key,
-                    code="char_count_over",
-                    severity="error",
-                    message=f"NEIS 용량 초과 ({length}byte / 최대 {limits['hard_max']}byte)",
-                    detail=f"현재 {length}byte",
-                )
-            )
-        elif length > limits["max"]:
-            report.issues.append(
-                InspectIssue(
-                    section=section_key,
-                    code="char_count_high",
-                    severity="warning",
-                    message=f"NEIS 용량이 권장 상한에 가깝습니다 ({length}byte / 권장 {limits['max']}byte)",
-                    detail=f"현재 {length}byte",
-                )
-            )
-        elif length < limits["min"]:
-            report.issues.append(
-                InspectIssue(
-                    section=section_key,
-                    code="char_count_low",
-                    severity="info",
-                    message=f"NEIS 용량이 권장 하한보다 짧습니다 ({length}byte / 권장 {limits['min']}byte 이상)",
-                    detail=f"현재 {length}byte",
-                )
-            )
-    elif length > limits["hard_max"]:
+    if length > limits["hard_max"]:
         report.issues.append(
             InspectIssue(
                 section=section_key,
                 code="char_count_over",
                 severity="error",
-                message=f"글자 수 초과 ({length}자 / 권장 최대 {limits['hard_max']}자)",
-                detail=f"현재 {length}자",
+                message=f"NEIS 용량 초과 ({length}byte / 최대 {limits['hard_max']}byte)",
+                detail=f"현재 {length}byte",
             )
         )
     elif length > limits["max"]:
@@ -237,8 +204,8 @@ def _inspect_field(
                 section=section_key,
                 code="char_count_high",
                 severity="warning",
-                message=f"글자 수가 권장 상한을 넘었습니다 ({length}자 / 권장 {limits['max']}자)",
-                detail=f"현재 {length}자",
+                message=f"NEIS 용량이 권장 상한에 가깝습니다 ({length}byte / 권장 {limits['max']}byte)",
+                detail=f"현재 {length}byte",
             )
         )
     elif length < limits["min"]:
@@ -247,8 +214,8 @@ def _inspect_field(
                 section=section_key,
                 code="char_count_low",
                 severity="info",
-                message=f"글자 수가 권장 하한보다 짧습니다 ({length}자 / 권장 {limits['min']}자 이상)",
-                detail=f"현재 {length}자",
+                message=f"NEIS 용량이 권장 하한보다 짧습니다 ({length}byte / 권장 {limits['min']}byte 이상)",
+                detail=f"현재 {length}byte",
             )
         )
 

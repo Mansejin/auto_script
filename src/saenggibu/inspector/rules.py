@@ -4,19 +4,14 @@ import re
 from typing import Any
 
 from ..config import CHANGCHE_SUBSECTIONS
+from ..neis_counter import neis_counter_byte_len
 from ..pattern_analyzer import load_patterns
 
-# NEIS·기재요령 기본 분량 (샘플 분석 없을 때)
-NEIS_ENCODING = "cp949"
-
-DEFAULT_CHAR_LIMITS: dict[str, dict[str, int]] = {
-    "행발": {"min": 400, "max": 700, "hard_max": 750},
-    "창체": {"min": 100, "max": 300, "hard_max": 350},
-}
-
-# 세특은 NEIS 입력란 기준 바이트(CP949) 한도
+# NEIS 입력란 바이트 한도 (neis-counter · 2026 고교학점제 기준)
 DEFAULT_BYTE_LIMITS: dict[str, dict[str, int]] = {
+    "행발": {"min": 250, "max": 850, "hard_max": 900},
     "세특": {"min": 400, "max": 1400, "hard_max": 1500},
+    "창체": {"min": 100, "max": 1400, "hard_max": 1500},
 }
 
 # 금지·주의 표현 (prompts/saenggibu.md 기반)
@@ -38,42 +33,29 @@ WARNING_PATTERNS: list[tuple[str, str, str]] = [
 EXAGGERATION_THRESHOLD = 3
 
 
-def char_len(text: str) -> int:
-    return len(text.strip())
-
-
-def neis_byte_len(text: str) -> int:
-    return len(text.strip().encode(NEIS_ENCODING, errors="replace"))
-
-
-def uses_byte_limit(section_key: str) -> bool:
-    return section_kind(section_key) == "세특"
-
-
 def measure_volume(text: str, section_key: str) -> int:
-    if uses_byte_limit(section_key):
-        return neis_byte_len(text)
-    return char_len(text)
+    """NEIS 바이트 (hjh010501/neis-counter 규칙). section_key는 한도 조회용."""
+    _ = section_key
+    return neis_counter_byte_len(text)
 
 
 def get_volume_limits(section_key: str) -> dict[str, Any]:
     kind = section_kind(section_key)
-    if kind == "세특":
-        return {"unit": "byte", **DEFAULT_BYTE_LIMITS["세특"]}
+    defaults = DEFAULT_BYTE_LIMITS.get(kind, DEFAULT_BYTE_LIMITS["창체"])
 
     patterns = load_patterns() or {}
     sections = patterns.get("sections") or {}
     info = sections.get(kind)
-    if isinstance(info, dict) and "char_count" in info:
-        cc = info["char_count"]
+    if isinstance(info, dict) and "byte_count" in info:
+        bc = info["byte_count"]
         return {
-            "unit": "char",
-            "min": int(cc.get("min", DEFAULT_CHAR_LIMITS[kind]["min"])),
-            "max": int(cc.get("max", DEFAULT_CHAR_LIMITS[kind]["max"])),
-            "hard_max": int(cc.get("max", DEFAULT_CHAR_LIMITS.get(kind, DEFAULT_CHAR_LIMITS["창체"])["hard_max"])),
+            "unit": "byte",
+            "min": int(bc.get("min", defaults["min"])),
+            "max": int(bc.get("max", defaults["max"])),
+            "hard_max": int(bc.get("hard_max", defaults["hard_max"])),
         }
 
-    return {"unit": "char", **DEFAULT_CHAR_LIMITS.get(kind, DEFAULT_CHAR_LIMITS["창체"])}
+    return {"unit": "byte", **defaults}
 
 
 def section_kind(section_key: str) -> str:

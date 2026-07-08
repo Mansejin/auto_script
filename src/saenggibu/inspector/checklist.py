@@ -10,7 +10,7 @@ INSPECT_CATEGORIES: list[dict[str, Any]] = [
     {
         "id": "char_count",
         "label": "NEIS 용량(바이트)",
-        "description": "세특 입력란 CP949 기준 최대 1500byte",
+        "description": "행발 900byte, 세특·창체 1500byte (neis-counter 규칙)",
         "codes": {"char_count_over", "char_count_high", "char_count_low"},
     },
     {

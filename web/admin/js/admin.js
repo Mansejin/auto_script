@@ -117,26 +117,110 @@
     pending: "미검사",
   };
 
-  const SETUK_BYTE_HARD_MAX = 1500;
-  const SETUK_BYTE_WARN_MAX = 1400;
+  const NEIS_BYTE_LIMITS = {
+    행발: { hardMax: 900, warnMax: 850 },
+    세특: { hardMax: 1500, warnMax: 1400 },
+    창체: { hardMax: 1500, warnMax: 1400 },
+  };
 
-  function neisByteLen(text) {
-    const trimmed = String(text || "").trim();
-    let bytes = 0;
-    for (let i = 0; i < trimmed.length; i++) {
-      bytes += trimmed.charCodeAt(i) <= 0x7f ? 1 : 2;
+  const NEIS_MATH_SYMBOLS = /[\+\-\*\/=<>∞∑∏∫√∂∆πθΩαβγδεζηλμνξοπρστυφχψω·]/g;
+  const NEIS_OTHER_SYMBOLS = /[‘’“”]/g;
+  const NEIS_GENERAL_SPECIAL = /[\{\}\[\]\/?.,;:|\)*~`!^\-_+<>@\#$%&\\\=\(\'\"]/g;
+  const NEIS_HANGUL = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/g;
+
+  function neisCounterByteLen(text) {
+    let content = String(text ?? "");
+    if (content === "\n" && content.startsWith("\n")) {
+      content = content.slice(1);
     }
-    return bytes;
+    if (content !== "\n" && content.endsWith("\n")) {
+      content = content.slice(0, -1);
+    }
+
+    const english = content
+      .replace(NEIS_HANGUL, "")
+      .replace(/[0-9]/g, "")
+      .replace(NEIS_MATH_SYMBOLS, "")
+      .replace(NEIS_GENERAL_SPECIAL, "")
+      .replace(/\s/g, "")
+      .replace(NEIS_OTHER_SYMBOLS, "");
+
+    const korean = content
+      .replace(/[a-zA-Z]/g, "")
+      .replace(/[0-9]/g, "")
+      .replace(NEIS_MATH_SYMBOLS, "")
+      .replace(NEIS_GENERAL_SPECIAL, "")
+      .replace(/\s/g, "")
+      .replace(NEIS_OTHER_SYMBOLS, "");
+
+    const number = content
+      .replace(/[a-zA-Z]/g, "")
+      .replace(NEIS_HANGUL, "")
+      .replace(NEIS_MATH_SYMBOLS, "")
+      .replace(NEIS_GENERAL_SPECIAL, "")
+      .replace(/\s/g, "")
+      .replace(NEIS_OTHER_SYMBOLS, "");
+
+    const onebyteSpecial = content
+      .replace(/[a-zA-Z]/g, "")
+      .replace(NEIS_HANGUL, "")
+      .replace(/[0-9]/g, "")
+      .replace(/[\n\t\r\s]/g, "");
+
+    const threebyteSpecial = content
+      .replace(/[a-zA-Z]/g, "")
+      .replace(NEIS_HANGUL, "")
+      .replace(/[0-9]/g, "")
+      .replace(NEIS_MATH_SYMBOLS, "")
+      .replace(NEIS_GENERAL_SPECIAL, "")
+      .replace(/[\n\t\r\s]/g, "")
+      .replace(NEIS_OTHER_SYMBOLS, "");
+
+    const space = content
+      .replace(/[a-zA-Z]/g, "")
+      .replace(NEIS_HANGUL, "")
+      .replace(/[0-9]/g, "")
+      .replace(NEIS_MATH_SYMBOLS, "")
+      .replace(NEIS_GENERAL_SPECIAL, "")
+      .replace(NEIS_OTHER_SYMBOLS, "")
+      .replace(/[^\s]/g, "")
+      .replace(/[\n\r]/g, "");
+
+    const line = content
+      .replace(/[a-zA-Z]/g, "")
+      .replace(NEIS_HANGUL, "")
+      .replace(NEIS_GENERAL_SPECIAL, "")
+      .replace(/[0-9]/g, "")
+      .replace(NEIS_MATH_SYMBOLS, "")
+      .replace(/[^\n]/g, "")
+      .replace(NEIS_OTHER_SYMBOLS, "");
+
+    return (
+      english.length +
+      korean.length * 3 +
+      number.length +
+      onebyteSpecial.length +
+      threebyteSpecial.length * 3 +
+      space.length +
+      line.length * 2
+    );
+  }
+
+  function fieldByteLimits(sectionKey) {
+    if (sectionKey === "행발") return NEIS_BYTE_LIMITS.행발;
+    if (sectionKey.startsWith("세특:")) return NEIS_BYTE_LIMITS.세특;
+    if (sectionKey.startsWith("창체:")) return NEIS_BYTE_LIMITS.창체;
+    return NEIS_BYTE_LIMITS.창체;
   }
 
   function measureFieldVolume(text, sectionKey) {
-    if (sectionKey.startsWith("세특:")) return neisByteLen(text);
-    return String(text || "").trim().length;
+    void sectionKey;
+    return neisCounterByteLen(text);
   }
 
   function formatFieldVolume(value, sectionKey) {
-    if (sectionKey.startsWith("세특:")) return `${value}byte`;
-    return `${value}자`;
+    void sectionKey;
+    return `${value}byte`;
   }
 
   function inspectBadgeHtml(studentId, report = null) {
@@ -330,9 +414,10 @@
         counter.classList.add("is-error");
       } else if (sectionIssues.some((issue) => issue.severity === "warning")) {
         counter.classList.add("is-warn");
-      } else if (section.startsWith("세특:")) {
-        if (volume > SETUK_BYTE_HARD_MAX) counter.classList.add("is-error");
-        else if (volume > SETUK_BYTE_WARN_MAX) counter.classList.add("is-warn");
+      } else {
+        const limits = fieldByteLimits(section);
+        if (volume > limits.hardMax) counter.classList.add("is-error");
+        else if (volume > limits.warnMax) counter.classList.add("is-warn");
       }
     });
   }

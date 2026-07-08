@@ -16,5 +16,5 @@ def test_inspect_long_setuk_subject_name_no_duplicate_sections() -> None:
     )
     report = inspect_student(student)
     over_sections = [issue.section for issue in report.issues if issue.code == "char_count_over"]
-    assert over_sections == []
-    assert report.char_count["세특:현대사회와윤리"] == 1090
+    assert over_sections == ["세특:현대사회와윤리"]
+    assert report.char_count["세특:현대사회와윤리"] == 1635

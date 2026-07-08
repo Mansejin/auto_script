@@ -24,11 +24,11 @@ def test_inspect_text_char_count_warning() -> None:
     assert any(issue.code in {"char_count_over", "char_count_high"} for issue in report.issues)
 
 
-def test_inspect_setuk_uses_byte_limit_not_char_limit() -> None:
+def test_inspect_setuk_uses_neis_counter_byte_limit() -> None:
     text = "가" * 545
     report = inspect_text(text, section_key="세특:수학")
-    assert not any(issue.code == "char_count_over" for issue in report.issues)
-    assert report.char_count["세특:수학"] == 1090
+    assert any(issue.code == "char_count_over" for issue in report.issues)
+    assert report.char_count["세특:수학"] == 1635
 
 
 def test_inspect_text_char_count_low_info() -> None:
@@ -56,7 +56,7 @@ def test_inspect_student_ok_clean_text() -> None:
         "학생은 수업 시간에 교사의 설명을 주의 깊게 듣고 질문을 통해 내용을 정리하려는 태도를 보인다. "
         "모둠 활동에서 역할을 성실히 수행하며 자료를 정리해 발표를 준비했다. "
         "어려운 개념을 스스로 복습하는 습관을 갖추어 과목 이해를 넓혀 가고 있다. "
-    ) * 3
+    ) * 2
     student = StudentInput(
         id="s2",
         name="이서연",

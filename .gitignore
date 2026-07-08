@@ -1,4 +1,5 @@
 .env
+.env.local
 config/nas-pc.local.env
 credentials/*.json
 credentials/oauth-pending.json

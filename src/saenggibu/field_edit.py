@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+from .config import skip_gemini_proofread
 from .gemini_client import generate_text
 from .generator import (
     _generate_changche,
@@ -154,7 +155,8 @@ def edit_student_field(
 
     if action == "regenerate":
         result = regenerate_field(student, key)
-        result = proofread_text(result)
+        if not skip_gemini_proofread():
+            result = proofread_text(result)
     elif action == "proofread":
         if not text.strip():
             raise ValueError("본문이 비어 있습니다.")

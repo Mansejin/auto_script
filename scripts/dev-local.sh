@@ -10,6 +10,10 @@ if [ ! -f .env ]; then
   cp config.example.env .env
 fi
 
+if [ ! -f .env.local ] && [ -f config.local.example.env ]; then
+  echo "Tip: cp config.local.example.env .env.local  (모델 프로필·비용 실험, docs/model-cost-local.md)"
+fi
+
 python3 << 'PY'
 import os, secrets
 from pathlib import Path
@@ -70,6 +74,7 @@ echo "  Admin UI: http://127.0.0.1:${SGB_PORT}/admin/saenggibu"
 echo "  Health:   http://127.0.0.1:${SGB_PORT}/health"
 echo ""
 echo "  Login password (local): dev-local"
+echo "  Model experiments: .env.local + python3 scripts/model_compare.py plan"
 echo "· Python API 수정 → 자동 재시작 (SGB_RELOAD=1)"
 echo "· NAS 배포는 기능 확인 후 하루 1~2회만"
 echo ""

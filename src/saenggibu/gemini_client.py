@@ -10,7 +10,7 @@ from google import genai
 from google.genai import types
 
 from .api_errors import friendly_api_error
-from .config import get_gemini_api_key, get_gemini_model_fast, get_gemini_model_pro
+from .config import get_gemini_api_key, get_gemini_model_fast, get_gemini_model_profile, get_gemini_model_pro
 from .pii_mask import mask_for_ai
 
 logger = logging.getLogger(__name__)
@@ -102,6 +102,11 @@ def _client() -> genai.Client:
 
 
 def _resolve_model(tier: ModelTier) -> str:
+    profile = get_gemini_model_profile()
+    if profile == "flash":
+        return get_gemini_model_fast()
+    if profile == "pro":
+        return get_gemini_model_pro()
     if tier == "fast":
         return get_gemini_model_fast()
     return get_gemini_model_pro()

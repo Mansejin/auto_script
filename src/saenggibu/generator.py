@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from .config import OUTPUTS_DIR, ensure_data_dirs
+from .config import skip_gemini_proofread
 from .curriculum import find_relevant_standards, format_curriculum_context
 from .api_errors import friendly_api_error
 from .gemini_client import generate_text
@@ -189,7 +189,10 @@ def generate_for_student(
                 newly_written.append(("창체", "창체", section))
 
         if newly_written:
-            _proofread_new_fields(generated, newly_written, notify)
+            if skip_gemini_proofread():
+                pass
+            else:
+                _proofread_new_fields(generated, newly_written, notify)
 
         student.generated = generated
         student.status = "done" if student_sections_complete(student) else "partial"

@@ -45,6 +45,18 @@
     return files.map((f) => f.name).join(", ");
   }
 
+  function isLocalAdminHost() {
+    const host = window.location.hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+  }
+
+  function initDevOnlyUi() {
+    const show = isLocalAdminHost();
+    document.querySelectorAll(".admin-dev-only").forEach((el) => {
+      el.hidden = !show;
+    });
+  }
+
   function assetUrl(path) {
     const clean = path.replace(/^\//, "");
     return ASSETS_BASE ? `${ASSETS_BASE}/${clean}` : clean;
@@ -2787,7 +2799,10 @@
         ? `일부 실패: ${data.partialErrors}`
         : data.message || `완료 ${data.processed || 0}명${errCount ? `, 오류 ${errCount}건` : ""}`;
       showToast(msg);
-      document.getElementById("runLog").textContent = JSON.stringify(data, null, 2);
+      const runLog = document.getElementById("runLog");
+      if (runLog && !runLog.hidden) {
+        runLog.textContent = JSON.stringify(data, null, 2);
+      }
       await Promise.all([loadStudents(), loadReviewList(), loadUsage()]);
     } catch (error) {
       showToast(error.message);
@@ -2856,6 +2871,7 @@
   });
 
   async function bootstrap() {
+    initDevOnlyUi();
     setupFilePickers();
     initStudentFormControls();
     restoreWriteSectionChoice();

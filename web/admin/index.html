@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708m">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708n">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -127,12 +127,27 @@
       <div id="panelStudents" class="admin-panel" hidden>
         <div class="admin-card">
           <h2>작성할 항목</h2>
-          <div class="admin-target-grid" id="studentWriteTargets">
-            <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="행발" checked><span class="admin-check-box"></span><span>행발</span></label>
-            <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="세특"><span class="admin-check-box"></span><span>세특</span></label>
-            <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="자율"><span class="admin-check-box"></span><span>자율</span></label>
-            <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="동아리"><span class="admin-check-box"></span><span>동아리</span></label>
-            <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="진로"><span class="admin-check-box"></span><span>진로</span></label>
+          <div class="admin-write-segments" id="studentWriteTargets" role="group" aria-label="작성할 항목">
+            <label class="admin-write-seg">
+              <input type="checkbox" class="write-target" value="행발" checked>
+              <span class="admin-write-seg-label">행발</span>
+            </label>
+            <label class="admin-write-seg">
+              <input type="checkbox" class="write-target" value="세특">
+              <span class="admin-write-seg-label">세특</span>
+            </label>
+            <label class="admin-write-seg">
+              <input type="checkbox" class="write-target" value="자율">
+              <span class="admin-write-seg-label">자율</span>
+            </label>
+            <label class="admin-write-seg">
+              <input type="checkbox" class="write-target" value="동아리">
+              <span class="admin-write-seg-label">동아리</span>
+            </label>
+            <label class="admin-write-seg">
+              <input type="checkbox" class="write-target" value="진로">
+              <span class="admin-write-seg-label">진로</span>
+            </label>
           </div>
         </div>
         <div class="admin-card" style="margin-top:16px">
@@ -480,7 +495,7 @@
       <h2 id="memoEditTitle" class="admin-modal-title">입력 메모 수정</h2>
       <p class="admin-muted" id="memoEditSubtitle"></p>
       <h3 class="admin-subheading">작성 항목</h3>
-      <div class="admin-target-grid" id="memoEditTargets"></div>
+      <div class="admin-write-segments" id="memoEditTargets" role="group" aria-label="작성 항목"></div>
       <div id="memoEditFields" class="admin-memo-panels" style="margin-top:16px"></div>
       <div class="admin-actions" style="margin-top:16px">
         <button id="memoEditCancelBtn" class="admin-btn secondary" type="button">취소</button>
@@ -504,6 +519,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260708m"></script>
+  <script src="/admin-static/js/admin.js?v=20260708n"></script>
 </body>
 </html>

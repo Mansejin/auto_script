@@ -1131,6 +1131,20 @@
   let samplesPage = 1;
   let samplesPageSize = 10;
 
+  function buildTargetSegmentMarkup(options, inputClass, selectedSet) {
+    return options
+      .map(
+        (target) => `
+        <label class="admin-write-seg">
+          <input type="checkbox" class="${inputClass}" value="${target}" ${
+            selectedSet.has(target) ? "checked" : ""
+          }>
+          <span class="admin-write-seg-label">${target}</span>
+        </label>`
+      )
+      .join("");
+  }
+
   function getSelectedWriteTargets() {
     return [...document.querySelectorAll(".write-target:checked")].map((el) => el.value);
   }
@@ -1422,15 +1436,7 @@
         : formatWriteTargets(student).split(", ").filter((item) => item !== "-")
     );
 
-    targetsEl.innerHTML = MEMO_TARGET_OPTIONS.map(
-      (target) => `
-        <label class="admin-check admin-target-chip">
-          <input type="checkbox" class="admin-check-input memo-edit-target" value="${target}" ${
-            selected.has(target) ? "checked" : ""
-          }>
-          <span class="admin-check-box"></span><span>${target}</span>
-        </label>`
-    ).join("");
+    targetsEl.innerHTML = buildTargetSegmentMarkup(MEMO_TARGET_OPTIONS, "memo-edit-target", selected);
 
     const subjects = student.subjects || {};
     const subjectBlocks = Object.keys(subjects).length
@@ -1463,7 +1469,15 @@
 
     updateMemoEditPanels();
     targetsEl.querySelectorAll(".memo-edit-target").forEach((box) => {
-      box.addEventListener("change", updateMemoEditPanels);
+      box.addEventListener("change", (event) => {
+        const selectedTargets = getMemoEditTargets();
+        if (!selectedTargets.length) {
+          event.target.checked = true;
+          showToast("최소 한 항목은 선택해야 합니다.");
+          return;
+        }
+        updateMemoEditPanels();
+      });
     });
     document.getElementById("memoAddSubjectBtn")?.addEventListener("click", () => {
       document.getElementById("memoEditSubjects")?.insertAdjacentHTML("beforeend", buildMemoEditSubjectBlock("", {}));

@@ -338,7 +338,8 @@
   user-select: none;
 }
 
-.admin-write-seg input[type="radio"] {
+.admin-write-seg input[type="radio"],
+.admin-write-seg input[type="checkbox"] {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1630,25 +1631,6 @@ body.admin-is-busy .admin-tab {
 .admin-header-btn:hover {
   color: var(--text);
   border-color: var(--blue);
-}
-
-.admin-target-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.admin-target-chip {
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  font-size: 0.875rem;
-}
-
-.admin-target-chip:has(.write-target:checked) {
-  border-color: var(--blue);
-  background: color-mix(in srgb, var(--blue) 12%, var(--card));
 }
 
 .admin-memo-panels {

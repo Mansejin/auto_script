@@ -55,9 +55,9 @@ function Get-NasConfig {
   foreach ($key in $required) {
     if (-not $cfg[$key]) { throw "Set $key in config/nas-pc.local.env" }
   }
-  if (-not $cfg["NAS_SSH_HOST"]) { $cfg["NAS_SSH_HOST"] = "ohola.synology.me" }
+  if (-not $cfg["NAS_SSH_HOST"]) { throw "Set NAS_SSH_HOST in config/nas-pc.local.env (Tailscale IP)" }
   if (-not $cfg["NAS_SSH_ALIAS"]) { $cfg["NAS_SSH_ALIAS"] = "saenggibu-nas" }
-  if (-not $cfg["NAS_SSH_HOST_LOCAL"]) { $cfg["NAS_SSH_HOST_LOCAL"] = "169.254.158.191" }
+  if (-not $cfg["NAS_SSH_HOST_LOCAL"]) { throw "Set NAS_SSH_HOST_LOCAL in config/nas-pc.local.env (LAN IP)" }
   if (-not $cfg["NAS_SSH_ALIAS_LOCAL"]) { $cfg["NAS_SSH_ALIAS_LOCAL"] = "saenggibu-nas-local" }
   if (-not $cfg["NAS_SSH_PORT"]) { $cfg["NAS_SSH_PORT"] = "22" }
   if (-not $cfg["NAS_SMB_HOST"]) { $cfg["NAS_SMB_HOST"] = $cfg["NAS_SSH_HOST"] }
@@ -264,7 +264,7 @@ function Invoke-NasSetup {
   }
 
   Write-Host ""
-  Write-Info "Edit NAS_USER, NAS_SSH_HOST (tailscale), NAS_SSH_HOST_LOCAL (169.254.158.191)"
+  Write-Info "Edit NAS_USER, NAS_SSH_HOST (Tailscale), NAS_SSH_HOST_LOCAL (LAN IP)"
   Start-Process notepad.exe $LocalConfig
   Read-Host "Press Enter after saving"
 
@@ -367,7 +367,7 @@ function Sync-NasAdminUi([hashtable]$Cfg) {
 
   Copy-Item -Path (Join-Path $src "*") -Destination $dest -Recurse -Force
   Write-Ok "Synced admin UI -> $dest"
-  Write-Host "  Browser: Ctrl+F5 on sgb.mansejin.com"
+  Write-Host "  Browser: Ctrl+F5 on the live admin site"
   return $true
 }
 
@@ -415,7 +415,7 @@ function Invoke-NasDeploy {
   Write-Info "Deploy: NAS git pull + docker rebuild (SSH)..."
   Write-Info "UI comes from git. sync-ui only for emergency hotfix."
   Invoke-NasUpdate
-  Write-Ok "Deploy complete. Browser: Ctrl+F5 on sgb.mansejin.com"
+  Write-Ok "Deploy complete. Browser: Ctrl+F5 on the live admin site"
 }
 
 function Invoke-NasUpdateApi {
@@ -435,7 +435,7 @@ function Invoke-NasUpdate {
   Write-Info "NAS update [$($profile.Label)] -> $($profile.Host)..."
   Write-Info "Branch: $(Get-DeployBranch $cfg)"
   if (-not $cfg["NAS_SUDO_PASSWORD"]) {
-    Write-Warn "No NAS_SUDO_PASSWORD in config — if docker fails, add ohola password to config/nas-pc.local.env"
+    Write-Warn "No NAS_SUDO_PASSWORD in config — if docker fails, add DSM password to config/nas-pc.local.env"
     Write-Warn "Or run once on NAS as root: sh scripts/nas-setup-docker-sudo.sh"
   }
   Invoke-NasRemote (Build-NasUpdateRemote $cfg $repo)

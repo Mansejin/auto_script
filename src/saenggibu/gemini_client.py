@@ -11,12 +11,12 @@ from google import genai
 from google.genai import types
 
 from .api_errors import friendly_api_error
-from .config import get_gemini_api_key, get_gemini_model_fast, get_gemini_model_pro
+from .config import get_gemini_api_key, get_gemini_model_pro
 from .pii_mask import mask_for_ai
 
 logger = logging.getLogger(__name__)
 
-ModelTier = Literal["pro", "fast"]
+ModelTier = Literal["pro"]
 
 _last_call_at = 0.0
 _usage_log: list["GeminiUsage"] = []
@@ -175,10 +175,8 @@ def _client() -> genai.Client:
     return genai.Client(api_key=get_gemini_api_key())
 
 
-def _resolve_model(tier: ModelTier) -> str:
-    if tier == "pro":
-        return get_gemini_model_pro()
-    return get_gemini_model_fast()
+def _resolve_model() -> str:
+    return get_gemini_model_pro()
 
 
 def generate_text(
@@ -190,7 +188,7 @@ def generate_text(
     tier: ModelTier = "pro",
 ) -> str:
     client = _client()
-    model = _resolve_model(tier)
+    model = _resolve_model()
     safe_user = mask_for_ai(user, student_names=student_names)
     safe_system = mask_for_ai(system, student_names=student_names)
     last_exc: BaseException | None = None

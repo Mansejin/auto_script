@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.saenggibu.config import get_gemini_model_fast, get_gemini_model_pro  # noqa: E402
+from src.saenggibu.config import get_gemini_model_pro  # noqa: E402
 from src.saenggibu.generator import _generate_haengbal, _generate_setuk  # noqa: E402
 from src.saenggibu.model_routing import plan_sample_analysis, plan_write_section  # noqa: E402
 from src.saenggibu.models import StudentInput  # noqa: E402
@@ -33,8 +33,7 @@ def _load_fixture() -> StudentInput:
 
 
 def cmd_plan(_: argparse.Namespace) -> None:
-    print(f"생기부 작성: {get_gemini_model_pro()}")
-    print(f"보조(메모 파싱): {get_gemini_model_fast()}\n")
+    print(f"Gemini 모델: {get_gemini_model_pro()}\n")
     for step in plan_write_section("행발"):
         print(f"  · {step.step}: {step.model}")
     print("\n샘플 분석:")
@@ -63,7 +62,7 @@ def cmd_run(args: argparse.Namespace) -> None:
 
 
 def cmd_info(_: argparse.Namespace) -> None:
-    print(json.dumps({"write": get_gemini_model_pro(), "aux": get_gemini_model_fast()}, ensure_ascii=False, indent=2))
+    print(json.dumps({"model": get_gemini_model_pro()}, ensure_ascii=False, indent=2))
 
 
 def main() -> None:

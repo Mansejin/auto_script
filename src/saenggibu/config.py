@@ -39,11 +39,6 @@ def get_gemini_model_pro() -> str:
     return legacy or "gemini-3.1-pro-preview"
 
 
-def get_gemini_model_fast() -> str:
-    """메모 파싱 등 보조 작업."""
-    return os.getenv("GEMINI_MODEL_FAST", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
-
-
 def get_gemini_model() -> str:
     """생기부 작성 모델 (Pro)."""
     return get_gemini_model_pro()
@@ -53,8 +48,6 @@ def gemini_models_for_api() -> dict[str, str]:
     return {
         "gemini_model": get_gemini_model_pro(),
         "gemini_model_pro": get_gemini_model_pro(),
-        "gemini_model_fast": get_gemini_model_fast(),
-        "gemini_model_default": "pro",
     }
 
 

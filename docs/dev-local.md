@@ -44,10 +44,20 @@ scripts\DEV-의존성설치.bat
 3. 검은 창에 `Application startup complete` 또는 `Uvicorn running` 이 보이고 **에러 traceback 이 없어야** 합니다.
 ### 4) 브라우저 접속 + 로그인
 
-- http://127.0.0.1:8787/admin/saenggibu
+- **개발 UI:** http://127.0.0.1:8787/admin/saenggibu
 - **로컬 기본 비밀번호:** `dev-local` (`.env` 의 `ADMIN_PASSWORD`)
 
-NAS/운영 서버는 `.env` 에 본인 비밀번호를 직접 설정하세요.
+로그인 후 상단에 **「로컬 테스트 · Gemini」** 패널이 보입니다 (`dev-local` 스크립트로 실행 시).
+
+| 옵션 | 설명 |
+|------|------|
+| **프로필 split** | 작성 Pro · 맞춤법·편집 2.5 Flash (기본) |
+| **프로필 flash** | 전부 2.5 Flash |
+| **프로필 pro** | 전부 Pro |
+| **자동 맞춤법 끄기** | 작성 후 맞춤법 API 1회 생략 |
+| **.env 기본값** | `.env` / `.env.local` 설정으로 되돌리기 |
+
+NAS/운영 서버에는 이 패널이 **나타나지 않습니다** (`SGB_DEV_MODE` 없음).
 
 ## Mac / Linux
 

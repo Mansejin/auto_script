@@ -34,6 +34,13 @@ def test_gemini_models_for_api(monkeypatch):
     assert models["gemini_model_profile"] == "flash"
 
 
-def test_gemini_model_profile_default(monkeypatch):
-    monkeypatch.delenv("GEMINI_MODEL_PROFILE", raising=False)
+def test_dev_mode_profile_override(monkeypatch):
+    from src.saenggibu.dev_runtime import reset_overrides, set_profile_override
+
+    monkeypatch.setenv("SGB_DEV_MODE", "1")
+    monkeypatch.setenv("GEMINI_MODEL_PROFILE", "split")
+    reset_overrides()
+    set_profile_override("flash")
+    assert get_gemini_model_profile() == "flash"
+    reset_overrides()
     assert get_gemini_model_profile() == "split"

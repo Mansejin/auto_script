@@ -1122,9 +1122,13 @@
     전체: "등록된 전체 항목",
   };
 
-  const MEMO_TARGET_OPTIONS = ["행발", "세특", "자율", "동아리", "봉사", "진로"];
+  const MEMO_TARGET_OPTIONS = ["행발", "세특", "자율", "동아리", "진로"];
+  const UI_WRITE_SECTIONS = ["행발", "세특", "자율", "동아리", "진로"];
   let memoEditStudentId = null;
   let memoEditStudentData = null;
+  let samplesCache = [];
+  let samplesPage = 1;
+  let samplesPageSize = 10;
 
   function getSelectedWriteTargets() {
     return [...document.querySelectorAll(".write-target:checked")].map((el) => el.value);
@@ -1373,7 +1377,7 @@
     if (student.notes?.행발 || student.notes?.행발_notes) inferred.push("행발");
     if (student.subjects && Object.keys(student.subjects).length) inferred.push("세특");
     const changche = student.changche || {};
-    for (const key of ["자율", "동아리", "진로", "봉사"]) {
+    for (const key of ["자율", "동아리", "진로"]) {
       if (changche[key]) inferred.push(key);
     }
     return inferred.length ? inferred.join(", ") : "-";
@@ -1444,7 +1448,7 @@
         <div id="memoEditSubjects">${subjectBlocks}</div>
         <button type="button" id="memoAddSubjectBtn" class="admin-btn secondary admin-btn-sm" style="margin-top:8px">과목 추가</button>
       </details>
-      ${["자율", "동아리", "봉사", "진로"]
+      ${["자율", "동아리", "진로"]
         .map(
           (key) => `
         <details class="admin-memo-panel memo-edit-panel" data-target="${key}" ${selected.has(key) ? "open" : ""}>
@@ -1587,15 +1591,16 @@
     const section = document.querySelector('input[name="writeSection"]:checked')?.value || "행발";
     const btn = document.getElementById("runBatchBtn");
     if (btn) {
-      btn.textContent =
-        section === "전체" ? "미완료 항목 일괄 작성" : `${section} 미작성 학생 작성`;
+      btn.textContent = "AI 일괄 작성";
     }
-    sessionStorage.setItem("sgb_write_section", section);
+    if (UI_WRITE_SECTIONS.includes(section)) {
+      sessionStorage.setItem("sgb_write_section", section);
+    }
   }
 
   function restoreWriteSectionChoice() {
     const saved = sessionStorage.getItem("sgb_write_section");
-    if (!saved) return;
+    if (!saved || !UI_WRITE_SECTIONS.includes(saved)) return;
     const input = document.querySelector(`input[name="writeSection"][value="${saved}"]`);
     if (input) input.checked = true;
     updateWriteSectionUi();
@@ -1902,9 +1907,8 @@
     const countEl = document.getElementById("samplesSelectedCount");
     const deleteSelectedBtn = document.getElementById("deleteSelectedSamplesBtn");
     const selectAll = document.getElementById("samplesSelectAll");
-    const boxes = [...document.querySelectorAll(".sample-select")];
-    const checkedCount = boxes.filter((box) => box.checked).length;
-    const total = totalCount ?? boxes.length;
+    const checkedCount = selectedSampleIds.size;
+    const total = totalCount ?? samplesCache.length;
 
     if (countBadge) countBadge.textContent = `${total}건`;
     if (countEl) {
@@ -1913,9 +1917,9 @@
     if (deleteSelectedBtn) {
       deleteSelectedBtn.disabled = checkedCount === 0;
     }
-    if (selectAll && boxes.length) {
-      selectAll.checked = checkedCount > 0 && checkedCount === boxes.length;
-      selectAll.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+    if (selectAll && total) {
+      selectAll.checked = checkedCount > 0 && checkedCount === total;
+      selectAll.indeterminate = checkedCount > 0 && checkedCount < total;
     }
     if (toolbar) {
       toolbar.hidden = total === 0;
@@ -1923,7 +1927,92 @@
   }
 
   function getSelectedSampleIds() {
-    return [...document.querySelectorAll(".sample-select:checked")].map((box) => box.dataset.id);
+    return [...selectedSampleIds];
+  }
+
+  function renderSamplesPageNav(totalPages) {
+    const nav = document.getElementById("samplesPageNav");
+    if (!nav) return;
+    if (totalPages <= 1) {
+      nav.innerHTML = "";
+      return;
+    }
+
+    const items = [];
+    const addPage = (page) => {
+      items.push(
+        `<button type="button" class="admin-page-btn${page === samplesPage ? " active" : ""}" data-page="${page}">${page}</button>`
+      );
+    };
+
+    if (totalPages <= 7) {
+      for (let page = 1; page <= totalPages; page += 1) addPage(page);
+    } else {
+      addPage(1);
+      if (samplesPage > 3) items.push('<span class="admin-page-ellipsis">…</span>');
+      const start = Math.max(2, samplesPage - 1);
+      const end = Math.min(totalPages - 1, samplesPage + 1);
+      for (let page = start; page <= end; page += 1) addPage(page);
+      if (samplesPage < totalPages - 2) items.push('<span class="admin-page-ellipsis">…</span>');
+      addPage(totalPages);
+    }
+
+    const prevDisabled = samplesPage <= 1 ? " disabled" : "";
+    const nextDisabled = samplesPage >= totalPages ? " disabled" : "";
+    nav.innerHTML = `
+      <button type="button" class="admin-page-btn" data-page="${samplesPage - 1}"${prevDisabled} aria-label="이전 페이지">‹</button>
+      ${items.join("")}
+      <button type="button" class="admin-page-btn" data-page="${samplesPage + 1}"${nextDisabled} aria-label="다음 페이지">›</button>`;
+  }
+
+  function renderSamplesTable() {
+    const list = document.getElementById("samplesList");
+    const pagination = document.getElementById("samplesPagination");
+    if (!list) return;
+
+    const total = samplesCache.length;
+    if (!total) {
+      list.innerHTML = `<p class="admin-muted">아직 올린 샘플이 없습니다.</p>`;
+      if (pagination) pagination.hidden = true;
+      updateSampleSelectionUi(0);
+      return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(total / samplesPageSize));
+    if (samplesPage > totalPages) samplesPage = totalPages;
+    const start = (samplesPage - 1) * samplesPageSize;
+    const pageItems = samplesCache.slice(start, start + samplesPageSize);
+
+    list.innerHTML = `
+      <table class="admin-table admin-sample-table">
+        <thead><tr>
+          <th class="sample-select-cell" aria-label="선택"></th>
+          <th>이름</th>
+          <th>ID</th>
+          <th></th>
+        </tr></thead>
+        <tbody>${pageItems
+          .map((s) => {
+            const label = sampleDisplayLabel(s);
+            const checked = selectedSampleIds.has(s.id) ? "checked" : "";
+            return `<tr>
+              <td class="sample-select-cell">
+                <label class="admin-check admin-check-row" title="선택">
+                  <input class="sample-select admin-check-input" type="checkbox" data-id="${s.id}" ${checked}>
+                  <span class="admin-check-box" aria-hidden="true"></span>
+                </label>
+              </td>
+              <td>${label}</td>
+              <td class="admin-muted">${s.id}</td>
+              <td><button class="admin-btn danger admin-btn-sm" type="button" data-action="delete-sample" data-id="${s.id}" data-label="${label.replace(/"/g, "&quot;")}">삭제</button></td>
+            </tr>`;
+          })
+          .join("")}</tbody>
+      </table>`;
+
+    if (pagination) pagination.hidden = false;
+    renderSamplesPageNav(totalPages);
+    updateSampleSelectionUi(total);
   }
 
   async function deleteSamplesByIds(ids, confirmMessage) {
@@ -1958,45 +2047,23 @@
     if (toolbar) toolbar.hidden = true;
     try {
       const data = await api("/api/samples");
-      if (!data.samples.length) {
-        list.innerHTML = `<p class="admin-muted">아직 올린 샘플이 없습니다.</p>`;
+      samplesCache = data.samples || [];
+      if (!samplesCache.length) {
         selectedSampleIds.clear();
-        updateSampleSelectionUi(0);
+        renderSamplesTable();
         return;
       }
-      list.innerHTML = `
-      <table class="admin-table admin-sample-table">
-        <thead><tr>
-          <th class="sample-select-cell" aria-label="선택"></th>
-          <th>이름</th>
-          <th>ID</th>
-          <th></th>
-        </tr></thead>
-        <tbody>${data.samples
-          .map((s) => {
-            const label = sampleDisplayLabel(s);
-            const checked = selectedSampleIds.has(s.id) ? "checked" : "";
-            return `<tr>
-              <td class="sample-select-cell">
-                <label class="admin-check admin-check-row" title="선택">
-                  <input class="sample-select admin-check-input" type="checkbox" data-id="${s.id}" ${checked}>
-                  <span class="admin-check-box" aria-hidden="true"></span>
-                </label>
-              </td>
-              <td>${label}</td>
-              <td class="admin-muted">${s.id}</td>
-              <td><button class="admin-btn danger admin-btn-sm" type="button" data-action="delete-sample" data-id="${s.id}" data-label="${label.replace(/"/g, "&quot;")}">삭제</button></td>
-            </tr>`;
-          })
-          .join("")}</tbody>
-      </table>`;
-      updateSampleSelectionUi(data.count);
+      samplesPage = 1;
+      renderSamplesTable();
     } catch (error) {
+      samplesCache = [];
       list.innerHTML = `<p class="admin-muted">샘플 목록을 불러오지 못했습니다.<br>${escapeHtml(
         error.message || "오류"
       )}</p>
         <button type="button" class="admin-btn secondary admin-btn-sm" data-action="retry-samples">다시 시도</button>`;
       list.querySelector("[data-action='retry-samples']")?.addEventListener("click", () => loadSamples());
+      const pagination = document.getElementById("samplesPagination");
+      if (pagination) pagination.hidden = true;
     }
   }
 
@@ -2010,12 +2077,27 @@
 
   document.getElementById("samplesSelectAll")?.addEventListener("change", (event) => {
     const checked = event.target.checked;
-    document.querySelectorAll(".sample-select").forEach((box) => {
-      box.checked = checked;
-      if (checked) selectedSampleIds.add(box.dataset.id);
-      else selectedSampleIds.delete(box.dataset.id);
-    });
-    updateSampleSelectionUi();
+    if (checked) {
+      samplesCache.forEach((sample) => selectedSampleIds.add(sample.id));
+    } else {
+      samplesCache.forEach((sample) => selectedSampleIds.delete(sample.id));
+    }
+    renderSamplesTable();
+  });
+
+  document.getElementById("samplesPageSize")?.addEventListener("change", (event) => {
+    samplesPageSize = Number(event.target.value) || 10;
+    samplesPage = 1;
+    renderSamplesTable();
+  });
+
+  document.getElementById("samplesPageNav")?.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-page]");
+    if (!btn || btn.disabled) return;
+    const page = Number(btn.dataset.page);
+    if (!page || page === samplesPage) return;
+    samplesPage = page;
+    renderSamplesTable();
   });
 
   document.getElementById("deleteSelectedSamplesBtn")?.addEventListener("click", async () => {
@@ -2575,9 +2657,6 @@
     if (writeTargets.includes("동아리")) {
       changche.동아리 = document.getElementById("simpleDongari").value.trim();
     }
-    if (writeTargets.includes("봉사")) {
-      changche.봉사 = document.getElementById("simpleBongsa").value.trim();
-    }
     if (writeTargets.includes("진로")) {
       changche.진로 = document.getElementById("simpleJillo").value.trim();
     }
@@ -2782,15 +2861,8 @@
       return;
     }
     const sectionLabel = WRITE_SECTION_LABELS[section] || section;
-    const limitText =
-      section === "전체"
-        ? limit
-          ? `${limit}명 · 미완료 항목`
-          : "미완료 항목 전원"
-        : limit
-          ? `${limit}명`
-          : `${section} 미작성 전원`;
-    const runTitle = section === "전체" ? "전체 항목 일괄 작성" : `${section} 일괄 작성`;
+    const limitText = limit ? `${limit}명` : "미작성 전원";
+    const runTitle = "AI 일괄 작성";
     try {
       const data = await withAsyncRun(
         runTitle,

@@ -15,7 +15,7 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708d">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708e">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
@@ -27,8 +27,6 @@
           <h1 class="site-title">생기부 작성</h1>
         </div>
         <div class="header-actions">
-          <button id="privacyBtn" class="admin-header-btn" type="button" aria-haspopup="dialog">개인정보</button>
-          <a class="admin-header-btn" href="/admin/changelog">업데이트</a>
           <button id="guideBtn" class="admin-header-btn" type="button" aria-haspopup="dialog">사용법</button>
           <label class="theme-switch">
             <input type="checkbox" class="theme-switch-input" role="switch">
@@ -78,7 +76,7 @@
                 <span class="admin-file-name" id="samplesFileName">선택된 파일 없음</span>
               </div>
             </div>
-            <div class="admin-actions">
+            <div class="admin-actions admin-actions-end">
               <button class="admin-btn" type="submit">업로드</button>
             </div>
             <pre id="samplesUploadLog" class="admin-output admin-upload-log" hidden></pre>
@@ -86,25 +84,6 @@
               xlsx, docx, tsv 등 · 여러 파일 한 번에 선택 가능
             </div>
           </form>
-          <div class="admin-card" style="margin-top:16px;padding:16px;background:var(--bg)">
-            <h3 style="font-size:1rem;margin-bottom:8px">올린 샘플 목록</h3>
-            <div id="samplesBulkActions" class="admin-samples-toolbar" hidden>
-              <div class="admin-samples-toolbar-left">
-                <span id="samplesCountBadge" class="admin-samples-count">0건</span>
-                <span id="samplesSelectedCount" class="admin-samples-selected"></span>
-              </div>
-              <div class="admin-samples-toolbar-right">
-                <label class="admin-check">
-                  <input id="samplesSelectAll" type="checkbox" class="admin-check-input">
-                  <span class="admin-check-box" aria-hidden="true"></span>
-                  <span class="admin-check-text">전체 선택</span>
-                </label>
-                <button id="deleteSelectedSamplesBtn" class="admin-btn danger admin-btn-sm" type="button" disabled>선택 삭제</button>
-                <button id="deleteAllSamplesBtn" class="admin-btn danger admin-btn-sm" type="button">전체 삭제</button>
-              </div>
-            </div>
-            <div id="samplesList"></div>
-          </div>
         </div>
         <div class="admin-card" style="margin-top:16px">
           <h2>문체·분량 분석</h2>
@@ -116,7 +95,39 @@
               <span>더 정확한 문체 요약 (권장)</span>
             </span>
           </label>
-          <button id="analyzeBtn" class="admin-btn" type="button">분석 시작</button>
+          <div class="admin-actions admin-actions-end">
+            <button id="analyzeBtn" class="admin-btn" type="button">분석 시작</button>
+          </div>
+        </div>
+        <div class="admin-card" style="margin-top:16px;padding:16px;background:var(--bg)">
+          <h3 style="font-size:1rem;margin-bottom:8px">올린 샘플 목록</h3>
+          <div id="samplesBulkActions" class="admin-samples-toolbar" hidden>
+            <div class="admin-samples-toolbar-left">
+              <span id="samplesCountBadge" class="admin-samples-count">0건</span>
+              <span id="samplesSelectedCount" class="admin-samples-selected"></span>
+            </div>
+            <div class="admin-samples-toolbar-right">
+              <label class="admin-check">
+                <input id="samplesSelectAll" type="checkbox" class="admin-check-input">
+                <span class="admin-check-box" aria-hidden="true"></span>
+                <span class="admin-check-text">전체 선택</span>
+              </label>
+              <button id="deleteSelectedSamplesBtn" class="admin-btn danger admin-btn-sm" type="button" disabled>선택 삭제</button>
+              <button id="deleteAllSamplesBtn" class="admin-btn danger admin-btn-sm" type="button">전체 삭제</button>
+            </div>
+          </div>
+          <div id="samplesList"></div>
+          <div id="samplesPagination" class="admin-samples-pagination" hidden>
+            <label class="admin-samples-page-size">
+              <span class="admin-muted">표시</span>
+              <select id="samplesPageSize" class="admin-select-sm" aria-label="페이지당 샘플 수">
+                <option value="10" selected>10개씩</option>
+                <option value="30">30개씩</option>
+                <option value="50">50개씩</option>
+              </select>
+            </label>
+            <nav id="samplesPageNav" class="admin-samples-page-nav" aria-label="샘플 목록 페이지"></nav>
+          </div>
         </div>
       </div>
 
@@ -128,20 +139,20 @@
             <label for="styleGuideEditor">스타일 가이드</label>
             <textarea id="styleGuideEditor" class="admin-textarea" rows="14" placeholder="먼저 ①에서 샘플을 올리고 분석을 실행하세요."></textarea>
           </div>
-          <button id="saveStyleBtn" class="admin-btn" type="button">스타일 저장</button>
+          <div class="admin-actions admin-actions-end">
+            <button id="saveStyleBtn" class="admin-btn" type="button">스타일 저장</button>
+          </div>
         </div>
       </div>
 
       <div id="panelStudents" class="admin-panel" hidden>
         <div class="admin-card">
           <h2>작성할 항목</h2>
-          <p class="admin-muted">이 학생에게 쓸 영역만 골라 주세요. 선택한 항목만 메모를 입력합니다.</p>
           <div class="admin-target-grid" id="studentWriteTargets">
             <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="행발" checked><span class="admin-check-box"></span><span>행발</span></label>
             <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="세특"><span class="admin-check-box"></span><span>세특</span></label>
             <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="자율"><span class="admin-check-box"></span><span>자율</span></label>
             <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="동아리"><span class="admin-check-box"></span><span>동아리</span></label>
-            <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="봉사"><span class="admin-check-box"></span><span>봉사</span></label>
             <label class="admin-check admin-target-chip"><input type="checkbox" class="admin-check-input write-target" value="진로"><span class="admin-check-box"></span><span>진로</span></label>
           </div>
         </div>
@@ -237,12 +248,6 @@
                   <textarea id="simpleDongari" class="admin-textarea" rows="3"></textarea>
                 </div>
               </details>
-              <details class="admin-memo-panel" data-target="봉사" hidden>
-                <summary>봉사 메모</summary>
-                <div class="admin-field" style="margin-top:12px">
-                  <textarea id="simpleBongsa" class="admin-textarea" rows="3" placeholder="봉사 활동·시간·역할 등"></textarea>
-                </div>
-              </details>
               <details class="admin-memo-panel" data-target="진로" hidden>
                 <summary>진로 메모</summary>
                 <div class="admin-field" style="margin-top:12px">
@@ -250,48 +255,11 @@
                 </div>
               </details>
             </div>
-            <button class="admin-btn" type="submit">학생 추가</button>
+            <div class="admin-actions admin-actions-end">
+              <button class="admin-btn" type="submit">학생 추가</button>
+            </div>
           </form>
         </div>
-        <details class="admin-card admin-advanced" style="margin-top:16px">
-          <summary>고급: AI로 학생 등록</summary>
-          <p class="admin-muted" style="margin-top:12px">활동지·메모를 붙여넣거나 파일을 올리면 AI가 정리합니다.</p>
-          <div class="admin-field">
-            <label for="aiStudentInput">학생 활동 메모 (자연어)</label>
-            <textarea id="aiStudentInput" class="admin-textarea" rows="8" placeholder="예) 2학년 3반 12번 김민수. 현대사회와윤리 수업에서 AI 윤리 토론에 적극 참여. 행발: 리더십 있고 배려심 깊음..."></textarea>
-          </div>
-          <div class="admin-file-picker">
-            <div class="admin-file-picker-row">
-              <input id="aiStudentFile" class="admin-file-input" type="file" accept="*/*">
-              <button class="admin-btn secondary" type="button" data-file-trigger="aiStudentFile">활동지 파일</button>
-              <span class="admin-file-name" id="aiStudentFileName">선택된 파일 없음</span>
-            </div>
-          </div>
-          <div class="admin-actions">
-            <button id="aiParsePreviewBtn" class="admin-btn secondary" type="button">미리보기</button>
-            <button id="aiParseSaveBtn" class="admin-btn" type="button">학생 추가</button>
-          </div>
-          <pre id="aiParsePreview" class="admin-output" hidden></pre>
-        </details>
-        <details class="admin-card admin-advanced" style="margin-top:16px">
-          <summary>고급: TSV 파일 업로드</summary>
-          <form id="importStudentsForm" style="margin-top:12px">
-            <div class="admin-file-picker">
-              <div class="admin-file-picker-row">
-                <input id="studentsFile" class="admin-file-input" type="file" multiple accept="*/*">
-                <button class="admin-btn secondary" type="button" data-file-trigger="studentsFile">파일 선택</button>
-                <span class="admin-file-name" id="studentsFileName">선택된 파일 없음</span>
-              </div>
-            </div>
-            <div class="admin-actions">
-              <button class="admin-btn" type="submit">TSV 업로드</button>
-            </div>
-            <pre id="studentsUploadLog" class="admin-output admin-upload-log" hidden></pre>
-            <div class="admin-sample-links">
-              <a href="samples/students.example.tsv" download="students.example.tsv">📥 학생 TSV (참고)</a>
-            </div>
-          </form>
-        </details>
         <div class="admin-card" style="margin-top:16px">
           <h2>등록된 학생</h2>
           <div id="studentsBulkActions" class="admin-samples-toolbar" hidden>
@@ -326,7 +294,7 @@
           <h2>일괄 AI 작성</h2>
           <p class="admin-muted" id="usageText">무료 플랜: 이번 달 작성 가능 횟수를 확인하세요.</p>
           <h3 class="admin-subheading">이번에 작성할 영역</h3>
-          <div class="admin-write-mode" id="writeSectionChoices">
+          <div class="admin-write-mode admin-write-mode--row" id="writeSectionChoices">
             <label class="admin-option admin-option-radio">
               <input type="radio" name="writeSection" value="행발" checked>
               <span class="admin-option-text"><strong>행발</strong></span>
@@ -344,23 +312,17 @@
               <span class="admin-option-text"><strong>동아리</strong></span>
             </label>
             <label class="admin-option admin-option-radio">
-              <input type="radio" name="writeSection" value="봉사">
-              <span class="admin-option-text"><strong>봉사</strong></span>
-            </label>
-            <label class="admin-option admin-option-radio">
               <input type="radio" name="writeSection" value="진로">
               <span class="admin-option-text"><strong>진로</strong></span>
-            </label>
-            <label class="admin-option admin-option-radio">
-              <input type="radio" name="writeSection" value="전체">
-              <span class="admin-option-text"><strong>전체 항목</strong><span class="admin-muted"> · 등록된 영역 순서대로</span></span>
             </label>
           </div>
           <div class="admin-field" style="margin-top:16px">
             <label for="runLimit">인원 제한 (비우면 전원)</label>
             <input id="runLimit" type="number" min="1" placeholder="예: 5">
           </div>
-          <button id="runBatchBtn" class="admin-btn" type="button">행발 미작성 학생 작성</button>
+          <div class="admin-actions admin-actions-end">
+            <button id="runBatchBtn" class="admin-btn" type="button">AI 일괄 작성</button>
+          </div>
           <pre id="runLog" class="admin-output admin-dev-only" hidden style="margin-top:16px"></pre>
         </div>
         <div class="admin-card" style="margin-top:16px">
@@ -416,9 +378,13 @@
     <footer id="adminFooter" class="admin-page-footer" hidden>
       <p id="storageNote" class="admin-storage-note" hidden></p>
       <div class="admin-page-footer-links">
-        <button id="logoutBtn" class="admin-footer-link" type="button">로그아웃</button>
+        <button id="privacyBtn" class="admin-footer-link" type="button">개인정보</button>
+        <span class="admin-footer-sep" aria-hidden="true">·</span>
+        <a class="admin-footer-link" href="https://github.com/Mansejin/auto_script/issues/new" target="_blank" rel="noopener noreferrer">버그 신고</a>
         <span class="admin-footer-sep" aria-hidden="true">·</span>
         <a class="admin-footer-link" href="/admin/changelog">업데이트 기록</a>
+        <span class="admin-footer-sep" aria-hidden="true">·</span>
+        <button id="logoutBtn" class="admin-footer-link" type="button">로그아웃</button>
       </div>
     </footer>
   </div>
@@ -443,9 +409,8 @@
         <li>④ 상세 편집에서 본문을 직접 수정한 뒤 <strong>저장</strong>하세요.</li>
         <li>④ <strong>검사</strong> 후 검토 사항을 클릭하면 해당 항목으로 이동합니다. 본문은 직접 수정하세요.</li>
         <li>기본 설정에서는 <strong>작성본이 서버에 저장되지 않고</strong> 이 브라우저에만 보관됩니다. 탭을 닫기 전에 엑셀로 백업하세요.</li>
-        <li>학생 메모는 서버에 <strong>암호화</strong>되어 저장됩니다. 자세한 내용은 상단 <strong>개인정보</strong>를 참고하세요.</li>
+        <li>학생 메모는 서버에 <strong>암호화</strong>되어 저장됩니다. 자세한 내용은 하단 <strong>개인정보</strong>를 참고하세요.</li>
         <li>행발과 세특은 <strong>각각 따로</strong> ④에서 실행하세요.</li>
-        <li>AI 메모 정리·TSV 일괄 업로드는 ③ 하단 <strong>고급</strong> 메뉴에 있습니다.</li>
         <li>작성 중에는 팝업이 뜨며, 완료될 때까지 기다려 주세요.</li>
       </ul>
     </div>
@@ -506,6 +471,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260708d"></script>
+  <script src="/admin-static/js/admin.js?v=20260708e"></script>
 </body>
 </html>

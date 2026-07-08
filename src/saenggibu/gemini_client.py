@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Literal
 
@@ -18,6 +19,79 @@ logger = logging.getLogger(__name__)
 ModelTier = Literal["pro", "fast"]
 
 _last_call_at = 0.0
+_usage_log: list["GeminiUsage"] = []
+
+
+@dataclass(frozen=True)
+class GeminiUsage:
+    model: str
+    tier: str
+    prompt_tokens: int
+    output_tokens: int
+    total_tokens: int
+    thoughts_tokens: int = 0
+
+
+def clear_usage_log() -> None:
+    _usage_log.clear()
+
+
+def get_usage_log() -> list[GeminiUsage]:
+    return list(_usage_log)
+
+
+def summarize_usage_log() -> dict[str, Any]:
+    calls = get_usage_log()
+    totals = {
+        "calls": len(calls),
+        "prompt_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+        "thoughts_tokens": 0,
+    }
+    by_model: dict[str, dict[str, int]] = {}
+    for entry in calls:
+        totals["prompt_tokens"] += entry.prompt_tokens
+        totals["output_tokens"] += entry.output_tokens
+        totals["total_tokens"] += entry.total_tokens
+        totals["thoughts_tokens"] += entry.thoughts_tokens
+        bucket = by_model.setdefault(
+            entry.model,
+            {"calls": 0, "prompt_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
+        bucket["calls"] += 1
+        bucket["prompt_tokens"] += entry.prompt_tokens
+        bucket["output_tokens"] += entry.output_tokens
+        bucket["total_tokens"] += entry.total_tokens
+    return {"totals": totals, "by_model": by_model, "calls": [asdict(c) for c in calls]}
+
+
+def _parse_usage_metadata(response: Any, *, model: str, tier: str) -> GeminiUsage | None:
+    meta = getattr(response, "usage_metadata", None)
+    if meta is None:
+        return None
+    prompt = int(getattr(meta, "prompt_token_count", 0) or 0)
+    output = int(getattr(meta, "candidates_token_count", 0) or 0)
+    total = int(getattr(meta, "total_token_count", 0) or 0)
+    thoughts = int(getattr(meta, "thoughts_token_count", 0) or 0)
+    if prompt == output == total == thoughts == 0:
+        return None
+    if total == 0:
+        total = prompt + output + thoughts
+    return GeminiUsage(
+        model=model,
+        tier=tier,
+        prompt_tokens=prompt,
+        output_tokens=output,
+        total_tokens=total,
+        thoughts_tokens=thoughts,
+    )
+
+
+def _record_usage(response: Any, *, model: str, tier: str) -> None:
+    entry = _parse_usage_metadata(response, model=model, tier=tier)
+    if entry is not None:
+        _usage_log.append(entry)
 
 
 class _ErrorKind(Enum):
@@ -141,6 +215,7 @@ def generate_text(
             text = (response.text or "").strip()
             if not text:
                 raise RuntimeError("Gemini가 빈 응답을 반환했습니다.")
+            _record_usage(response, model=model, tier=tier)
             return text
         except Exception as exc:
             last_exc = exc

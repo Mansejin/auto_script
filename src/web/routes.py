@@ -169,7 +169,6 @@ class FieldEditRequest(BaseModel):
     field_key: str
     action: str
     text: str = ""
-    issues: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class DevGeminiSettingsUpdate(BaseModel):
@@ -662,7 +661,7 @@ def api_student_field_edit(
     if not student:
         raise HTTPException(status_code=404, detail="학생을 찾을 수 없습니다.")
     action = payload.action.strip()
-    if action not in ("regenerate", "proofread", "adjust_volume", "fix_issues"):
+    if action not in ("regenerate", "proofread"):
         raise HTTPException(status_code=400, detail="지원하지 않는 action입니다.")
     try:
         text = edit_student_field(
@@ -670,7 +669,6 @@ def api_student_field_edit(
             field_key=payload.field_key,
             action=action,  # type: ignore[arg-type]
             text=payload.text,
-            issues=payload.issues,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

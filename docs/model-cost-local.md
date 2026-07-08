@@ -31,7 +31,7 @@ python3 scripts/model_compare.py run --profile flash --section 행발
 
 ### 전부 Flash로 바꾸면 퀄리티가 많이 떨어질까?
 
-**보조 작업**(맞춤법, 분량 조절, 검사 지적 수정, 메모 파싱)은 Flash로 충분합니다. 이미 `split` 프로필이 이렇게 동작합니다.
+**보조 작업**(맞춤법, 메모 파싱)은 Flash로 충분합니다. 이미 `split` 프로필이 이렇게 동작합니다.
 
 **본문 작성**(행발·세특·창체)을 Flash로 내리면:
 

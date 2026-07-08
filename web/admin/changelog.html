@@ -15,7 +15,7 @@
   <title>패치 노트 · 생기부 작성 머신</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260706n">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708i">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page admin-changelog-page">
@@ -30,19 +30,20 @@
         </div>
       </div>
       <p class="hero-emoji">📋</p>
-      <h1>업데이트 내역</h1>
+      <h1>패치 노트</h1>
       <p class="subtitle">생기부 작성 머신 — 프로토타입부터 누적 패치 노트</p>
     </header>
 
     <div class="admin-changelog-current admin-card">
       <p class="admin-changelog-version-label">현재 버전</p>
-      <p class="admin-changelog-version">v2.2.0</p>
-      <p class="admin-muted">2026년 7월 6일 · <code>main</code> 브랜치</p>
+      <p class="admin-changelog-version">v2.3.0</p>
+      <p class="admin-muted">2026년 7월 8일 · <code>main</code> 브랜치</p>
     </div>
 
     <nav class="admin-changelog-toc admin-card" aria-label="버전 목차">
       <p class="admin-changelog-toc-title">버전 목차</p>
       <ol class="admin-changelog-toc-list">
+        <li><a href="#v230">v2.3.0</a> — NEIS 글자수·관리 화면 정리</li>
         <li><a href="#v220">v2.2.0</a> — 작성 후 수정·검사 루프</li>
         <li><a href="#v211">v2.1.1</a> — 전체 패치 노트 정리</li>
         <li><a href="#v210">v2.1.0</a> — UI·배포 안정화</li>
@@ -55,6 +56,43 @@
         <li><a href="#v000">v0.1.0</a> — 저장소 시작 (디디딧 CLI)</li>
       </ol>
     </nav>
+
+    <article id="v230" class="admin-changelog-release admin-card">
+      <header class="admin-changelog-release-head">
+        <h2>v2.3.0</h2>
+        <time datetime="2026-07-08">2026.07.08</time>
+      </header>
+      <p class="admin-muted admin-changelog-summary">NEIS 글자수 규칙 통일, 관리 화면 전면 정리</p>
+      <section class="admin-changelog-section">
+        <h3>기능</h3>
+        <ul class="admin-changelog-list">
+          <li><strong>NEIS 글자수</strong> — <a href="https://github.com/hjh010501/neis-counter">neis-counter</a> 규칙 적용 (한글 3byte, 엔터 2byte 등). 행발 900B · 세특·창체 1500B</li>
+          <li><strong>분량 표시</strong> — 항목 헤더에 <code>공백 제외 N자, 공백 포함 N자, N바이트</code></li>
+          <li><strong>모델 분리</strong> — 일괄·개별 작성은 Flash, 샘플 문체·분량 분석은 Pro</li>
+          <li><strong>로컬 개발</strong> — <code>SGB_DEV=1</code> + <code>scripts/dev-local.sh</code> 실행 시 더미 학생(<code>dev-demo</code>, 김테스트) 자동 시드</li>
+        </ul>
+      </section>
+      <section class="admin-changelog-section">
+        <h3>UI</h3>
+        <ul class="admin-changelog-list">
+          <li><strong>헤더·푸터</strong> — 상단은 브랜드·사용법·테마만. 개인정보·패치 노트·버그 신고·로그아웃은 하단으로</li>
+          <li><strong>스타일 학습</strong> — 파일 선택·업로드·<strong>분석 시작</strong> 한 줄 툴바. 샘플 목록 페이지네이션(10/30/50)</li>
+          <li><strong>학생 등록</strong> — 고급 입력(AI·TSV) 제거. 학년 세그먼트 선택 코너 깨짐 수정</li>
+          <li><strong>일괄 AI 작성</strong> — 영역 세그먼트 컨트롤 + 전체 너비 CTA로 재디자인</li>
+          <li><strong>검토 목록</strong> — 체크박스·학생명·상태·검사 배지·열기/삭제 버튼 세로 중앙 정렬</li>
+          <li><strong>상세 편집</strong> — textarea 10줄, 에디터를 검사 패널 위로. 검사 문구 <code>지적</code>→<code>검토</code>, 결과 UI 컴팩트화</li>
+          <li><strong>패치 노트</strong> — 푸터 링크·페이지 제목을 <code>패치 노트</code>로 통일</li>
+        </ul>
+      </section>
+      <section class="admin-changelog-section">
+        <h3>정리</h3>
+        <ul class="admin-changelog-list">
+          <li>봉사 활동 UI·일괄 작성 항목에서 제거</li>
+          <li>일괄 작성 인원 제한·검토 <code>전체 선택</code>·개발용 runLog 제거</li>
+          <li>항목별 <code>다시 쓰기</code>·<code>맞춤법</code>·<code>분량 맞추기</code>·<code>AI 수정</code> 버튼 제거 (v2.2.0에서 추가됐던 항목 편집 액션)</li>
+        </ul>
+      </section>
+    </article>
 
     <article id="v220" class="admin-changelog-release admin-card">
       <header class="admin-changelog-release-head">

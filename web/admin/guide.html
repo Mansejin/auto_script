@@ -15,8 +15,8 @@
   <title>사용자 가이드 · 생기부 작성기</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708p">
-  <link rel="stylesheet" href="/admin-static/css/guide.css?v=20260708p">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708q">
+  <link rel="stylesheet" href="/admin-static/css/guide.css?v=20260708q">
 </head>
 <body data-api-base="" data-assets-base="/admin-static" class="admin-guide-doc-page">
   <div class="page admin-page">
@@ -247,15 +247,87 @@
             <li><strong>행발</strong> — 태도·성품·대인관계 등 관찰 메모를 적습니다.</li>
             <li><strong>창체</strong> — 자율·동아리·진로 활동 메모를 각각 입력합니다.</li>
           </ul>
-          <p>등록된 학생 목록에서 <strong>메모 수정</strong>, <strong>삭제</strong>, <strong>선택 삭제</strong>, <strong>전체 초기화</strong>가 가능합니다.</p>
+          <p>등록된 학생 목록 왼쪽 <strong>체크박스</strong>로 여러 명을 고른 뒤, <strong>선택 삭제</strong> 또는 <strong>전체 초기화</strong>를 실행할 수 있습니다. 각 행의 <strong>메모</strong>·<strong>삭제</strong> 버튼으로 한 명씩 다룰 수도 있습니다.</p>
           <div class="guide-ui-demo" aria-hidden="true">
-            <p class="guide-ui-demo-label">화면 예시 — 등록된 학생 목록 도구</p>
+            <p class="guide-ui-demo-label">화면 예시 — 등록된 학생 목록 (더미 3명)</p>
             <div class="guide-ui-demo-inner">
               <div class="admin-samples-toolbar" style="margin:0">
-                <div class="admin-samples-toolbar-right" style="margin-left:auto;display:flex;flex-wrap:wrap;gap:8px">
+                <div class="admin-samples-toolbar-left">
+                  <span class="admin-samples-count">3명</span>
+                  <span class="admin-samples-selected">1명 선택됨</span>
+                </div>
+                <div class="admin-samples-toolbar-right">
+                  <label class="admin-check">
+                    <input type="checkbox" class="admin-check-input" disabled>
+                    <span class="admin-check-box" aria-hidden="true"></span>
+                    <span class="admin-check-text">전체 선택</span>
+                  </label>
                   <button class="admin-btn danger admin-btn-sm" type="button" tabindex="-1">선택 삭제</button>
                   <button class="admin-btn danger admin-btn-sm" type="button" tabindex="-1">전체 초기화</button>
                 </div>
+              </div>
+              <div class="guide-ui-demo-table-wrap">
+                <table class="admin-table admin-student-table">
+                  <thead>
+                    <tr>
+                      <th class="sample-select-cell" aria-label="선택"></th>
+                      <th>학생</th>
+                      <th>상태</th>
+                      <th>작성 항목</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="sample-select-cell">
+                        <label class="admin-check admin-check-row" title="선택">
+                          <input class="admin-check-input" type="checkbox" checked disabled>
+                          <span class="admin-check-box" aria-hidden="true"></span>
+                        </label>
+                      </td>
+                      <td>2-3 5번 김민수</td>
+                      <td><span class="status-pill status-pending">대기</span></td>
+                      <td>행발, 세특</td>
+                      <td class="admin-row-actions">
+                        <button class="admin-btn secondary admin-btn-sm" type="button" tabindex="-1">메모</button>
+                        <button class="admin-btn secondary admin-btn-sm" type="button" tabindex="-1">작성</button>
+                        <button class="admin-btn danger admin-btn-sm" type="button" tabindex="-1">삭제</button>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="sample-select-cell">
+                        <label class="admin-check admin-check-row" title="선택">
+                          <input class="admin-check-input" type="checkbox" disabled>
+                          <span class="admin-check-box" aria-hidden="true"></span>
+                        </label>
+                      </td>
+                      <td>2-3 12번 이서연</td>
+                      <td><span class="status-pill status-partial">일부 완료</span></td>
+                      <td>행발, 세특, 자율</td>
+                      <td class="admin-row-actions">
+                        <button class="admin-btn secondary admin-btn-sm" type="button" tabindex="-1">메모</button>
+                        <button class="admin-btn secondary admin-btn-sm" type="button" tabindex="-1">추가 작성</button>
+                        <button class="admin-btn danger admin-btn-sm" type="button" tabindex="-1">삭제</button>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="sample-select-cell">
+                        <label class="admin-check admin-check-row" title="선택">
+                          <input class="admin-check-input" type="checkbox" disabled>
+                          <span class="admin-check-box" aria-hidden="true"></span>
+                        </label>
+                      </td>
+                      <td>2-3 18번 박지훈</td>
+                      <td><span class="status-pill status-done">완료</span></td>
+                      <td>행발, 세특</td>
+                      <td class="admin-row-actions">
+                        <button class="admin-btn secondary admin-btn-sm" type="button" tabindex="-1">메모</button>
+                        <button class="admin-btn secondary admin-btn-sm" type="button" tabindex="-1">검토</button>
+                        <button class="admin-btn danger admin-btn-sm" type="button" tabindex="-1">삭제</button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -347,17 +419,81 @@
           </div>
           <p>작성이 진행되는 동안 팝업으로 진행 상태가 표시됩니다. 학생 수와 항목에 따라 수 분이 걸릴 수 있습니다.</p>
           <h3>검토 목록</h3>
-          <p>작성이 끝난 학생은 검토 목록에 나타납니다. 학생 이름을 눌러 상세 편집으로 이동하거나, 엑셀로 한꺼번에보낼 수 있습니다.</p>
+          <p>작성이 끝난 학생은 검토 목록에 나타납니다. 왼쪽 체크박스로 여러 명을 선택해 <strong>선택 삭제</strong>·<strong>전체 초기화</strong>할 수 있고, 학생 이름 옆 <strong>열기</strong>로 상세 편집으로 이동합니다.</p>
           <div class="guide-ui-demo" aria-hidden="true">
-            <p class="guide-ui-demo-label">화면 예시 — 검토 목록 도구</p>
+            <p class="guide-ui-demo-label">화면 예시 — 검토 목록 (더미 3명)</p>
             <div class="guide-ui-demo-inner">
               <div class="admin-samples-toolbar" style="margin:0">
-                <div class="admin-samples-toolbar-right" style="margin-left:auto;display:flex;flex-wrap:wrap;gap:8px">
+                <div class="admin-samples-toolbar-left">
+                  <span class="admin-samples-count">3명</span>
+                  <span class="admin-samples-selected">1명 선택됨</span>
+                </div>
+                <div class="admin-samples-toolbar-right">
                   <button class="admin-btn secondary admin-btn-sm" type="button" tabindex="-1">전체 검사</button>
                   <button class="admin-btn secondary admin-btn-sm" type="button" tabindex="-1">엑셀 추출</button>
                   <button class="admin-btn danger admin-btn-sm" type="button" tabindex="-1">선택 삭제</button>
                   <button class="admin-btn danger admin-btn-sm" type="button" tabindex="-1">전체 초기화</button>
                 </div>
+              </div>
+              <div class="guide-ui-demo-table-wrap">
+                <table class="admin-table admin-student-table">
+                  <thead>
+                    <tr>
+                      <th class="sample-select-cell" aria-label="선택"></th>
+                      <th>학생</th>
+                      <th>상태</th>
+                      <th>검사</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="sample-select-cell">
+                        <label class="admin-check admin-check-row" title="선택">
+                          <input class="admin-check-input" type="checkbox" checked disabled>
+                          <span class="admin-check-box" aria-hidden="true"></span>
+                        </label>
+                      </td>
+                      <td>2-3 5번 김민수</td>
+                      <td><span class="status-pill status-done">완료</span></td>
+                      <td><span class="admin-inspect-badge ok">통과</span></td>
+                      <td class="admin-row-actions">
+                        <button class="admin-btn secondary admin-btn-sm" type="button" tabindex="-1">열기</button>
+                        <button class="admin-btn danger admin-btn-sm" type="button" tabindex="-1">삭제</button>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="sample-select-cell">
+                        <label class="admin-check admin-check-row" title="선택">
+                          <input class="admin-check-input" type="checkbox" disabled>
+                          <span class="admin-check-box" aria-hidden="true"></span>
+                        </label>
+                      </td>
+                      <td>2-3 12번 이서연</td>
+                      <td><span class="status-pill status-partial">일부 완료</span></td>
+                      <td><span class="admin-inspect-badge warn">주의 1</span></td>
+                      <td class="admin-row-actions">
+                        <button class="admin-btn secondary admin-btn-sm" type="button" tabindex="-1">열기</button>
+                        <button class="admin-btn danger admin-btn-sm" type="button" tabindex="-1">삭제</button>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="sample-select-cell">
+                        <label class="admin-check admin-check-row" title="선택">
+                          <input class="admin-check-input" type="checkbox" disabled>
+                          <span class="admin-check-box" aria-hidden="true"></span>
+                        </label>
+                      </td>
+                      <td>2-3 18번 박지훈</td>
+                      <td><span class="status-pill status-done">완료</span></td>
+                      <td><span class="admin-inspect-badge pending">미검사</span></td>
+                      <td class="admin-row-actions">
+                        <button class="admin-btn secondary admin-btn-sm" type="button" tabindex="-1">열기</button>
+                        <button class="admin-btn danger admin-btn-sm" type="button" tabindex="-1">삭제</button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -465,6 +601,6 @@
   </div>
 
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/guide.js?v=20260708p"></script>
+  <script src="/admin-static/js/guide.js?v=20260708q"></script>
 </body>
 </html>

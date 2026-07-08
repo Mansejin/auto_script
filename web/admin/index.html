@@ -15,13 +15,17 @@
   <title>생기부 작성 · 관리자</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link rel="stylesheet" href="/admin-static/css/style.css">
-  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708c">
+  <link rel="stylesheet" href="/admin-static/css/admin.css?v=20260708d">
 </head>
 <body data-api-base="" data-assets-base="/admin-static">
   <div class="page admin-page">
-    <header class="site-header">
+    <header class="site-header site-header--compact">
       <div class="header-top">
-        <a class="back-link" href="https://mansejin.com/">← 만세진</a>
+        <div class="header-brand">
+          <a class="back-link" href="https://mansejin.com/">← 만세진</a>
+          <span class="header-brand-divider" aria-hidden="true">·</span>
+          <h1 class="site-title">생기부 작성</h1>
+        </div>
         <div class="header-actions">
           <button id="privacyBtn" class="admin-header-btn" type="button" aria-haspopup="dialog">개인정보</button>
           <a class="admin-header-btn" href="/admin/changelog">업데이트</a>
@@ -32,9 +36,6 @@
           </label>
         </div>
       </div>
-      <p class="hero-emoji">📝</p>
-      <h1>생기부 작성 머신</h1>
-      <p class="subtitle">관리자 전용</p>
     </header>
 
     <section id="adminGate" class="admin-gate">
@@ -57,11 +58,6 @@
     </section>
 
     <section id="adminApp" hidden>
-      <div class="admin-toolbar">
-        <p class="admin-muted" id="usageBadge">① 학습 → ② 설정 → ③ 학생 → ④ 작성·검토 · <a class="admin-version-link" href="/admin/changelog">v2.2.0</a></p>
-        <button id="logoutBtn" class="admin-logout" type="button">로그아웃</button>
-      </div>
-
       <div class="admin-tabs">
         <button class="admin-tab active" data-tab="learn" type="button">① 스타일 학습</button>
         <button class="admin-tab" data-tab="style" type="button">② 스타일 설정</button>
@@ -416,6 +412,15 @@
         </div>
       </div>
     </section>
+
+    <footer id="adminFooter" class="admin-page-footer" hidden>
+      <p id="storageNote" class="admin-storage-note" hidden></p>
+      <div class="admin-page-footer-links">
+        <button id="logoutBtn" class="admin-footer-link" type="button">로그아웃</button>
+        <span class="admin-footer-sep" aria-hidden="true">·</span>
+        <a class="admin-footer-link" href="/admin/changelog">업데이트 기록</a>
+      </div>
+    </footer>
   </div>
 
   <div id="guideModal" class="admin-guide-backdrop" hidden role="dialog" aria-labelledby="guideTitle" aria-modal="true">
@@ -501,6 +506,6 @@
   </div>
   <div id="toast" class="toast"></div>
   <script src="/admin-static/js/theme.js?v=20260703"></script>
-  <script src="/admin-static/js/admin.js?v=20260708c"></script>
+  <script src="/admin-static/js/admin.js?v=20260708d"></script>
 </body>
 </html>

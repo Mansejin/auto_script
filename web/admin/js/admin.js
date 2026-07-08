@@ -899,17 +899,17 @@
   }
 
   function updatePrivacyHint() {
-    const badge = document.getElementById("usageBadge");
-    if (!badge) return;
-    const parts = [];
+    const note = document.getElementById("storageNote");
+    if (!note) return;
     if (!privacySettings.store_generated) {
-      parts.push("작성본은 이 브라우저에만 보관");
-      if (privacySettings.encrypt_data) parts.push("메모 암호화");
+      note.hidden = false;
+      const parts = ["작성본은 이 브라우저에만 보관됩니다. 탭을 닫기 전에 엑셀로 백업하세요."];
+      if (privacySettings.encrypt_data) parts.push("학생 메모는 서버에 암호화 저장됩니다.");
+      note.textContent = parts.join(" ");
+    } else {
+      note.hidden = true;
+      note.textContent = "";
     }
-    if (privacySettings.mask_pii) parts.push("PII 마스킹");
-    const privacyPrefix = parts.length ? `${parts.join(" · ")} · ` : "";
-    const steps = "① 학습 → ② 설정 → ③ 학생 → ④ 작성·검토";
-    badge.textContent = usageLine ? `${privacyPrefix}${usageLine} · ${steps}` : `${privacyPrefix}${steps}`;
   }
 
   function renderWritingTips(el, data) {
@@ -1075,11 +1075,15 @@
   function showGate() {
     gate.hidden = false;
     app.hidden = true;
+    const footer = document.getElementById("adminFooter");
+    if (footer) footer.hidden = true;
   }
 
   function showApp() {
     gate.hidden = true;
     app.hidden = false;
+    const footer = document.getElementById("adminFooter");
+    if (footer) footer.hidden = false;
   }
 
   function switchTab(name) {

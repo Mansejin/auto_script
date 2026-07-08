@@ -187,7 +187,7 @@ def generate_text(
     user: str,
     temperature: float = 0.4,
     student_names: list[str] | None = None,
-    tier: ModelTier = "fast",
+    tier: ModelTier = "pro",
 ) -> str:
     client = _client()
     model = _resolve_model(tier)

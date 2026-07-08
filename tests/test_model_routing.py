@@ -9,18 +9,19 @@ def test_plan_sample_analysis_uses_pro(monkeypatch):
     assert steps[0].tier == "pro"
 
 
-def test_plan_haengbal_uses_flash(monkeypatch):
-    monkeypatch.setenv("GEMINI_MODEL_FAST", "flash-default")
+def test_plan_haengbal_uses_pro(monkeypatch):
+    monkeypatch.setenv("GEMINI_MODEL", "pro-write")
+    monkeypatch.delenv("GEMINI_MODEL_PRO", raising=False)
     steps = plan_write_section("행발")
     assert len(steps) == 1
-    assert steps[0].model == "flash-default"
-    assert steps[0].tier == "fast"
+    assert steps[0].model == "pro-write"
+    assert steps[0].tier == "pro"
 
 
 def test_plan_setuk_multiple_subjects(monkeypatch):
-    monkeypatch.setenv("GEMINI_MODEL_FAST", "flash-only")
+    monkeypatch.setenv("GEMINI_MODEL_PRO", "pro-only")
     steps = plan_write_section("세특", subject_count=2)
     assert len(steps) == 2
-    assert all(s.model == "flash-only" for s in steps)
+    assert all(s.model == "pro-only" for s in steps)
     counts = summarize_plan(steps)
-    assert counts == {"flash-only": 2}
+    assert counts == {"pro-only": 2}

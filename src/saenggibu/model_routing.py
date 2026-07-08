@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .config import get_gemini_model_fast, get_gemini_model_pro
+from .config import get_gemini_model_pro
 
 
 @dataclass(frozen=True)
@@ -17,19 +17,19 @@ def plan_sample_analysis() -> list[PlannedCall]:
 
 
 def plan_write_section(section: str, *, subject_count: int = 1) -> list[PlannedCall]:
-    model = get_gemini_model_fast()
+    model = get_gemini_model_pro()
     steps: list[PlannedCall] = []
 
     if section == "행발":
-        steps.append(PlannedCall("행발 작성", model, "fast"))
+        steps.append(PlannedCall("행발 작성", model, "pro"))
     elif section == "세특":
         for i in range(max(1, subject_count)):
             label = f"세특 작성 #{i + 1}" if subject_count > 1 else "세특 작성"
-            steps.append(PlannedCall(label, model, "fast"))
+            steps.append(PlannedCall(label, model, "pro"))
     elif section in ("자율", "동아리", "봉사", "진로", "창체"):
-        steps.append(PlannedCall(f"{section} 작성", model, "fast"))
+        steps.append(PlannedCall(f"{section} 작성", model, "pro"))
     else:
-        steps.append(PlannedCall(f"{section} 작성", model, "fast"))
+        steps.append(PlannedCall(f"{section} 작성", model, "pro"))
 
     return steps
 

@@ -68,7 +68,10 @@ python3 scripts/model_compare.py info
 python3 scripts/model_compare.py plan --profiles split,flash,pro --section 세특 --subjects 3
 python3 scripts/model_compare.py plan --skip-proofread
 python3 scripts/model_compare.py run --profile flash --section 행발 --skip-proofread
+python3 scripts/model_compare.py run --profile split --section 행발 --json
 ```
+
+`run` 실행 후 **입력(prompt)·출력(candidates)·합계 토큰**이 출력됩니다. Google API `usage_metadata` 기준이며, 청구 금액과 1:1은 아닐 수 있습니다.
 
 벤치마크 학생 데이터: `data/saenggibu/fixtures/benchmark_student.json`
 

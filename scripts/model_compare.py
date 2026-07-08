@@ -108,6 +108,9 @@ def cmd_run(args: argparse.Namespace) -> None:
     reload(config_mod)
     reload(gemini_mod)
 
+    clear_usage_log = gemini_mod.clear_usage_log
+    summarize_usage_log = gemini_mod.summarize_usage_log
+
     student = _load_fixture()
     style = args.style or DEFAULT_STYLE
 
@@ -117,11 +120,35 @@ def cmd_run(args: argparse.Namespace) -> None:
         print(f"  → {step.step}: {step.model}")
 
     print("\n생성 중...\n")
+    clear_usage_log()
     text = _generate_section(student, args.section, style)
     print("--- 결과 ---")
     print(text)
     print("---")
     print(f"글자 수: {len(text)} · 바이트(cp949): {len(text.encode('cp949', errors='replace'))}")
+
+    usage = summarize_usage_log()
+    totals = usage["totals"]
+    if totals["calls"]:
+        print(
+            f"\n토큰 사용량 (API usage_metadata, {totals['calls']}회 호출)"
+        )
+        print(
+            f"  입력(prompt): {totals['prompt_tokens']:,} · "
+            f"출력(candidates): {totals['output_tokens']:,} · "
+            f"합계: {totals['total_tokens']:,}"
+        )
+        if totals["thoughts_tokens"]:
+            print(f"  thinking: {totals['thoughts_tokens']:,}")
+        for model, bucket in usage["by_model"].items():
+            print(
+                f"  · {model}: 입력 {bucket['prompt_tokens']:,} / "
+                f"출력 {bucket['output_tokens']:,} / 합계 {bucket['total_tokens']:,}"
+            )
+        if args.json:
+            print("\n" + json.dumps(usage, ensure_ascii=False, indent=2))
+    else:
+        print("\n토큰 사용량: API 응답에 usage_metadata가 없습니다.")
 
 
 def cmd_info(_: argparse.Namespace) -> None:
@@ -155,6 +182,7 @@ def main() -> None:
     p_run.add_argument("--subjects", type=int, default=1)
     p_run.add_argument("--skip-proofread", action="store_true")
     p_run.add_argument("--style", default="")
+    p_run.add_argument("--json", action="store_true", help="토큰 사용량 상세 JSON 출력")
     p_run.set_defaults(func=cmd_run)
 
     p_info = sub.add_parser("info", help="현재 .env / .env.local 설정 출력")

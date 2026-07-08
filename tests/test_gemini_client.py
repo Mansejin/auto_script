@@ -22,6 +22,30 @@ def test_classify_fatal():
 
 @patch("src.saenggibu.gemini_client._client")
 @patch("src.saenggibu.gemini_client._throttle")
+def test_generate_text_records_usage(mock_throttle: MagicMock, mock_client: MagicMock):
+    gc.clear_usage_log()
+    api = mock_client.return_value
+    response = MagicMock()
+    response.text = "ok"
+    response.usage_metadata = MagicMock(
+        prompt_token_count=120,
+        candidates_token_count=45,
+        total_token_count=165,
+        thoughts_token_count=0,
+    )
+    api.models.generate_content.return_value = response
+
+    text = gc.generate_text(system="s", user="u", tier="pro")
+    assert text == "ok"
+    summary = gc.summarize_usage_log()
+    assert summary["totals"]["calls"] == 1
+    assert summary["totals"]["prompt_tokens"] == 120
+    assert summary["totals"]["output_tokens"] == 45
+    assert summary["totals"]["total_tokens"] == 165
+
+
+@patch("src.saenggibu.gemini_client._client")
+@patch("src.saenggibu.gemini_client._throttle")
 def test_generate_text_profile_flash_uses_fast_for_pro_tier(
     mock_throttle: MagicMock, mock_client: MagicMock, monkeypatch: pytest.MonkeyPatch
 ):

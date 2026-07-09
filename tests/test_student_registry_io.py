@@ -12,6 +12,7 @@ from src.saenggibu.student_store import (
     export_students_registry_tsv,
     export_students_registry_xlsx,
     find_existing_for_row,
+    get_student,
     import_students_registry,
     list_students,
     preview_students_import,
@@ -87,6 +88,43 @@ def test_import_skip_duplicate(students_dir: Path) -> None:
     result = import_students_registry(tsv_path, mode="skip")
     assert result["skipped"] == 1
     assert list_students()[0].notes.get("행발") != "새 메모"
+
+
+def test_import_add_duplicate_keeps_existing_student(students_dir: Path) -> None:
+    existing = add_student(
+        StudentInput(
+            id="keep-id",
+            name="김민수",
+            grade=2,
+            class_num=3,
+            number=5,
+            notes={"행발": "기존 메모"},
+            generated={"행발": "작성본"},
+            status="done",
+        )
+    )
+    tsv_path = students_dir / "add-duplicate.tsv"
+    tsv_path.write_text(
+        "id\tname\tgrade\tclass_num\tnumber\t행발_notes\n"
+        f"{existing.id}\t김민수\t2\t3\t5\t새 메모\n",
+        encoding="utf-8",
+    )
+
+    result = import_students_registry(tsv_path, mode="add")
+
+    assert result["imported"] == 1
+    assert result["updated"] == 0
+    assert result["skipped"] == 0
+    assert result["errors"] == []
+    assert len(list_students()) == 2
+    kept = get_student(existing.id)
+    assert kept is not None
+    assert kept.generated.get("행발") == "작성본"
+    assert kept.status == "done"
+    assert kept.notes["행발"] == "기존 메모"
+    imported = result["students"][0]
+    assert imported["id"] != existing.id
+    assert imported["notes"]["행발"] == "새 메모"
 
 
 def test_export_registry_xlsx(students_dir: Path) -> None:

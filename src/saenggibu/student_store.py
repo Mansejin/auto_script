@@ -623,6 +623,13 @@ def merge_student_from_row(existing: StudentInput, row: dict[str, str]) -> Stude
     return save_student(existing)
 
 
+def _student_from_row_for_add(row: dict[str, str], existing: StudentInput | None) -> StudentInput:
+    student = student_from_row(row)
+    if existing:
+        student.id = new_id()
+    return student
+
+
 def import_students_registry(path: Path, mode: str = "add") -> dict[str, object]:
     if mode not in {"add", "skip", "update"}:
         raise ValueError("mode는 add, skip, update 중 하나여야 합니다.")
@@ -647,7 +654,7 @@ def import_students_registry(path: Path, mode: str = "add") -> dict[str, object]
                 if mode == "update":
                     updated.append(merge_student_from_row(existing, row).id)
                     continue
-            imported.append(add_student(student_from_row(row)).id)
+            imported.append(add_student(_student_from_row_for_add(row, existing)).id)
         except (TypeError, ValueError) as exc:
             errors.append(f"{index}행: {exc}")
 

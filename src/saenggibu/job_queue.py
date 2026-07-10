@@ -320,6 +320,9 @@ def _execute_all_targets_job(job: RunJob) -> RunJob:
                     job.id, message, s.display_name, sec_name
                 ),
             )
+            if updated.generated:
+                # Carry response-only generated content across per-section tasks.
+                draft_map[updated.id] = dict(updated.generated)
             results_by_id[updated.id] = _batch_result_item(updated)
         except Exception as exc:
             errors.append({"id": student.id, "name": student.display_name, "error": friendly_api_error(exc)})

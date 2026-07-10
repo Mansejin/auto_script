@@ -77,3 +77,58 @@ def test_execute_all_targets_single_student(
     assert calls == [["행발"], ["세특"]]
     assert finished.result["all_targets"] is True
     assert finished.result["sections_done"] == ["행발", "세특"]
+
+
+def test_execute_all_targets_batch_preserves_generated_between_section_tasks(
+    jobs_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SGB_STORE_GENERATED", "0")
+    disk_student = StudentInput(
+        id="s1",
+        name="김민수",
+        grade=2,
+        class_num=1,
+        number=1,
+        notes={"행발": "메모", "write_targets": ["행발", "세특"]},
+        subjects={"윤사": {"activities": ["토론"], "notes": ""}},
+        generated={},
+    ).to_dict()
+    incoming_generated: list[dict[str, object]] = []
+
+    def load_from_disk() -> StudentInput:
+        return StudentInput.from_dict({**disk_student, "generated": {}})
+
+    def fake_generate(current: StudentInput, *, sections, progress=None):
+        incoming_generated.append(dict(current.generated or {}))
+        generated = dict(current.generated or {})
+        section = sections[0]
+        if section == "행발":
+            generated["행발"] = "행발 본문"
+        elif section == "세특":
+            generated.setdefault("세특", {})
+            generated["세특"]["윤사"] = "세특 본문"
+        current.generated = generated
+        current.status = "done"
+        return current
+
+    monkeypatch.setattr("src.saenggibu.job_queue.list_students", lambda status=None: [load_from_disk()])
+    monkeypatch.setattr("src.saenggibu.job_queue.get_student", lambda student_id: load_from_disk())
+    monkeypatch.setattr("src.saenggibu.job_queue.generate_for_student", fake_generate)
+
+    job = create_run_job(all_targets=True)
+    finished = execute_run_job(job.id)
+
+    assert finished.status == "done"
+    assert finished.total == 2
+    assert finished.processed == 2
+    assert finished.result["processed"] == 1
+    assert incoming_generated == [{}, {"행발": "행발 본문"}]
+    assert finished.result["results"] == [
+        {
+            "id": "s1",
+            "name": "2-1 1번 김민수",
+            "status": "done",
+            "generated": {"행발": "행발 본문", "세특": {"윤사": "세특 본문"}},
+        }
+    ]

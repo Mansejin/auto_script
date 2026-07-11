@@ -320,13 +320,7 @@ def student_identity_key(
     return (grade, class_num, number, name.strip())
 
 
-def find_existing_for_row(row: dict[str, str]) -> StudentInput | None:
-    student_id = _row_str(row, "id")
-    if student_id:
-        existing = get_student(student_id)
-        if existing:
-            return existing
-
+def _row_identity(row: dict[str, str]) -> tuple[int, int, int, str] | None:
     name = _row_str(row, "name", "이름")
     if not name:
         return None
@@ -335,17 +329,36 @@ def find_existing_for_row(row: dict[str, str]) -> StudentInput | None:
     number = _row_int(row, "number", "번호", default=0)
     if grade <= 0 or class_num <= 0 or number <= 0:
         return None
+    return student_identity_key(name=name, grade=grade, class_num=class_num, number=number)
 
-    target = student_identity_key(name=name, grade=grade, class_num=class_num, number=number)
+
+def _student_identity(student: StudentInput) -> tuple[int, int, int, str]:
+    return student_identity_key(
+        name=student.name,
+        grade=student.grade,
+        class_num=student.class_num,
+        number=student.number,
+    )
+
+
+def _find_student_by_identity(identity: tuple[int, int, int, str]) -> StudentInput | None:
     for student in list_students():
-        if student_identity_key(
-            name=student.name,
-            grade=student.grade,
-            class_num=student.class_num,
-            number=student.number,
-        ) == target:
+        if _student_identity(student) == identity:
             return student
     return None
+
+
+def find_existing_for_row(row: dict[str, str]) -> StudentInput | None:
+    student_id = _row_str(row, "id")
+    if student_id:
+        existing = get_student(student_id)
+        if existing:
+            return existing
+
+    identity = _row_identity(row)
+    if identity is None:
+        return None
+    return _find_student_by_identity(identity)
 
 
 def _finalize_subject_info(info: dict[str, object]) -> dict[str, object]:
@@ -526,7 +539,7 @@ def read_registry_table(path: Path) -> list[dict[str, str]]:
         rows: list[dict[str, str]] = []
         for values in rows_iter:
             row = {
-                headers[index]: str(values[index] or "").strip()
+                headers[index]: str((values[index] if index < len(values) else "") or "").strip()
                 for index in range(len(headers))
                 if headers[index]
             }
@@ -611,6 +624,13 @@ def preview_students_import(path: Path) -> dict[str, object]:
 
 
 def merge_student_from_row(existing: StudentInput, row: dict[str, str]) -> StudentInput:
+    identity = _row_identity(row)
+    if identity is not None and identity != _student_identity(existing):
+        conflicting = _find_student_by_identity(identity)
+        if conflicting and conflicting.id != existing.id:
+            raise ValueError(
+                f"{existing.id} ID가 다른 학생({conflicting.display_name})의 학번/이름과 함께 입력되었습니다."
+            )
     incoming = student_from_row({**row, "id": existing.id})
     existing.name = incoming.name
     existing.grade = incoming.grade

@@ -20,7 +20,7 @@ def parse_tsv_rows(text: str) -> list[dict[str, str]]:
     reader = csv.DictReader(lines, delimiter=delimiter)
     rows: list[dict[str, str]] = []
     for row in reader:
-        cleaned = {k.strip(): (v or "").strip() for k, v in row.items() if k}
+        cleaned = {k.strip().lstrip("\ufeff"): (v or "").strip() for k, v in row.items() if k}
         if any(cleaned.values()):
             rows.append(cleaned)
     return rows

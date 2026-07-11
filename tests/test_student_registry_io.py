@@ -4,7 +4,7 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 
 from src.saenggibu.models import StudentInput
 from src.saenggibu.student_store import (
@@ -113,3 +113,85 @@ def test_find_existing_for_row_by_identity(students_dir: Path) -> None:
     existing = find_existing_for_row(row)
     assert existing is not None
     assert existing.id == student.id
+
+
+def test_exported_tsv_id_roundtrips_with_bom_after_identity_edit(students_dir: Path) -> None:
+    add_student(StudentInput(id="rename-id", name="정하늘", grade=1, class_num=2, number=3))
+
+    tsv_text = export_students_registry_tsv().decode("utf-8")
+    edited = tsv_text.replace("정하늘\t1\t2\t3", "정하늘수정\t1\t2\t3")
+    tsv_path = students_dir / "rename.tsv"
+    tsv_path.write_text(edited, encoding="utf-8")
+
+    rows = read_registry_table(tsv_path)
+    assert rows[0]["id"] == "rename-id"
+
+    result = import_students_registry(tsv_path, mode="update")
+    assert result["updated"] == 1
+    students = list_students()
+    assert len(students) == 1
+    assert students[0].id == "rename-id"
+    assert students[0].name == "정하늘수정"
+
+
+def test_update_rejects_id_with_another_existing_student_identity(students_dir: Path) -> None:
+    add_student(
+        StudentInput(
+            id="student-a",
+            name="학생A",
+            grade=1,
+            class_num=1,
+            number=1,
+            notes={"행발": "A 원본"},
+            generated={"행발": "A 작성본"},
+            status="done",
+        )
+    )
+    add_student(
+        StudentInput(
+            id="student-b",
+            name="학생B",
+            grade=1,
+            class_num=1,
+            number=2,
+            notes={"행발": "B 원본"},
+        )
+    )
+    tsv_path = students_dir / "conflict.tsv"
+    tsv_path.write_text(
+        "id\tname\tgrade\tclass_num\tnumber\t행발_notes\n"
+        "student-a\t학생B\t1\t1\t2\tB 수정 메모\n",
+        encoding="utf-8",
+    )
+
+    result = import_students_registry(tsv_path, mode="update")
+    assert result["updated"] == 0
+    assert result["errors"]
+
+    students = {student.id: student for student in list_students()}
+    assert students["student-a"].name == "학생A"
+    assert students["student-a"].notes["행발"] == "A 원본"
+    assert students["student-a"].generated["행발"] == "A 작성본"
+    assert students["student-a"].status == "done"
+    assert students["student-b"].notes["행발"] == "B 원본"
+
+
+def test_read_registry_xlsx_handles_rows_shorter_than_headers(students_dir: Path) -> None:
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.append(["id", "name", "grade", "class_num", "number", "행발_notes"])
+    worksheet.append(["short-id", "김단축"])
+    xlsx_path = students_dir / "short.xlsx"
+    workbook.save(xlsx_path)
+
+    rows = read_registry_table(xlsx_path)
+    assert rows == [
+        {
+            "id": "short-id",
+            "name": "김단축",
+            "grade": "",
+            "class_num": "",
+            "number": "",
+            "행발_notes": "",
+        }
+    ]

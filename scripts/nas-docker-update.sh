@@ -13,7 +13,7 @@
 
 set -e
 
-REPO_DIR="/volume1/docker/saenggibu"
+REPO_DIR="${SGB_REPO_DIR:-/volume1/docker/saenggibu}"
 GIT_IMAGE="alpine/git:latest"
 LOGS_ONLY=0
 NO_BUILD=0
@@ -477,7 +477,11 @@ if [ ! -d .git ]; then
   exit 1
 fi
 
-OLD_REV=$(git_current_rev)
+if [ "$SGB_DEPLOY_REEXECED" = "1" ]; then
+  OLD_REV="$SGB_DEPLOY_OLD_REV"
+else
+  OLD_REV=$(git_current_rev)
+fi
 git_sync_deploy
 
 # PC deploy curls to /tmp/sgb-deploy.sh; after git sync, run repo copy so
@@ -488,6 +492,8 @@ case "$0" in
   *)
     if [ -f "$REPO_SCRIPT" ]; then
       log "==> re-exec deploy script from repo (post git sync)"
+      export SGB_DEPLOY_OLD_REV="$OLD_REV"
+      export SGB_DEPLOY_REEXECED=1
       exec sh "$REPO_SCRIPT" "$@"
     fi
     ;;

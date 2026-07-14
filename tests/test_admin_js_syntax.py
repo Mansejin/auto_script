@@ -12,3 +12,11 @@ def test_admin_js_has_valid_syntax() -> None:
         return
     result = subprocess.run([node, "--check", str(js_path)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr or result.stdout
+
+
+def test_student_table_labels_are_escaped() -> None:
+    js_path = Path(__file__).resolve().parents[1] / "web" / "admin" / "js" / "admin.js"
+    source = js_path.read_text(encoding="utf-8")
+
+    assert "<td>${escapeHtml(studentLabel(s))}</td>" in source
+    assert "<td>${studentLabel(s)}</td>" not in source

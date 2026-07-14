@@ -1665,7 +1665,7 @@
               <span class="admin-check-box" aria-hidden="true"></span>
             </label>
           </td>
-          <td>${studentLabel(s)}</td>
+          <td>${escapeHtml(studentLabel(s))}</td>
           <td>${statusPill(s.status)}</td>
           <td>${targets}</td>
           <td class="admin-row-actions">
@@ -1763,7 +1763,7 @@
               <span class="admin-check-box" aria-hidden="true"></span>
             </label>
           </td>
-          <td>${studentLabel(s)}</td>
+          <td>${escapeHtml(studentLabel(s))}</td>
           <td>${statusPill(s.status)}</td>
           <td>${inspectBadgeHtml(s.id)}</td>
           <td class="admin-row-actions">
